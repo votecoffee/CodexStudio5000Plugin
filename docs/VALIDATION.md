@@ -74,6 +74,8 @@ An independent SDK session reopened the saved result, reported Online / Run, rea
 
 The saved import export retained all 19 other programs after normalized readable XML comparison, one selected routine/rung and exactly the three local base tags. Source ACDs were preserved. A hash-verified ACD copy, the small routine export, request/results and the user observation are retained in the chat's `outputs/live-v35/initial-finalize/` directory; private job paths remain under ignored `.local`. This establishes the bounded API-only import/finalize and arithmetic check for this controller/version. Native Test/Untest, other PLC features/versions and FactoryTalk runtime/import acceptance are not established by this check.
 
+After the user confirmed the separate work had finished, cleanup verified no active SDK jobs or native bridge processes, disabled controller operations in local configuration, restarted the shared service and verified its runtime controller gate was disabled. No controller request was submitted during cleanup. The service remains available for offline/API/GUI work. Later controller work completed separately, so the retained test ACD and tag readings are historical validation evidence rather than a claim about the latest controller state.
+
 ## Upstream source
 
 `docs/upstream-manifest.json` joins source and copied SHA-256 values for all 24 upstream library files and hashes the supplied source ZIP and license. All 24 copied source files matched byte-for-byte during the audit. `.gitattributes` preserves those vendored bytes across Windows Git checkouts. No upstream source code changes were needed.
