@@ -41,6 +41,12 @@ The desktop **SDK operations… → Online edit…** dialog uses the same servic
 
 ## Native lifecycle
 
+### Known routine-targeting issue; initial-finalize validation paused
+
+A version-35 offline probe found that the current planner's `routine` kind, which supplies the existing routine XPath to PartialImportWithTarget, **appends RLL content** instead of replacing the routine. Do not use this planner kind for live RLL replacement until the mapping is corrected. The native probe confirmed that a program XPath plus the exact routine target name retained one routine/one rung. Explicit PartialImportRungs with insertPosition 0 and replaceCount 1 also retained one rung.
+
+The user paused work before the fresh live initial-import FinalizeEdits test. No new live change was submitted. The proposed arithmetic change from Input + 1 to Input + 2 exists only in preserved offline copies. Resume by correcting the routine planner/policy and regression checks, then run the authorized live test with FinalizeEdits selected on its first import. Private receipts and the detailed restart handoff are retained under `.local/live-v35/initial-finalize/`.
+
 `accept_for_test` selects SDK `AcceptEdits`. Save its final ACD artifact as a new file, open it in Studio, confirm the controller/path, reconnect within scope and inspect accepted edits. Use native Test, the user's functional checks and then Assemble. Testing can affect other edited routines in the same program, so inspect that scope first. Prefer routine-scoped assembly when supported and sufficient, otherwise use the authorized program scope.
 
 `leave_pending` selects `LeaveEdits` and requires native review/acceptance before testing. Existing accepted edits can go directly to Studio inspection without reimporting.
