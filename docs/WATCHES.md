@@ -50,7 +50,7 @@ Polling is serial within a list. Interval is measured between cycle starts where
 
 Stop with `POST /api/watches/{id}/stop` / `studio_watch_stop`. Edit a stopped list with `POST /api/watches/{id}` and `{ "settings": { ...definition... }, "expectedRevision": 0 }`, or `studio_watch_save` with `watchId` and `expectedRevision`. Delete through `POST /api/watches/{id}/delete` / `studio_watch_delete`. Listing and history use `GET /api/watches` / `studio_watch_list` and `GET /api/watches/{id}/history?limit=100` / `studio_watch_history`.
 
-Definitions and the latest sample persist under ignored local state. History is in memory and resets after restart; retained latest values then stay stale until an explicit start. Source/decoder files remain local for inspection after a stop/delete. No automatic disk cleanup is performed.
+Definitions, the latest sample and v0.8 recordings persist under ignored local state. The small history cache is restored from retained recordings for the current watch revision after restart; the latest value stays stale until an explicit start. Recordings default to seven days / 64 MiB per list and have separate pause/resume/retention controls. Source/decoder files and deleted-list evidence remain local; recording retention does not clean these files. See [tag browsing, trends and recording](BROWSER_RECORDING.md).
 
 ## Pull live UDTs and expose their structures
 

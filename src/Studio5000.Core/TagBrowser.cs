@@ -50,7 +50,7 @@ public sealed partial class ProjectService
                         throw new OperationException("browser_member", "No member declaration is available at this path.");
                     var member = declaration.Members.SingleOrDefault(m => m.Name == part.Value)
                         ?? throw new OperationException("browser_member", "Member is absent from the type declaration.");
-                    type = member.DataType; dims = member.Dimensions; watchable &= !member.Hidden && member.Target is null;
+                    type = member.DataType; dims = member.Dimensions; watchable &= !member.Hidden;
                 }
             }
             string Path(string child) => (request.MemberPath ?? "") + (string.IsNullOrEmpty(request.MemberPath) || child.StartsWith('[') ? "" : ".") + child;
@@ -60,8 +60,8 @@ public sealed partial class ProjectService
                     Path($"[{i}]"), Expandable(type, dims[1..]), watchable));
             else if (declarations.TryGetValue(type, out var declaration))
                 nodes = declaration.Members.Select(m => new TagBrowserNode(m.Name, "member", m.DataType, m.Dimensions, request.ProgramName, request.TagName,
-                    Path(m.Name), Expandable(m.DataType, m.Dimensions), watchable && !m.Hidden && m.Target is null,
-                    m.Hidden ? "Hidden implementation member" : m.Target is not null ? "Overlaid member; select its declared base" : null));
+                    Path(m.Name), Expandable(m.DataType, m.Dimensions), watchable && !m.Hidden,
+                    m.Hidden ? "Hidden implementation member" : m.Target is not null ? $"Declared bit {m.BitNumber} in {m.Target}; values use SDK decoding" : null));
             else nodes = [];
         }
         else
@@ -92,7 +92,7 @@ public sealed partial class ProjectService
                 throw new OperationException("watch_alias", "Select an exact base tag instead of an alias.");
             // Resolve and validate the path, including scalar leaves, without decoding array values.
             if (BrowseTags(new(info.Id, info.CurrentSha256, tag.ProgramName, tag.TagName, tag.MemberPath, Limit: 1)).Selection?.Watchable != true)
-                throw new OperationException("watch_member", "Hidden or overlaid implementation members cannot be selected.");
+                throw new OperationException("watch_member", "Hidden implementation members cannot be selected.");
         }
         var artifact = await ExportAsync(info.Id, new(request.ExpectedSha256), ct);
         return await SaveWatchAsync(new(request.Name, request.Tags, artifact.Sha256, SourceArtifactId: artifact.Id,

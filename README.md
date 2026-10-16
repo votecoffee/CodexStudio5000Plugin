@@ -2,7 +2,9 @@
 
 A Windows project-editing service with a Codex MCP plugin, REST API and desktop GUI for **Logix Designer, FactoryTalk View Studio ME/SE and Studio 5000 View Designer**. Operations live in `Studio5000.Core` and run in **one shared service process**. The MCP adapter and GUI use that service over authenticated loopback HTTP.
 
-Version 0.7 adds **reloadable extensions** behind ten stable MCP tools and a live operation catalog. Update extension DLLs and schemas, reload a module by command or through **Extensions…**, and keep the MCP connection/Codex chat running. Calls/jobs retain their original version until finished. The existing 46 tools stay compatible. One initial bridge/service upgrade is required; see [extensions and reload](docs/EXTENSIONS.md).
+Version 0.8 adds a **searchable tag/UDT browser and persistent trend recordings**. Expand controller/program tags, nested structures and paged arrays, then create a stopped watch list from selected values. Plot numeric/BOOL members, inspect communication/stale gaps, retain recordings across service restarts and export CSV. Domain operations remain in the shared service; six new operations are discovered through the reloadable `watches` catalog. See [browser and recording](docs/BROWSER_RECORDING.md).
+
+Version 0.7 added **reloadable extensions** behind ten stable MCP tools and a live operation catalog. Update extension DLLs and schemas, reload a module by command or through **Extensions…**, and keep the MCP connection/Codex chat running. Calls/jobs retain their original version until finished. The existing 46 tools stay compatible. One initial bridge/service upgrade is required; see [extensions and reload](docs/EXTENSIONS.md).
 
 Version 0.6 added **View Designer export editing** for PanelView 5000: preserved export folders/assets, nested object/property inspection, reviewed text/geometry/binding/parameter changes, import ZIPs and re-export comparison. Open **View Designer…** in the desktop workspace or use the nine `viewdesigner_*` MCP tools. Native import/build/runtime validation is pending; direct VPD/VPDR editing is not supplied. See [View Designer](docs/VIEW_DESIGNER.md).
 
@@ -76,6 +78,8 @@ The stable `studio_extensions_*` bridge discovers new operations and their argum
 **View Designer…** opens its exported-project workspace with file/property browsing, preview/apply, import packaging and re-export comparison. All mutations run through the shared service.
 
 **Watch lists…** opens the shared watch editor, Start/Stop controls, latest-value table/tree, history and UDT extraction/upload controls. Saving a list never connects. Closing the viewer leaves shared polling running; stop it explicitly. Lists restart stopped after a service restart. The native decoder writes only to an isolated offline scratch project; its controller session only reads. See [WATCHES.md](docs/WATCHES.md).
+
+**Tag / UDT browser…** opens a searchable snapshot tree. Check tags or members and choose **Create watch list**. From **Watch lists…**, select a list and open **Trends & recording…** for graphs, quality/gaps, recording pause/resume, retention, earlier revisions and CSV export. Recording defaults to seven days / 64 MiB per list; watch polling still requires an explicit Start.
 
 Open an L5X, ACD or FactoryTalk display XML, select a component and edit its XML. Choose **Preview edit**, inspect the before/requested-value record, then **Apply preview**. A failed or stale edit leaves the working revision unchanged. Refresh to observe changes made by another client. The component list displays at most 1,000 matches; use Search for larger projects. Logix supports component additions/removals and exports L5X, ACD or exploded ZIP.
 

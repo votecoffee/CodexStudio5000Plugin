@@ -57,6 +57,12 @@ public sealed class BrowserRecordingTests : IDisposable
         var doc = XDocument.Load(source); var member = doc.Descendants("Member").First(m => (string?)m.Attribute("Name") == "Count");
         member.SetAttributeValue("Hidden", "true"); doc.Save(source); var project = await service.RegisterAsync(source);
         await Assert.ThrowsAsync<OperationException>(() => service.CreateBrowserWatchAsync(new(project.Id, project.CurrentSha256, "bad", [new("x", "Record", "WatchProgram", "Inner.Count")])));
+        var members = doc.Descendants("DataType").Single(t => (string?)t.Attribute("Name") == "WatchChild").Element("Members")!;
+        members.Add(XElement.Parse("<Member Name='Ready' DataType='BIT' Dimension='0' Hidden='false' Target='Host' BitNumber='0'/>"));
+        doc.Save(source); project = await service.RegisterAsync(source);
+        Assert.True(service.BrowseTags(new(project.Id, TagName: "Record", ProgramName: "WatchProgram", MemberPath: "Inner.Ready")).Selection!.Watchable);
+        var bitWatch = await service.CreateBrowserWatchAsync(new(project.Id, project.CurrentSha256, "Declared bit", [new("ready", "Record", "WatchProgram", "Inner.Ready")]));
+        Assert.Equal("stopped", bitWatch.State);
         doc.Descendants("Tag").First(t => (string?)t.Attribute("Name") == "Record").SetAttributeValue("TagType", "Alias"); doc.Save(source); project = await service.RegisterAsync(source);
         await Assert.ThrowsAsync<OperationException>(() => service.CreateBrowserWatchAsync(new(project.Id, project.CurrentSha256, "alias", [new("x", "Record", "WatchProgram")])));
         await service.StartWatchAsync(watch.Definition.Id); await Until(() => service.GetWatch(watch.Definition.Id).Latest is not null);
@@ -115,14 +121,44 @@ public sealed class BrowserRecordingTests : IDisposable
         Assert.Empty(service.QueryRecording(id, new()).Records); service.Dispose(); service = new(options, reader);
         Assert.True(service.RecordingStatus(id).LastIndex > index);
     }
+    [Fact]
+    public async Task DiskByteLimitRotatesAndRemovesOldSegmentsWithoutStoppingPolling()
+    {
+        var watch = await Create(); var id = watch.Definition.Id;
+        watch = await service.SaveWatchAsync(watch.Definition.Settings with { Tags = [new("whole", "Record", "WatchProgram")], IntervalMs = 100 }, id, 0);
+        service.ConfigureRecording(id, new(new(MaxMiB: 8), 0)); reader.Padding = new string('x', 1024 * 1024);
+        await service.StartWatchAsync(id); await Until(() => service.GetWatch(id).Latest?.Sequence >= 10); await service.StopWatchAsync(id);
+        var status = service.RecordingStatus(id); var page = service.QueryRecording(id, new());
+        Assert.InRange(status.Bytes, 1, 8 * 1024 * 1024);
+        Assert.DoesNotContain(page.Records, r => r.Kind == "start"); Assert.Contains(page.Records, r => r.Snapshot?.Sequence >= 9);
+        Assert.Equal("stopped", service.GetWatch(id).State);
+    }
+    [Fact]
+    public async Task CsvNeutralizesFormulaKeysAndRejectsCorruptCompleteJournalEntries()
+    {
+        var watch = await Create(); var id = watch.Definition.Id;
+        await service.SaveWatchAsync(watch.Definition.Settings with { Tags = [new("=1+1", "Record", "WatchProgram", "Inner.Count")] }, id, 0);
+        await service.StartWatchAsync(id); await Until(() => service.GetWatch(id).Latest is not null); await service.StopWatchAsync(id);
+        Assert.Contains("\"'=1+1\"", File.ReadAllText(service.Download(service.ExportRecording(id, new()).Id).Path));
+        service.Dispose(); var dir = Path.Combine(options.StateDirectory, "watches", id, "recording");
+        var file = Directory.GetFiles(dir, "segment-*.jsonl").Order().Last(); var bytes = File.ReadAllBytes(file);
+        File.AppendAllText(file, "{bad complete line}\n");
+        Assert.Equal("recording_corrupt", Assert.Throws<OperationException>(() => new ProjectService(options, reader)).Code);
+        File.WriteAllBytes(file, bytes); service = new(options, reader); // Failed startup must release the shared state lock.
+        Assert.True(service.GetWatch(id).Stale);
+    }
     public void Dispose() { service.Dispose(); Directory.Delete(root, true); }
     private sealed class Reader : IWatchSessionFactory, IWatchSession
     {
-        public int Opens; public volatile bool Fail;
+        public int Opens; public volatile bool Fail; public string? Padding;
         public Task<IWatchSession> OpenAsync(WatchBridgeOpen request, CancellationToken ct)
         { Opens++; File.Copy(request.SourcePath, Path.Combine(request.WorkDirectory, "metadata.l5x")); return Task.FromResult<IWatchSession>(this); }
-        public Task<WatchBridgeReply> ReadAsync(WatchTag[] tags, CancellationToken ct) => Fail ? throw new IOException("Communication gap") :
-            Task.FromResult(new WatchBridgeReply(true, [new("Record", "WatchProgram", "WatchRecord", [], JsonNode.Parse("{\"Inner\":{\"Count\":8}}"), "good")]));
+        public Task<WatchBridgeReply> ReadAsync(WatchTag[] tags, CancellationToken ct)
+        {
+            if (Fail) throw new IOException("Communication gap");
+            var value = JsonNode.Parse("{\"Inner\":{\"Count\":8}}"); if (Padding is not null) value!["Padding"] = Padding;
+            return Task.FromResult(new WatchBridgeReply(true, [new("Record", "WatchProgram", "WatchRecord", [], value, "good")]));
+        }
         public ValueTask DisposeAsync() => ValueTask.CompletedTask;
     }
 }

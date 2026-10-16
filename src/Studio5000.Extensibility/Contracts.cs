@@ -5,7 +5,8 @@ namespace Studio5000.Extensibility;
 public static class ExtensionProtocol
 {
     public const int Version = 1;
-    public static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web) { MaxDepth = 64 };
+    public const int MaxReplyCharacters = 12 * 1024 * 1024;
+    public static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web) { MaxDepth = 128 };
     public static readonly string[] Effects = ["read", "preview", "apply", "control"];
 }
 public sealed record ExtensionOperation(string Name, string Description, string Effect, JsonElement InputSchema);

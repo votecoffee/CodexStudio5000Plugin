@@ -272,7 +272,7 @@ internal sealed class ProcessExtensionWorker : IExtensionWorker
             if (Volatile.Read(ref closed) != 0 || process.HasExited) throw new IOException("Extension worker exited or was interrupted. Reload explicitly; inspect effects before retrying.");
             await process.StandardInput.WriteLineAsync(JsonSerializer.Serialize(request, ExtensionProtocol.Json).AsMemory(), ct); await process.StandardInput.FlushAsync(ct);
             var line = await process.StandardOutput.ReadLineAsync(ct) ?? throw new IOException("Extension worker closed without a result.");
-            if (line.Length > 2 * 1024 * 1024) throw new IOException("Extension result exceeds 2 MiB.");
+            if (line.Length > ExtensionProtocol.MaxReplyCharacters) throw new IOException("Extension result exceeds the 12 MiB character limit.");
             var reply = JsonSerializer.Deserialize<WorkerReply>(line, ExtensionProtocol.Json) ?? throw new IOException("Invalid worker reply.");
             if (!reply.Success) throw new OperationException("extension_operation_failed", reply.Error ?? "Extension failed; inspect effects before retrying.");
             return reply.Value!.Value.Clone();

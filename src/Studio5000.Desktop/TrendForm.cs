@@ -171,7 +171,15 @@ internal sealed class TrendPlot : Control
             }
         }
         g.ResetClip();
-        var legend = string.Join("    ", Series.Select((s, i) => $"{i + 1}. {s.Key}"));
-        g.DrawString(values.Length == 0 ? "No numeric/BOOL samples in this range. Select series or change the time range." : legend, Font, label, box.Left, Height - 27);
+        if (values.Length == 0) g.DrawString("No numeric/BOOL samples in this range. Select series or change the time range.", Font, label, box.Left, Height - 27);
+        else
+        {
+            var left = box.Left;
+            for (var i = 0; i < Series.Length && left < box.Right - 90; i++)
+            {
+                using var ink = new SolidBrush(Palette[i % Palette.Length]); var text = "● " + Series[i].Key + "   ";
+                g.DrawString(text, Font, ink, left, Height - 27); left += g.MeasureString(text, Font).Width;
+            }
+        }
     }
 }

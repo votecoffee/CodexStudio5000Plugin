@@ -28,7 +28,7 @@ while (await Console.In.ReadLineAsync() is { } line)
     }
     catch (Exception ex) { reply = new(false, Error: ex.GetBaseException().Message); }
     var json = JsonSerializer.Serialize(reply, ExtensionProtocol.Json);
-    if (json.Length > 2 * 1024 * 1024) json = JsonSerializer.Serialize(new WorkerReply(false, Error: "Result exceeds 2 MiB."), ExtensionProtocol.Json);
+    if (json.Length > ExtensionProtocol.MaxReplyCharacters) json = JsonSerializer.Serialize(new WorkerReply(false, Error: "Result exceeds the 12 MiB character limit; page or narrow the query."), ExtensionProtocol.Json);
     await output.WriteLineAsync(json); await output.FlushAsync();
 }
 if (extension is IDisposable disposable) disposable.Dispose();

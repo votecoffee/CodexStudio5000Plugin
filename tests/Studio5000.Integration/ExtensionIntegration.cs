@@ -47,6 +47,8 @@ internal static class ExtensionIntegration
         var newCall = new ExtensionCall("fixture", "fixture_added_in_v2", second.Generation, JsonSerializer.SerializeToElement(new { }));
         var newer = await Tool<JsonElement>("studio_extensions_read", new() { ["call"] = newCall });
         Check(newer.GetProperty("version").GetString() == "2", "Existing MCP connection discovers and executes the new operation");
+        var large = await Tool<JsonElement>("studio_extensions_read", new() { ["call"] = newCall with { Operation = "fixture_large_result" } });
+        Check(large.GetProperty("payload").GetString()!.Length == 3 * 1024 * 1024, "Recording-sized results over 2 MiB cross the worker, shared service and fixed MCP bridge intact");
         rejected = await mcp.CallToolAsync("studio_extensions_read", new Dictionary<string, object?> { ["call"] = oldCall });
         Check(rejected.IsError == true, "Stale generation is rejected instead of silently running a different version");
         for (var i = 0; i < 200 && job.Status is "queued" or "running"; i++)

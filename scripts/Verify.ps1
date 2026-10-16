@@ -14,7 +14,7 @@ try {
     $viewPng = Join-Path $repo 'artifacts/test-results/desktop-viewdesigner.png'
     $viewProcess = Start-Process -FilePath $gui -ArgumentList @('--self-test-viewdesigner', ('"' + $viewPng + '"')) -WindowStyle Hidden -PassThru -Wait
     if ($viewProcess.ExitCode -ne 0 -or !(Test-Path -LiteralPath $viewPng)) { throw 'View Designer workspace render test failed.' }
-    foreach ($watchView in @('watches', 'watches-values')) {
+    foreach ($watchView in @('browser', 'trends', 'watches', 'watches-values')) {
         $watchPng = Join-Path $repo ("artifacts/test-results/desktop-$watchView.png")
         $watchProcess = Start-Process -FilePath $gui -ArgumentList @("--self-test-$watchView", ('"' + $watchPng + '"')) -WindowStyle Hidden -PassThru -Wait
         if ($watchProcess.ExitCode -ne 0 -or !(Test-Path -LiteralPath $watchPng)) { throw 'Desktop watch-list render test failed.' }
