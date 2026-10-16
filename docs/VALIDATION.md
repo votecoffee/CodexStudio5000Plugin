@@ -20,6 +20,12 @@ The fixture packages contain different compiled DLL hashes and different operati
 
 This is actual worker/process/REST/MCP validation, with no OpenAI inference call or native controller/HMI interaction. It demonstrates the fixed bridge's reload contract with an official MCP client, not automatic refresh of changed Codex plugin manifests or skills. One-time installation/client refresh and future host/SDK/bridge contract upgrades remain separate. See [EXTENSIONS.md](EXTENSIONS.md).
 
+### Local service deployment
+
+After the user confirmed the other chat had finished using the API, deployment verified no active SDK jobs, watch readers or native bridge processes. The existing v0.5 binaries and local configuration were backed up under ignored `.local/deployments/`, then the service, MCP adapter, GUI, extension worker, native bridge and four initial packages were published. The shared service now reports **v0.7.0**, with `factorytalk`, `logix`, `viewdesigner` and `watches` active and 47 catalog operations; there were no package load errors.
+
+An official MCP client connected to the published executable, discovered all 56 tools, reloaded View Designer to a new generation, described and invoked its read-only installation-status operation, and confirmed the same MCP connection and service PID remained in use. Local configuration bytes matched the preserved pre-deployment SHA-256. Controller operations remained disabled; no controller request was submitted. Final checks found no active SDK/extension jobs or watch readers. Deployment/transport receipts are retained beside the private backup and in the chat's `outputs/extensions/deployment/` directory. Existing Codex sessions can still require one client refresh to load the new fixed bridge tools; compatible extension updates thereafter use live discovery/reload.
+
 ## View Designer evidence (2026-10-16)
 
 View Designer support follows the documented editable `.hmi` export format. Generated fixtures cover a ViewProject, screen with nested button/event/command parameters and a binding, popup, Add-On Graphic, shortcut, data log and SVG asset. Source and asset hashes remain unchanged. Two changed properties crossed REST/MCP preview/apply and import packaging; a copied export produced `property_values_match` with `nativeImportStatus=not_observed_by_service`. Unit tests also supply a mismatching export and require `property_values_mismatch`.
