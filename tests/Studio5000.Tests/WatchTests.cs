@@ -188,6 +188,20 @@ public sealed class WatchTests : IDisposable
         Assert.Equal((sbyte)65, result.Value["Bytes"]![0]!.GetValue<sbyte>()); Assert.Equal((sbyte)-1, result.Value["Bytes"]![1]!.GetValue<sbyte>());
     }
 
+    [Fact]
+    public async Task LargeProjectsReturnAllTypeDefinitionsWithPagedTagValues()
+    {
+        var doc = XmlProjects.Parse(File.ReadAllBytes(source));
+        var tags = doc.Descendants("Program").Single().Element("Tags")!; var template = tags.Elements("Tag").First();
+        for (var i = 0; i < 270; i++) { var clone = new System.Xml.Linq.XElement(template); clone.SetAttributeValue("Name", "Extra" + i); tags.Add(clone); }
+        doc.Save(source); var project = await service.RegisterAsync(source);
+        var page = service.ExtractStructures(new(ProjectId: project.Id, IncludeValues: false, Offset: 256, Limit: 32));
+        Assert.Equal(274, page.TotalTags); Assert.Equal(18, page.Tags.Length); Assert.Equal(2, page.Types.Length);
+        Assert.All(page.Tags, tag => Assert.Equal("schema_only", tag.Quality));
+        Assert.Empty(service.ExtractStructures(new(ProjectId: project.Id, Offset: 1000)).Tags);
+        Assert.Throws<OperationException>(() => service.ExtractStructures(new(ProjectId: project.Id, Limit: 257)));
+    }
+
     private sealed class FakeReader : IWatchSessionFactory, IWatchSession
     {
         public int Opens, Delay, MaxConcurrent, FailAfter = int.MaxValue;

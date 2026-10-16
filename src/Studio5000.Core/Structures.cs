@@ -8,9 +8,9 @@ public sealed record StructureMember(string Name, string DataType, int[] Dimensi
 public sealed record StructureType(string Name, string? Family, StructureMember[] Members);
 public sealed record StructuredTag(string Name, string? ProgramName, string DataType, int[] Dimensions, JsonNode? Value, string Quality, string? Error = null);
 public sealed record StructureExtraction(string ProjectId, string SourceSha256, string Origin, DateTimeOffset? UploadedAt,
-    StructureType[] Types, StructuredTag[] Tags, string Evidence);
+    StructureType[] Types, StructuredTag[] Tags, string Evidence, int TotalTags = 0, int Offset = 0, int Limit = 100);
 public sealed record StructureExtractRequest(string? ProjectId = null, string? JobId = null, string? DataTypeName = null,
-    string? TagName = null, string? ProgramName = null, bool IncludeValues = true);
+    string? TagName = null, string? ProgramName = null, bool IncludeValues = true, int Offset = 0, int Limit = 100);
 public sealed record StructurePullRequest(string ControllerTargetId);
 
 // Uses the SDK's decorated XML representation, never inferred controller memory offsets.

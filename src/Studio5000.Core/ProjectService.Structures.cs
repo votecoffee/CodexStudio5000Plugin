@@ -6,6 +6,7 @@ public sealed partial class ProjectService
 {
     public StructureExtraction ExtractStructures(StructureExtractRequest request)
     {
+        if (request.Offset < 0 || request.Limit is < 1 or > 256) throw new OperationException("structure_page", "Use a nonnegative offset and limit 1–256.");
         if ((request.ProjectId is null) == (request.JobId is null))
             throw new OperationException("structure_source", "Choose one managed projectId or completed SDK jobId.");
         SdkJob? job = null;
@@ -21,17 +22,17 @@ public sealed partial class ProjectService
         var doc = XmlProjects.Parse(File.ReadAllBytes(RevisionFile(info.Id, info.Revision)));
         var types = LogixStructures.Types(doc);
         if (request.DataTypeName is not null) types = types.Where(t => t.Name == request.DataTypeName).ToArray();
-        var tags = doc.Root!.Element("Controller")!.Descendants("Tag")
+        var candidates = doc.Root!.Element("Controller")!.Descendants("Tag")
             .Where(t => t.Parent?.Name == "Tags" && (t.Parent.Parent?.Name == "Controller" || t.Parent.Parent?.Name == "Program"))
             .Where(t => request.TagName is null || (string?)t.Attribute("Name") == request.TagName)
             .Where(t => request.ProgramName is null || (string?)t.Ancestors("Program").FirstOrDefault()?.Attribute("Name") == request.ProgramName)
-            .Where(t => request.DataTypeName is null || (string?)t.Attribute("DataType") == request.DataTypeName).Take(257).ToArray();
-        if (tags.Length > 256) throw new OperationException("structure_too_large", "Select a tag, program or data type (maximum 256 tags per extraction).");
+            .Where(t => request.DataTypeName is null || (string?)t.Attribute("DataType") == request.DataTypeName).ToArray();
+        var tags = candidates.Skip(request.Offset).Take(request.Limit).ToArray();
         var uploaded = job?.Status == "succeeded" && job.Methods.Contains("UploadToNewProjectAsync") && info.Revision == 0 &&
             job.Methods.All(m => m is "UploadToNewProjectAsync" or "ReadConnectedStateAsync" or "ReadControllerModeAsync" or "GetCommunicationsPathAsync" or "PartialExportToXmlFileAsync" or "SaveAsync" or "SaveAsAsync");
         return new(info.Id, info.CurrentSha256, uploaded ? "controller_upload_snapshot" : "saved_project", uploaded ? info.CreatedAt : null,
             types, tags.Select(t => LogixStructures.ExtractTag(t, (string?)t.Ancestors("Program").FirstOrDefault()?.Attribute("Name"), request.IncludeValues)).ToArray(),
-            "Type declarations and decorated values extracted from a hash-checked L5X revision. Uploaded values are a point-in-time snapshot; watch samples carry separate read timestamps. No inferred memory offsets or atomic multi-tag snapshot is promised.");
+            "Type declarations and decorated values extracted from a hash-checked L5X revision. Uploaded values are a point-in-time snapshot; watch samples carry separate read timestamps. No inferred memory offsets or atomic multi-tag snapshot is promised.", candidates.Length, request.Offset, request.Limit);
     }
 
     public Task<SdkJob> PullStructuresAsync(StructurePullRequest request, CancellationToken ct = default) =>
