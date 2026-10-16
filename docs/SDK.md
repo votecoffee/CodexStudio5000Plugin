@@ -79,6 +79,24 @@ Controller APIs are implemented but disabled by default. Configure an authorized
 
 The service injects this path, preventing request overrides. Any `mode=Online`, go-online, download/upload, controller mode, SD-card or generate/delete-signature call requires the enabled target. Setting a path on an offline copy requires a configured target but does not connect or require live operations enabled. Sessions end when the job disconnects/disposes.
 
+A target can additionally define `Policy` to limit every submitted method, exact program tag addresses and component definitions. This applies to REST, MCP and the desktop through the shared service, including offline calls submitted with that target. Omitted policies retain the existing unrestricted configured-target behavior; an empty `AllowedMethods` denies all calls.
+
+```json
+{
+  "Id": "scoped-test",
+  "CommunicationsPath": "EXACT_FACTORYTALK_LINX_PATH",
+  "Policy": {
+    "AllowedMethods": ["UploadToNewProjectAsync", "ReadConnectedStateAsync", "ReadControllerModeAsync", "GoOnlineAsync", "GetTagValueDINTAsync", "SetTagValueDINTAsync", "GetTagValueBOOLAsync", "SetTagValueBOOLAsync", "PartialImportRungsFromXmlFileAsync", "SaveAsync"],
+    "ProgramName": "CodexTest",
+    "RoutineName": "main"
+  }
+}
+```
+
+Program policies accept exact base tag paths such as `Controller/Programs/Program[@Name='CodexTest']/Tags/Tag[@Name='SdkInput']`; controller tags, other programs, member/array selectors and XPath expressions are denied. Component operations require the exact configured ladder routine. Imports reject global definitions, other routines, aliases, program parameters and produced/consumed tags. Program policies also reject download, mode changes, safety changes and SD-card operations even if accidentally placed in the method list. The bridge's internal open, path setup, disconnect and output saves remain infrastructure operations.
+
+These checks bound explicit addresses and imported definitions. They do not interpret ladder operands or prove that arbitrary code cannot reference existing global data, or that an existing local tag is not an alias. Review instruction operands and source tag definitions before dispatch; use newly created base local tags for an isolated test.
+
 The agent needs explicit user authorization for the actual target/action. Offline development tests do not authorize actions on a plant controller. The bridge does not automatically change mode, download, remove a signature or unlock safety to make another operation succeed.
 
 ## Native evidence

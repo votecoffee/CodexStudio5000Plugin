@@ -2,7 +2,8 @@ using System.Text.Json;
 
 namespace Studio5000.Core;
 
-public sealed record ControllerTarget(string Id, string CommunicationsPath);
+public sealed record ControllerTarget(string Id, string CommunicationsPath, SdkTargetPolicy? Policy = null);
+public sealed record SdkTargetPolicy(string[] AllowedMethods, string? ProgramName = null, string? RoutineName = null);
 public sealed record SdkCall(string Method, Dictionary<string, JsonElement> Arguments);
 public sealed record SdkInputFile(string? Path, string Sha256, string? ArtifactId = null);
 public sealed record SdkRunRequest(SdkCall[] Calls, string? ProjectId = null, string? ExpectedSha256 = null,

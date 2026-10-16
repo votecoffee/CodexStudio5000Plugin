@@ -89,6 +89,10 @@ public sealed partial class ProjectService
             SourcePath: request.SourcePath, SourceArtifactId: request.SourceArtifactId, ControllerTargetId: target.Id,
             InputFiles: new() { ["edit"] = input });
         SdkCatalog.ValidateCalls(run.Calls);
+        SdkTargetPolicies.ValidateCalls(target, run.Calls);
+        if (target.Policy?.ProgramName is not null)
+            using (var reader = XmlReader.Create(importPath, new XmlReaderSettings { DtdProcessing = DtdProcessing.Prohibit, XmlResolver = null }))
+                SdkTargetPolicies.ValidateImport(target, run.Calls[3], System.Xml.Linq.XDocument.Load(reader));
         var steps = new List<string>();
         if (request.Workflow != "finalize_during_import")
         {

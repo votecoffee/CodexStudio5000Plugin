@@ -27,6 +27,7 @@ public sealed partial class ProjectService : IDisposable
         if (options.ControllerTargets.Any(t => string.IsNullOrWhiteSpace(t.Id) || string.IsNullOrWhiteSpace(t.CommunicationsPath)) ||
             options.ControllerTargets.Select(t => t.Id).Distinct(StringComparer.Ordinal).Count() != options.ControllerTargets.Length)
             throw new ArgumentException("ControllerTargets must have unique nonempty IDs and communications paths.");
+        foreach (var target in options.ControllerTargets) SdkTargetPolicies.ValidateConfiguration(target);
         state = Path.GetFullPath(options.StateDirectory);
         roots = options.AllowedRoots.Select(Path.GetFullPath).ToArray();
         outputRoots = options.OutputRoots.Select(Path.GetFullPath).ToArray();

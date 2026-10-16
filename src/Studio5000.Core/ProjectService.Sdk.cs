@@ -2,6 +2,7 @@ using System.Collections.Concurrent;
 using System.Security.Cryptography;
 using System.Text.Json;
 using System.Xml;
+using System.Xml.Linq;
 
 namespace Studio5000.Core;
 
@@ -28,7 +29,7 @@ public sealed partial class ProjectService
         methods = SdkCatalog.Describe(), enums = SdkCatalog.Surface.Enums,
         onlineEdits = OnlineEdits.Capabilities(),
         managedMethods = SdkCatalog.ManagedMethods, controllerOperationsEnabled = options.EnableControllerOperations,
-        controllerTargets = options.ControllerTargets.Select(t => new { t.Id, t.CommunicationsPath }),
+        controllerTargets = options.ControllerTargets,
         persistence = "New artifacts and a new managed result project; source files and source revisions are preserved.",
         validation = "Compile-checked bindings for SDK 2.1.974. Native offline verification is operation-specific; live controller verification is pending."
     };
@@ -63,6 +64,7 @@ public sealed partial class ProjectService
             throw new OperationException("sdk_controller_disabled", "Controller operations require EnableControllerOperations and a configured ControllerTargetId.");
         if (calls.Any(c => c.Method == "SetCommunicationsPathAsync") && target is null)
             throw new OperationException("sdk_target_required", "SetCommunicationsPathAsync requires a configured ControllerTargetId.");
+        SdkTargetPolicies.ValidateCalls(target, calls);
         if (new[] { request.ProjectId, request.SourcePath, request.SourceArtifactId }.Count(s => s is not null) > 1)
             throw new OperationException("sdk_source_invalid", "Choose exactly one projectId, sourcePath or sourceArtifactId.");
         var factory = SdkCatalog.Factories.Contains(calls[0].Method) ? calls[0].Method : null;
@@ -138,6 +140,9 @@ public sealed partial class ProjectService
                 {
                     if (!call.Arguments.TryGetValue("xmlFileToImport", out var value) || !inputs.TryGetValue(value.GetString()!, out var input))
                         throw new OperationException("sdk_input_required", "xmlFileToImport must name an inputFiles alias with an absolute path and SHA-256.");
+                    if (target?.Policy?.ProgramName is not null)
+                        using (var reader = XmlReader.Create(input, new XmlReaderSettings { DtdProcessing = DtdProcessing.Prohibit, XmlResolver = null }))
+                            SdkTargetPolicies.ValidateImport(target, call, XDocument.Load(reader));
                     Put("xmlFileToImport", input);
                 }
             }
