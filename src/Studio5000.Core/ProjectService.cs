@@ -24,6 +24,9 @@ public sealed partial class ProjectService : IDisposable
     public ProjectService(ServiceOptions options)
     {
         this.options = options;
+        if (options.ControllerTargets.Any(t => string.IsNullOrWhiteSpace(t.Id) || string.IsNullOrWhiteSpace(t.CommunicationsPath)) ||
+            options.ControllerTargets.Select(t => t.Id).Distinct(StringComparer.Ordinal).Count() != options.ControllerTargets.Length)
+            throw new ArgumentException("ControllerTargets must have unique nonempty IDs and communications paths.");
         state = Path.GetFullPath(options.StateDirectory);
         roots = options.AllowedRoots.Select(Path.GetFullPath).ToArray();
         outputRoots = options.OutputRoots.Select(Path.GetFullPath).ToArray();
@@ -34,18 +37,20 @@ public sealed partial class ProjectService : IDisposable
         Directory.CreateDirectory(Path.Combine(state, "projects"));
         Directory.CreateDirectory(Path.Combine(state, "artifacts"));
         native = new(options);
+        InitializeSdkJobs();
     }
 
     public object Capabilities() => new
     {
-        version = "0.2.0", nativeBridgeConfigured = native.Available,
+        version = "0.3.0", nativeBridgeConfigured = native.Available,
         operations = new[] { "register", "inspect", "read_element", "preview", "apply", "export_l5x", "explode", "register_exploded", "audit", "export_acd" },
         editOperations = new[] { "set_text", "set_attribute", "replace_element", "add_element", "remove_element" },
         allowedRoots = roots,
         outputRoots,
         projectKinds = new[] { "logix", "ftview-me", "ftview-se" },
         factoryTalk = FactoryTalkStatus(),
-        validation = "XML structure checks; native ACD conversion requires the installed licensed SDK. No controller connection or download is implemented."
+        sdk = SdkCapabilities(),
+        validation = "XML checks and installed SDK operations have distinct evidence levels. Live controller operations require an enabled, configured target; live validation is pending."
     };
 
     public async Task<ProjectInfo> RegisterAsync(string source, CancellationToken ct = default)
@@ -297,7 +302,8 @@ public sealed partial class ProjectService : IDisposable
             if (File.Exists(path)) throw new OperationException("output_exists", "Choose a new output filename; existing files are preserved.");
             Directory.CreateDirectory(Path.GetDirectoryName(path)!);
             File.Copy(source, path, overwrite: false);
-            Audit("save_artifact", Get(artifact.ProjectId), null, artifact.Sha256, path);
+            var info = File.Exists(ProjectMeta(artifact.ProjectId)) ? Get(artifact.ProjectId) : SdkAuditProject(SdkJob(artifact.ProjectId));
+            Audit("save_artifact", info, null, artifact.Sha256, path);
             return new(path, artifact.Sha256, artifact.Bytes);
         }
         finally { gate.Release(); }
@@ -346,7 +352,10 @@ public sealed partial class ProjectService : IDisposable
     }
     private static void ValidateFileName(string name)
     {
-        if (string.IsNullOrWhiteSpace(name) || name.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0 || name is "." or ".." || name.EndsWith('.') || name.EndsWith(' '))
+        var stem = name.Split('.')[0].ToUpperInvariant();
+        var reserved = stem is "CON" or "PRN" or "AUX" or "NUL" ||
+            stem.Length == 4 && (stem.StartsWith("COM", StringComparison.Ordinal) || stem.StartsWith("LPT", StringComparison.Ordinal)) && stem[3] is >= '1' and <= '9';
+        if (string.IsNullOrWhiteSpace(name) || name.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0 || name is "." or ".." || name.EndsWith('.') || name.EndsWith(' ') || reserved)
             throw new OperationException("invalid_name", "Component Name cannot safely be used as an exploded filename.");
     }
     private static void Expect(ProjectInfo info, string expected)
@@ -378,5 +387,5 @@ public sealed partial class ProjectService : IDisposable
     private static XDocument ParseDocument(ProjectInfo info, byte[] bytes) => FactoryTalkGraphics.IsFactoryTalk(info.Kind) ? FactoryTalkGraphics.Parse(bytes) : XmlProjects.Parse(bytes);
     private byte[] ApplyDocument(ProjectInfo info, byte[] bytes, Edit[] edits) => FactoryTalkGraphics.IsFactoryTalk(info.Kind)
         ? FactoryTalkGraphics.Apply(bytes, edits, options.FactoryTalkSchemaDirectory) : XmlProjects.Apply(bytes, edits);
-    public void Dispose() { instanceLock.Dispose(); gate.Dispose(); }
+    public void Dispose() { DisposeSdkJobs(); instanceLock.Dispose(); gate.Dispose(); }
 }

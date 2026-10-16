@@ -8,6 +8,7 @@ using Studio5000.Client;
 using Studio5000.Core;
 
 var root = ServiceClient.FindRoot();
+if (args.Length == 2 && args[0] == "--sdk-offline-path") { await SdkOfflinePath.RunAsync(root, Path.GetFullPath(args[1])); return; }
 using var client = new ServiceClient(root);
 var checks = new List<string>();
 void Check(bool valid, string name) { if (!valid) throw new Exception("FAIL: " + name); checks.Add(name); Console.WriteLine("PASS: " + name); }
@@ -42,7 +43,19 @@ await using var mcp = await McpClient.CreateAsync(new StdioClientTransport(new S
     Name = "Studio 5000 integration"
 }));
 var tools = await mcp.ListToolsAsync();
-Check(tools.Count == 20, "Official MCP client discovers all 20 Logix/FactoryTalk tools");
+Check(tools.Count == 27, "Official MCP client discovers all 27 Logix/FactoryTalk/SDK tools");
+var sdkCatalog = await mcp.CallToolAsync("studio_sdk_catalog", new Dictionary<string, object?>());
+Check(sdkCatalog.IsError != true && sdkCatalog.Content.OfType<TextContentBlock>().Any(b => b.Text.Contains("PartialImportRungsFromXmlFileAsync")), "MCP exposes the complete SDK catalog through the shared service");
+if ((await client.GetAsync<JsonElement>("/api/sdk/capabilities")).GetProperty("nativeBridgeConfigured").GetBoolean())
+{
+    var sdkStart = await mcp.CallToolAsync("studio_sdk_start_job", new Dictionary<string, object?>
+    { ["calls"] = new[] { new { method = "GetProcessorTypesAsync", arguments = new { majorRev = 35 } } } });
+    Check(sdkStart.IsError != true, "MCP submits a native SDK query job");
+    var sdkJob = JsonSerializer.Deserialize<SdkJob>(sdkStart.Content.OfType<TextContentBlock>().First().Text, ProjectService.Json)!;
+    for (var attempt = 0; attempt < 480 && sdkJob.Status is "queued" or "running"; attempt++)
+    { await Task.Delay(500); sdkJob = await client.GetAsync<SdkJob>("/api/sdk/jobs/" + sdkJob.Id); }
+    Check(sdkJob.Status == "succeeded" && sdkJob.Steps[0].Value!.Value.GetArrayLength() > 0, "REST observes the native SDK result submitted through MCP");
+}
 var inspected = await mcp.CallToolAsync("studio_inspect_project", new Dictionary<string, object?> { ["projectId"] = p.Id, ["kind"] = "Tag" });
 Check(inspected.IsError != true && inspected.Content.OfType<TextContentBlock>().Any(b => b.Text.Contains("CycleCount")), "MCP reads the project edited through REST");
 var previewResult = await mcp.CallToolAsync("studio_preview_changes", new Dictionary<string, object?>

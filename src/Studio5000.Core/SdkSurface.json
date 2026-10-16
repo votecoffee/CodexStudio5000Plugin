@@ -1,0 +1,1568 @@
+{
+  "assembly": "RockwellAutomation.LogixDesigner.LogixProject.CSClient, Version=2.1.974.0, Culture=neutral, PublicKeyToken=bc24dc22e8ee9a7e",
+  "methods": [
+    {
+      "name": "OpenLogixProjectAsync",
+      "isStatic": true,
+      "returns": "System.Threading.Tasks.Task\u00601[RockwellAutomation.LogixDesigner.LogixProject]",
+      "parameters": [
+        {
+          "name": "projectFilePath",
+          "type": "System.String",
+          "optional": false,
+          "defaultValue": null
+        },
+        {
+          "name": "operationEventHandler",
+          "type": "RockwellAutomation.LogixDesigner.Logging.IOperationEvent",
+          "optional": true,
+          "defaultValue": null
+        },
+        {
+          "name": "cancellationToken",
+          "type": "System.Threading.CancellationToken",
+          "optional": true,
+          "defaultValue": null
+        }
+      ]
+    },
+    {
+      "name": "OpenLogixProjectAsync",
+      "isStatic": true,
+      "returns": "System.Threading.Tasks.Task\u00601[RockwellAutomation.LogixDesigner.LogixProject]",
+      "parameters": [
+        {
+          "name": "projectFilePath",
+          "type": "System.String",
+          "optional": false,
+          "defaultValue": null
+        },
+        {
+          "name": "operationEventHandlers",
+          "type": "System.Collections.Generic.IEnumerable\u00601[RockwellAutomation.LogixDesigner.Logging.IOperationEvent]",
+          "optional": false,
+          "defaultValue": null
+        },
+        {
+          "name": "cancellationToken",
+          "type": "System.Threading.CancellationToken",
+          "optional": true,
+          "defaultValue": null
+        }
+      ]
+    },
+    {
+      "name": "ConvertAsync",
+      "isStatic": true,
+      "returns": "System.Threading.Tasks.Task\u00601[RockwellAutomation.LogixDesigner.LogixProject]",
+      "parameters": [
+        {
+          "name": "projectPath",
+          "type": "System.String",
+          "optional": false,
+          "defaultValue": null
+        },
+        {
+          "name": "destinationRevision",
+          "type": "System.Int32",
+          "optional": false,
+          "defaultValue": null
+        },
+        {
+          "name": "operationEventHandler",
+          "type": "RockwellAutomation.LogixDesigner.Logging.IOperationEvent",
+          "optional": true,
+          "defaultValue": null
+        },
+        {
+          "name": "cancellationToken",
+          "type": "System.Threading.CancellationToken",
+          "optional": true,
+          "defaultValue": null
+        }
+      ]
+    },
+    {
+      "name": "ConvertAsync",
+      "isStatic": true,
+      "returns": "System.Threading.Tasks.Task\u00601[RockwellAutomation.LogixDesigner.LogixProject]",
+      "parameters": [
+        {
+          "name": "projectPath",
+          "type": "System.String",
+          "optional": false,
+          "defaultValue": null
+        },
+        {
+          "name": "destinationRevision",
+          "type": "System.Int32",
+          "optional": false,
+          "defaultValue": null
+        },
+        {
+          "name": "operationEventHandlers",
+          "type": "System.Collections.Generic.IEnumerable\u00601[RockwellAutomation.LogixDesigner.Logging.IOperationEvent]",
+          "optional": false,
+          "defaultValue": null
+        },
+        {
+          "name": "cancellationToken",
+          "type": "System.Threading.CancellationToken",
+          "optional": true,
+          "defaultValue": null
+        }
+      ]
+    },
+    {
+      "name": "CreateNewProjectAsync",
+      "isStatic": true,
+      "returns": "System.Threading.Tasks.Task\u00601[RockwellAutomation.LogixDesigner.LogixProject]",
+      "parameters": [
+        {
+          "name": "projectFilePath",
+          "type": "System.String",
+          "optional": false,
+          "defaultValue": null
+        },
+        {
+          "name": "majorRevision",
+          "type": "System.UInt32",
+          "optional": false,
+          "defaultValue": null
+        },
+        {
+          "name": "processorTypeName",
+          "type": "System.String",
+          "optional": false,
+          "defaultValue": null
+        },
+        {
+          "name": "controllerName",
+          "type": "System.String",
+          "optional": false,
+          "defaultValue": null
+        },
+        {
+          "name": "operationEventHandler",
+          "type": "RockwellAutomation.LogixDesigner.Logging.IOperationEvent",
+          "optional": true,
+          "defaultValue": null
+        },
+        {
+          "name": "cancellationToken",
+          "type": "System.Threading.CancellationToken",
+          "optional": true,
+          "defaultValue": null
+        }
+      ]
+    },
+    {
+      "name": "CreateNewProjectAsync",
+      "isStatic": true,
+      "returns": "System.Threading.Tasks.Task\u00601[RockwellAutomation.LogixDesigner.LogixProject]",
+      "parameters": [
+        {
+          "name": "projectFilePath",
+          "type": "System.String",
+          "optional": false,
+          "defaultValue": null
+        },
+        {
+          "name": "majorRevision",
+          "type": "System.UInt32",
+          "optional": false,
+          "defaultValue": null
+        },
+        {
+          "name": "processorTypeName",
+          "type": "System.String",
+          "optional": false,
+          "defaultValue": null
+        },
+        {
+          "name": "controllerName",
+          "type": "System.String",
+          "optional": false,
+          "defaultValue": null
+        },
+        {
+          "name": "operationEventHandlers",
+          "type": "System.Collections.Generic.IEnumerable\u00601[RockwellAutomation.LogixDesigner.Logging.IOperationEvent]",
+          "optional": false,
+          "defaultValue": null
+        },
+        {
+          "name": "cancellationToken",
+          "type": "System.Threading.CancellationToken",
+          "optional": true,
+          "defaultValue": null
+        }
+      ]
+    },
+    {
+      "name": "UploadToNewProjectAsync",
+      "isStatic": true,
+      "returns": "System.Threading.Tasks.Task\u00601[RockwellAutomation.LogixDesigner.LogixProject]",
+      "parameters": [
+        {
+          "name": "projectFilePath",
+          "type": "System.String",
+          "optional": false,
+          "defaultValue": null
+        },
+        {
+          "name": "commPath",
+          "type": "System.String",
+          "optional": false,
+          "defaultValue": null
+        },
+        {
+          "name": "operationEventHandler",
+          "type": "RockwellAutomation.LogixDesigner.Logging.IOperationEvent",
+          "optional": true,
+          "defaultValue": null
+        },
+        {
+          "name": "cancellationToken",
+          "type": "System.Threading.CancellationToken",
+          "optional": true,
+          "defaultValue": null
+        }
+      ]
+    },
+    {
+      "name": "UploadToNewProjectAsync",
+      "isStatic": true,
+      "returns": "System.Threading.Tasks.Task\u00601[RockwellAutomation.LogixDesigner.LogixProject]",
+      "parameters": [
+        {
+          "name": "projectFilePath",
+          "type": "System.String",
+          "optional": false,
+          "defaultValue": null
+        },
+        {
+          "name": "commPath",
+          "type": "System.String",
+          "optional": false,
+          "defaultValue": null
+        },
+        {
+          "name": "operationEventHandlers",
+          "type": "System.Collections.Generic.IEnumerable\u00601[RockwellAutomation.LogixDesigner.Logging.IOperationEvent]",
+          "optional": false,
+          "defaultValue": null
+        },
+        {
+          "name": "cancellationToken",
+          "type": "System.Threading.CancellationToken",
+          "optional": true,
+          "defaultValue": null
+        }
+      ]
+    },
+    {
+      "name": "GetProcessorTypesAsync",
+      "isStatic": true,
+      "returns": "System.Threading.Tasks.Task\u00601[RockwellAutomation.LogixDesigner.ProcTypesDict]",
+      "parameters": [
+        {
+          "name": "majorRev",
+          "type": "System.UInt32",
+          "optional": false,
+          "defaultValue": null
+        },
+        {
+          "name": "cancellationToken",
+          "type": "System.Threading.CancellationToken",
+          "optional": true,
+          "defaultValue": null
+        }
+      ]
+    },
+    {
+      "name": "SaveAsAsync",
+      "isStatic": false,
+      "returns": "System.Threading.Tasks.Task",
+      "parameters": [
+        {
+          "name": "savePath",
+          "type": "System.String",
+          "optional": false,
+          "defaultValue": null
+        },
+        {
+          "name": "force",
+          "type": "System.Boolean",
+          "optional": true,
+          "defaultValue": "False"
+        },
+        {
+          "name": "detailedL5x",
+          "type": "System.Boolean",
+          "optional": true,
+          "defaultValue": "False"
+        },
+        {
+          "name": "cancellationToken",
+          "type": "System.Threading.CancellationToken",
+          "optional": true,
+          "defaultValue": null
+        }
+      ]
+    },
+    {
+      "name": "GetCommunicationsPathAsync",
+      "isStatic": false,
+      "returns": "System.Threading.Tasks.Task\u00601[System.String]",
+      "parameters": [
+        {
+          "name": "cancellationToken",
+          "type": "System.Threading.CancellationToken",
+          "optional": true,
+          "defaultValue": null
+        }
+      ]
+    },
+    {
+      "name": "SetCommunicationsPathAsync",
+      "isStatic": false,
+      "returns": "System.Threading.Tasks.Task",
+      "parameters": [
+        {
+          "name": "projectPath",
+          "type": "System.String",
+          "optional": false,
+          "defaultValue": null
+        },
+        {
+          "name": "cancellationToken",
+          "type": "System.Threading.CancellationToken",
+          "optional": true,
+          "defaultValue": null
+        }
+      ]
+    },
+    {
+      "name": "SaveAsync",
+      "isStatic": false,
+      "returns": "System.Threading.Tasks.Task",
+      "parameters": [
+        {
+          "name": "cancellationToken",
+          "type": "System.Threading.CancellationToken",
+          "optional": true,
+          "defaultValue": null
+        }
+      ]
+    },
+    {
+      "name": "DownloadAsync",
+      "isStatic": false,
+      "returns": "System.Threading.Tasks.Task",
+      "parameters": [
+        {
+          "name": "cancellationToken",
+          "type": "System.Threading.CancellationToken",
+          "optional": true,
+          "defaultValue": null
+        }
+      ]
+    },
+    {
+      "name": "ReadControllerModeAsync",
+      "isStatic": false,
+      "returns": "System.Threading.Tasks.Task\u00601[RockwellAutomation.LogixDesigner.LogixProject\u002BControllerMode]",
+      "parameters": [
+        {
+          "name": "cancellationToken",
+          "type": "System.Threading.CancellationToken",
+          "optional": true,
+          "defaultValue": null
+        }
+      ]
+    },
+    {
+      "name": "ChangeControllerModeAsync",
+      "isStatic": false,
+      "returns": "System.Threading.Tasks.Task",
+      "parameters": [
+        {
+          "name": "mode",
+          "type": "RockwellAutomation.LogixDesigner.LogixProject\u002BRequestedControllerMode",
+          "optional": false,
+          "defaultValue": null
+        },
+        {
+          "name": "cancellationToken",
+          "type": "System.Threading.CancellationToken",
+          "optional": true,
+          "defaultValue": null
+        }
+      ]
+    },
+    {
+      "name": "BuildAsync",
+      "isStatic": false,
+      "returns": "System.Threading.Tasks.Task",
+      "parameters": [
+        {
+          "name": "target",
+          "type": "RockwellAutomation.LogixDesigner.LogixProject\u002BRequestedBuildTarget",
+          "optional": true,
+          "defaultValue": "DefaultTarget"
+        },
+        {
+          "name": "cancellationToken",
+          "type": "System.Threading.CancellationToken",
+          "optional": true,
+          "defaultValue": null
+        }
+      ]
+    },
+    {
+      "name": "UploadAsync",
+      "isStatic": false,
+      "returns": "System.Threading.Tasks.Task",
+      "parameters": [
+        {
+          "name": "cancellationToken",
+          "type": "System.Threading.CancellationToken",
+          "optional": true,
+          "defaultValue": null
+        }
+      ]
+    },
+    {
+      "name": "StoreImageOnSDCardAsync",
+      "isStatic": false,
+      "returns": "System.Threading.Tasks.Task",
+      "parameters": [
+        {
+          "name": "loadEvent",
+          "type": "RockwellAutomation.LogixDesigner.LogixProject\u002BRequestedLoadEvent",
+          "optional": true,
+          "defaultValue": "OnPowerUp"
+        },
+        {
+          "name": "loadMode",
+          "type": "RockwellAutomation.LogixDesigner.LogixProject\u002BRequestedLoadMode",
+          "optional": true,
+          "defaultValue": "Program"
+        },
+        {
+          "name": "afuSetting",
+          "type": "RockwellAutomation.LogixDesigner.LogixProject\u002BAutomaticFirmwareUpdate",
+          "optional": true,
+          "defaultValue": "Disabled"
+        },
+        {
+          "name": "imageName",
+          "type": "System.String",
+          "optional": true,
+          "defaultValue": ""
+        },
+        {
+          "name": "imageNote",
+          "type": "System.String",
+          "optional": true,
+          "defaultValue": "Image created via LD SDK."
+        }
+      ]
+    },
+    {
+      "name": "LoadImageFromSDCardAsync",
+      "isStatic": false,
+      "returns": "System.Threading.Tasks.Task",
+      "parameters": []
+    },
+    {
+      "name": "AddEventHandler",
+      "isStatic": false,
+      "returns": "System.Void",
+      "parameters": [
+        {
+          "name": "handler",
+          "type": "RockwellAutomation.LogixDesigner.Logging.IOperationEvent",
+          "optional": false,
+          "defaultValue": null
+        }
+      ]
+    },
+    {
+      "name": "ClearEventHandlers",
+      "isStatic": false,
+      "returns": "System.Void",
+      "parameters": []
+    },
+    {
+      "name": "RemoveEventHandler",
+      "isStatic": false,
+      "returns": "System.Void",
+      "parameters": [
+        {
+          "name": "handler",
+          "type": "RockwellAutomation.LogixDesigner.Logging.IOperationEvent",
+          "optional": false,
+          "defaultValue": null
+        }
+      ]
+    },
+    {
+      "name": "GetTagValueAsync",
+      "isStatic": false,
+      "returns": "System.Threading.Tasks.Task\u00601[Google.Protobuf.ByteString]",
+      "parameters": [
+        {
+          "name": "tagPath",
+          "type": "System.String",
+          "optional": false,
+          "defaultValue": null
+        },
+        {
+          "name": "mode",
+          "type": "RockwellAutomation.LogixDesigner.LogixProject\u002BOperationMode",
+          "optional": false,
+          "defaultValue": null
+        },
+        {
+          "name": "type",
+          "type": "RockwellAutomation.LogixDesigner.LogixProject\u002BDataType",
+          "optional": false,
+          "defaultValue": null
+        }
+      ]
+    },
+    {
+      "name": "GetTagValueBOOLAsync",
+      "isStatic": false,
+      "returns": "System.Threading.Tasks.Task\u00601[System.Boolean]",
+      "parameters": [
+        {
+          "name": "tagPath",
+          "type": "System.String",
+          "optional": false,
+          "defaultValue": null
+        },
+        {
+          "name": "mode",
+          "type": "RockwellAutomation.LogixDesigner.LogixProject\u002BOperationMode",
+          "optional": false,
+          "defaultValue": null
+        }
+      ]
+    },
+    {
+      "name": "GetTagValueSINTAsync",
+      "isStatic": false,
+      "returns": "System.Threading.Tasks.Task\u00601[System.SByte]",
+      "parameters": [
+        {
+          "name": "tagPath",
+          "type": "System.String",
+          "optional": false,
+          "defaultValue": null
+        },
+        {
+          "name": "mode",
+          "type": "RockwellAutomation.LogixDesigner.LogixProject\u002BOperationMode",
+          "optional": false,
+          "defaultValue": null
+        }
+      ]
+    },
+    {
+      "name": "GetTagValueINTAsync",
+      "isStatic": false,
+      "returns": "System.Threading.Tasks.Task\u00601[System.Int16]",
+      "parameters": [
+        {
+          "name": "tagPath",
+          "type": "System.String",
+          "optional": false,
+          "defaultValue": null
+        },
+        {
+          "name": "mode",
+          "type": "RockwellAutomation.LogixDesigner.LogixProject\u002BOperationMode",
+          "optional": false,
+          "defaultValue": null
+        }
+      ]
+    },
+    {
+      "name": "GetTagValueDINTAsync",
+      "isStatic": false,
+      "returns": "System.Threading.Tasks.Task\u00601[System.Int32]",
+      "parameters": [
+        {
+          "name": "tagPath",
+          "type": "System.String",
+          "optional": false,
+          "defaultValue": null
+        },
+        {
+          "name": "mode",
+          "type": "RockwellAutomation.LogixDesigner.LogixProject\u002BOperationMode",
+          "optional": false,
+          "defaultValue": null
+        }
+      ]
+    },
+    {
+      "name": "GetTagValueLINTAsync",
+      "isStatic": false,
+      "returns": "System.Threading.Tasks.Task\u00601[System.Int64]",
+      "parameters": [
+        {
+          "name": "tagPath",
+          "type": "System.String",
+          "optional": false,
+          "defaultValue": null
+        },
+        {
+          "name": "mode",
+          "type": "RockwellAutomation.LogixDesigner.LogixProject\u002BOperationMode",
+          "optional": false,
+          "defaultValue": null
+        }
+      ]
+    },
+    {
+      "name": "GetTagValueUSINTAsync",
+      "isStatic": false,
+      "returns": "System.Threading.Tasks.Task\u00601[System.Byte]",
+      "parameters": [
+        {
+          "name": "tagPath",
+          "type": "System.String",
+          "optional": false,
+          "defaultValue": null
+        },
+        {
+          "name": "mode",
+          "type": "RockwellAutomation.LogixDesigner.LogixProject\u002BOperationMode",
+          "optional": false,
+          "defaultValue": null
+        }
+      ]
+    },
+    {
+      "name": "GetTagValueUINTAsync",
+      "isStatic": false,
+      "returns": "System.Threading.Tasks.Task\u00601[System.UInt16]",
+      "parameters": [
+        {
+          "name": "tagPath",
+          "type": "System.String",
+          "optional": false,
+          "defaultValue": null
+        },
+        {
+          "name": "mode",
+          "type": "RockwellAutomation.LogixDesigner.LogixProject\u002BOperationMode",
+          "optional": false,
+          "defaultValue": null
+        }
+      ]
+    },
+    {
+      "name": "GetTagValueUDINTAsync",
+      "isStatic": false,
+      "returns": "System.Threading.Tasks.Task\u00601[System.UInt32]",
+      "parameters": [
+        {
+          "name": "tagPath",
+          "type": "System.String",
+          "optional": false,
+          "defaultValue": null
+        },
+        {
+          "name": "mode",
+          "type": "RockwellAutomation.LogixDesigner.LogixProject\u002BOperationMode",
+          "optional": false,
+          "defaultValue": null
+        }
+      ]
+    },
+    {
+      "name": "GetTagValueULINTAsync",
+      "isStatic": false,
+      "returns": "System.Threading.Tasks.Task\u00601[System.UInt64]",
+      "parameters": [
+        {
+          "name": "tagPath",
+          "type": "System.String",
+          "optional": false,
+          "defaultValue": null
+        },
+        {
+          "name": "mode",
+          "type": "RockwellAutomation.LogixDesigner.LogixProject\u002BOperationMode",
+          "optional": false,
+          "defaultValue": null
+        }
+      ]
+    },
+    {
+      "name": "GetTagValueSTRINGAsync",
+      "isStatic": false,
+      "returns": "System.Threading.Tasks.Task\u00601[System.String]",
+      "parameters": [
+        {
+          "name": "tagPath",
+          "type": "System.String",
+          "optional": false,
+          "defaultValue": null
+        },
+        {
+          "name": "mode",
+          "type": "RockwellAutomation.LogixDesigner.LogixProject\u002BOperationMode",
+          "optional": false,
+          "defaultValue": null
+        }
+      ]
+    },
+    {
+      "name": "GetTagValueREALAsync",
+      "isStatic": false,
+      "returns": "System.Threading.Tasks.Task\u00601[System.Single]",
+      "parameters": [
+        {
+          "name": "tagPath",
+          "type": "System.String",
+          "optional": false,
+          "defaultValue": null
+        },
+        {
+          "name": "mode",
+          "type": "RockwellAutomation.LogixDesigner.LogixProject\u002BOperationMode",
+          "optional": false,
+          "defaultValue": null
+        }
+      ]
+    },
+    {
+      "name": "GetTagValueLREALAsync",
+      "isStatic": false,
+      "returns": "System.Threading.Tasks.Task\u00601[System.Double]",
+      "parameters": [
+        {
+          "name": "tagPath",
+          "type": "System.String",
+          "optional": false,
+          "defaultValue": null
+        },
+        {
+          "name": "mode",
+          "type": "RockwellAutomation.LogixDesigner.LogixProject\u002BOperationMode",
+          "optional": false,
+          "defaultValue": null
+        }
+      ]
+    },
+    {
+      "name": "SetTagValueAsync",
+      "isStatic": false,
+      "returns": "System.Threading.Tasks.Task",
+      "parameters": [
+        {
+          "name": "tagPath",
+          "type": "System.String",
+          "optional": false,
+          "defaultValue": null
+        },
+        {
+          "name": "mode",
+          "type": "RockwellAutomation.LogixDesigner.LogixProject\u002BOperationMode",
+          "optional": false,
+          "defaultValue": null
+        },
+        {
+          "name": "tagValue",
+          "type": "System.Byte[]",
+          "optional": false,
+          "defaultValue": null
+        },
+        {
+          "name": "type",
+          "type": "RockwellAutomation.LogixDesigner.LogixProject\u002BDataType",
+          "optional": false,
+          "defaultValue": null
+        }
+      ]
+    },
+    {
+      "name": "SetTagValueBOOLAsync",
+      "isStatic": false,
+      "returns": "System.Threading.Tasks.Task",
+      "parameters": [
+        {
+          "name": "tagPath",
+          "type": "System.String",
+          "optional": false,
+          "defaultValue": null
+        },
+        {
+          "name": "mode",
+          "type": "RockwellAutomation.LogixDesigner.LogixProject\u002BOperationMode",
+          "optional": false,
+          "defaultValue": null
+        },
+        {
+          "name": "tagValue",
+          "type": "System.Boolean",
+          "optional": false,
+          "defaultValue": null
+        }
+      ]
+    },
+    {
+      "name": "SetTagValueSINTAsync",
+      "isStatic": false,
+      "returns": "System.Threading.Tasks.Task",
+      "parameters": [
+        {
+          "name": "tagPath",
+          "type": "System.String",
+          "optional": false,
+          "defaultValue": null
+        },
+        {
+          "name": "mode",
+          "type": "RockwellAutomation.LogixDesigner.LogixProject\u002BOperationMode",
+          "optional": false,
+          "defaultValue": null
+        },
+        {
+          "name": "tagValue",
+          "type": "System.SByte",
+          "optional": false,
+          "defaultValue": null
+        }
+      ]
+    },
+    {
+      "name": "SetTagValueINTAsync",
+      "isStatic": false,
+      "returns": "System.Threading.Tasks.Task",
+      "parameters": [
+        {
+          "name": "tagPath",
+          "type": "System.String",
+          "optional": false,
+          "defaultValue": null
+        },
+        {
+          "name": "mode",
+          "type": "RockwellAutomation.LogixDesigner.LogixProject\u002BOperationMode",
+          "optional": false,
+          "defaultValue": null
+        },
+        {
+          "name": "tagValue",
+          "type": "System.Int16",
+          "optional": false,
+          "defaultValue": null
+        }
+      ]
+    },
+    {
+      "name": "SetTagValueDINTAsync",
+      "isStatic": false,
+      "returns": "System.Threading.Tasks.Task",
+      "parameters": [
+        {
+          "name": "tagPath",
+          "type": "System.String",
+          "optional": false,
+          "defaultValue": null
+        },
+        {
+          "name": "mode",
+          "type": "RockwellAutomation.LogixDesigner.LogixProject\u002BOperationMode",
+          "optional": false,
+          "defaultValue": null
+        },
+        {
+          "name": "tagValue",
+          "type": "System.Int32",
+          "optional": false,
+          "defaultValue": null
+        }
+      ]
+    },
+    {
+      "name": "SetTagValueLINTAsync",
+      "isStatic": false,
+      "returns": "System.Threading.Tasks.Task",
+      "parameters": [
+        {
+          "name": "tagPath",
+          "type": "System.String",
+          "optional": false,
+          "defaultValue": null
+        },
+        {
+          "name": "mode",
+          "type": "RockwellAutomation.LogixDesigner.LogixProject\u002BOperationMode",
+          "optional": false,
+          "defaultValue": null
+        },
+        {
+          "name": "tagValue",
+          "type": "System.Int64",
+          "optional": false,
+          "defaultValue": null
+        }
+      ]
+    },
+    {
+      "name": "SetTagValueUSINTAsync",
+      "isStatic": false,
+      "returns": "System.Threading.Tasks.Task",
+      "parameters": [
+        {
+          "name": "tagPath",
+          "type": "System.String",
+          "optional": false,
+          "defaultValue": null
+        },
+        {
+          "name": "mode",
+          "type": "RockwellAutomation.LogixDesigner.LogixProject\u002BOperationMode",
+          "optional": false,
+          "defaultValue": null
+        },
+        {
+          "name": "tagValue",
+          "type": "System.Byte",
+          "optional": false,
+          "defaultValue": null
+        }
+      ]
+    },
+    {
+      "name": "SetTagValueUINTAsync",
+      "isStatic": false,
+      "returns": "System.Threading.Tasks.Task",
+      "parameters": [
+        {
+          "name": "tagPath",
+          "type": "System.String",
+          "optional": false,
+          "defaultValue": null
+        },
+        {
+          "name": "mode",
+          "type": "RockwellAutomation.LogixDesigner.LogixProject\u002BOperationMode",
+          "optional": false,
+          "defaultValue": null
+        },
+        {
+          "name": "tagValue",
+          "type": "System.UInt16",
+          "optional": false,
+          "defaultValue": null
+        }
+      ]
+    },
+    {
+      "name": "SetTagValueUDINTAsync",
+      "isStatic": false,
+      "returns": "System.Threading.Tasks.Task",
+      "parameters": [
+        {
+          "name": "tagPath",
+          "type": "System.String",
+          "optional": false,
+          "defaultValue": null
+        },
+        {
+          "name": "mode",
+          "type": "RockwellAutomation.LogixDesigner.LogixProject\u002BOperationMode",
+          "optional": false,
+          "defaultValue": null
+        },
+        {
+          "name": "tagValue",
+          "type": "System.UInt32",
+          "optional": false,
+          "defaultValue": null
+        }
+      ]
+    },
+    {
+      "name": "SetTagValueULINTAsync",
+      "isStatic": false,
+      "returns": "System.Threading.Tasks.Task",
+      "parameters": [
+        {
+          "name": "tagPath",
+          "type": "System.String",
+          "optional": false,
+          "defaultValue": null
+        },
+        {
+          "name": "mode",
+          "type": "RockwellAutomation.LogixDesigner.LogixProject\u002BOperationMode",
+          "optional": false,
+          "defaultValue": null
+        },
+        {
+          "name": "tagValue",
+          "type": "System.UInt64",
+          "optional": false,
+          "defaultValue": null
+        }
+      ]
+    },
+    {
+      "name": "SetTagValueSTRINGAsync",
+      "isStatic": false,
+      "returns": "System.Threading.Tasks.Task",
+      "parameters": [
+        {
+          "name": "tagPath",
+          "type": "System.String",
+          "optional": false,
+          "defaultValue": null
+        },
+        {
+          "name": "mode",
+          "type": "RockwellAutomation.LogixDesigner.LogixProject\u002BOperationMode",
+          "optional": false,
+          "defaultValue": null
+        },
+        {
+          "name": "tagValue",
+          "type": "System.String",
+          "optional": false,
+          "defaultValue": null
+        }
+      ]
+    },
+    {
+      "name": "SetTagValueREALAsync",
+      "isStatic": false,
+      "returns": "System.Threading.Tasks.Task",
+      "parameters": [
+        {
+          "name": "tagPath",
+          "type": "System.String",
+          "optional": false,
+          "defaultValue": null
+        },
+        {
+          "name": "mode",
+          "type": "RockwellAutomation.LogixDesigner.LogixProject\u002BOperationMode",
+          "optional": false,
+          "defaultValue": null
+        },
+        {
+          "name": "tagValue",
+          "type": "System.Single",
+          "optional": false,
+          "defaultValue": null
+        }
+      ]
+    },
+    {
+      "name": "SetTagValueLREALAsync",
+      "isStatic": false,
+      "returns": "System.Threading.Tasks.Task",
+      "parameters": [
+        {
+          "name": "tagPath",
+          "type": "System.String",
+          "optional": false,
+          "defaultValue": null
+        },
+        {
+          "name": "mode",
+          "type": "RockwellAutomation.LogixDesigner.LogixProject\u002BOperationMode",
+          "optional": false,
+          "defaultValue": null
+        },
+        {
+          "name": "tagValue",
+          "type": "System.Double",
+          "optional": false,
+          "defaultValue": null
+        }
+      ]
+    },
+    {
+      "name": "PartialExportToXmlFileAsync",
+      "isStatic": false,
+      "returns": "System.Threading.Tasks.Task",
+      "parameters": [
+        {
+          "name": "xPath",
+          "type": "System.String",
+          "optional": false,
+          "defaultValue": null
+        },
+        {
+          "name": "filePath",
+          "type": "System.String",
+          "optional": false,
+          "defaultValue": null
+        },
+        {
+          "name": "cancellationToken",
+          "type": "System.Threading.CancellationToken",
+          "optional": true,
+          "defaultValue": null
+        }
+      ]
+    },
+    {
+      "name": "PartialImportFromXmlFileAsync",
+      "isStatic": false,
+      "returns": "System.Threading.Tasks.Task",
+      "parameters": [
+        {
+          "name": "xPath",
+          "type": "System.String",
+          "optional": false,
+          "defaultValue": null
+        },
+        {
+          "name": "xmlFileToImport",
+          "type": "System.String",
+          "optional": false,
+          "defaultValue": null
+        },
+        {
+          "name": "collisionOption",
+          "type": "RockwellAutomation.LogixDesigner.LogixProject\u002BImportCollisionOptions",
+          "optional": false,
+          "defaultValue": null
+        },
+        {
+          "name": "continueOnErrors",
+          "type": "System.Boolean",
+          "optional": true,
+          "defaultValue": "False"
+        },
+        {
+          "name": "cancellationToken",
+          "type": "System.Threading.CancellationToken",
+          "optional": true,
+          "defaultValue": null
+        }
+      ]
+    },
+    {
+      "name": "PartialImportWithTargetFromXmlFileAsync",
+      "isStatic": false,
+      "returns": "System.Threading.Tasks.Task",
+      "parameters": [
+        {
+          "name": "xPath",
+          "type": "System.String",
+          "optional": false,
+          "defaultValue": null
+        },
+        {
+          "name": "targetName",
+          "type": "System.String",
+          "optional": false,
+          "defaultValue": null
+        },
+        {
+          "name": "xmlFileToImport",
+          "type": "System.String",
+          "optional": false,
+          "defaultValue": null
+        },
+        {
+          "name": "onlineImportOption",
+          "type": "RockwellAutomation.LogixDesigner.LogixProject\u002BPartialImportOption",
+          "optional": false,
+          "defaultValue": null
+        },
+        {
+          "name": "cancellationToken",
+          "type": "System.Threading.CancellationToken",
+          "optional": true,
+          "defaultValue": null
+        }
+      ]
+    },
+    {
+      "name": "PartialImportRungsFromXmlFileAsync",
+      "isStatic": false,
+      "returns": "System.Threading.Tasks.Task",
+      "parameters": [
+        {
+          "name": "xPath",
+          "type": "System.String",
+          "optional": false,
+          "defaultValue": null
+        },
+        {
+          "name": "insertPosition",
+          "type": "System.UInt32",
+          "optional": false,
+          "defaultValue": null
+        },
+        {
+          "name": "replaceCount",
+          "type": "System.UInt32",
+          "optional": false,
+          "defaultValue": null
+        },
+        {
+          "name": "xmlFileToImport",
+          "type": "System.String",
+          "optional": false,
+          "defaultValue": null
+        },
+        {
+          "name": "onlineImportOption",
+          "type": "RockwellAutomation.LogixDesigner.LogixProject\u002BPartialImportOption",
+          "optional": false,
+          "defaultValue": null
+        },
+        {
+          "name": "cancellationToken",
+          "type": "System.Threading.CancellationToken",
+          "optional": true,
+          "defaultValue": null
+        }
+      ]
+    },
+    {
+      "name": "GoOnlineAsync",
+      "isStatic": false,
+      "returns": "System.Threading.Tasks.Task",
+      "parameters": [
+        {
+          "name": "cancellationToken",
+          "type": "System.Threading.CancellationToken",
+          "optional": true,
+          "defaultValue": null
+        }
+      ]
+    },
+    {
+      "name": "ChangeControllerTypeAsync",
+      "isStatic": false,
+      "returns": "System.Threading.Tasks.Task",
+      "parameters": [
+        {
+          "name": "processorTypeName",
+          "type": "System.String",
+          "optional": false,
+          "defaultValue": null
+        },
+        {
+          "name": "cancellationToken",
+          "type": "System.Threading.CancellationToken",
+          "optional": true,
+          "defaultValue": null
+        }
+      ]
+    },
+    {
+      "name": "GoOfflineAsync",
+      "isStatic": false,
+      "returns": "System.Threading.Tasks.Task",
+      "parameters": [
+        {
+          "name": "cancellationToken",
+          "type": "System.Threading.CancellationToken",
+          "optional": true,
+          "defaultValue": null
+        }
+      ]
+    },
+    {
+      "name": "ReadConnectedStateAsync",
+      "isStatic": false,
+      "returns": "System.Threading.Tasks.Task\u00601[RockwellAutomation.LogixDesigner.LogixProject\u002BConnectedState]",
+      "parameters": [
+        {
+          "name": "cancellationToken",
+          "type": "System.Threading.CancellationToken",
+          "optional": true,
+          "defaultValue": null
+        }
+      ]
+    },
+    {
+      "name": "GetSafetyNetworkNumberAsync",
+      "isStatic": false,
+      "returns": "System.Threading.Tasks.Task\u00601[System.String]",
+      "parameters": [
+        {
+          "name": "moduleName",
+          "type": "System.String",
+          "optional": false,
+          "defaultValue": null
+        },
+        {
+          "name": "cancellationToken",
+          "type": "System.Threading.CancellationToken",
+          "optional": true,
+          "defaultValue": null
+        }
+      ]
+    },
+    {
+      "name": "IsSafetyLockedAsync",
+      "isStatic": false,
+      "returns": "System.Threading.Tasks.Task\u00601[System.Boolean]",
+      "parameters": [
+        {
+          "name": "cancellationToken",
+          "type": "System.Threading.CancellationToken",
+          "optional": true,
+          "defaultValue": null
+        }
+      ]
+    },
+    {
+      "name": "SafetyLockAsync",
+      "isStatic": false,
+      "returns": "System.Threading.Tasks.Task",
+      "parameters": [
+        {
+          "name": "password",
+          "type": "System.String",
+          "optional": false,
+          "defaultValue": null
+        },
+        {
+          "name": "cancellationToken",
+          "type": "System.Threading.CancellationToken",
+          "optional": true,
+          "defaultValue": null
+        }
+      ]
+    },
+    {
+      "name": "SafetyUnlockAsync",
+      "isStatic": false,
+      "returns": "System.Threading.Tasks.Task",
+      "parameters": [
+        {
+          "name": "password",
+          "type": "System.String",
+          "optional": false,
+          "defaultValue": null
+        },
+        {
+          "name": "cancellationToken",
+          "type": "System.Threading.CancellationToken",
+          "optional": true,
+          "defaultValue": null
+        }
+      ]
+    },
+    {
+      "name": "SetSafetyLockPasswordAsync",
+      "isStatic": false,
+      "returns": "System.Threading.Tasks.Task",
+      "parameters": [
+        {
+          "name": "newPassword",
+          "type": "System.String",
+          "optional": false,
+          "defaultValue": null
+        },
+        {
+          "name": "oldPassword",
+          "type": "System.String",
+          "optional": true,
+          "defaultValue": ""
+        },
+        {
+          "name": "cancellationToken",
+          "type": "System.Threading.CancellationToken",
+          "optional": true,
+          "defaultValue": null
+        }
+      ]
+    },
+    {
+      "name": "SetSafetyUnlockPasswordAsync",
+      "isStatic": false,
+      "returns": "System.Threading.Tasks.Task",
+      "parameters": [
+        {
+          "name": "newPassword",
+          "type": "System.String",
+          "optional": false,
+          "defaultValue": null
+        },
+        {
+          "name": "oldPassword",
+          "type": "System.String",
+          "optional": true,
+          "defaultValue": ""
+        },
+        {
+          "name": "cancellationToken",
+          "type": "System.Threading.CancellationToken",
+          "optional": true,
+          "defaultValue": null
+        }
+      ]
+    },
+    {
+      "name": "GenerateSafetySignatureAsync",
+      "isStatic": false,
+      "returns": "System.Threading.Tasks.Task",
+      "parameters": [
+        {
+          "name": "cancellationToken",
+          "type": "System.Threading.CancellationToken",
+          "optional": true,
+          "defaultValue": null
+        }
+      ]
+    },
+    {
+      "name": "DeleteSafetySignatureAsync",
+      "isStatic": false,
+      "returns": "System.Threading.Tasks.Task",
+      "parameters": [
+        {
+          "name": "cancellationToken",
+          "type": "System.Threading.CancellationToken",
+          "optional": true,
+          "defaultValue": null
+        }
+      ]
+    },
+    {
+      "name": "GetSafetySignatureAsync",
+      "isStatic": false,
+      "returns": "System.Threading.Tasks.Task\u00601[System.String]",
+      "parameters": [
+        {
+          "name": "cancellationToken",
+          "type": "System.Threading.CancellationToken",
+          "optional": true,
+          "defaultValue": null
+        }
+      ]
+    },
+    {
+      "name": "Dispose",
+      "isStatic": false,
+      "returns": "System.Void",
+      "parameters": []
+    }
+  ],
+  "enums": [
+    {
+      "name": "RequestedBuildTarget",
+      "values": [
+        "DefaultTarget",
+        "PhysicalController",
+        "EchoController"
+      ]
+    },
+    {
+      "name": "RequestedLoadEvent",
+      "values": [
+        "OnDemandOnly",
+        "OnCorruptRAM",
+        "OnPowerUp"
+      ]
+    },
+    {
+      "name": "RequestedLoadMode",
+      "values": [
+        "Run",
+        "Program"
+      ]
+    },
+    {
+      "name": "AutomaticFirmwareUpdate",
+      "values": [
+        "Enabled",
+        "Disabled"
+      ]
+    },
+    {
+      "name": "RequestedControllerMode",
+      "values": [
+        "Run",
+        "Program",
+        "Test"
+      ]
+    },
+    {
+      "name": "ControllerMode",
+      "values": [
+        "Run",
+        "Program",
+        "Faulted",
+        "Test"
+      ]
+    },
+    {
+      "name": "OperationMode",
+      "values": [
+        "Offline",
+        "Online"
+      ]
+    },
+    {
+      "name": "PartialImportOption",
+      "values": [
+        "LeaveEdits",
+        "AcceptEdits",
+        "FinalizeEdits"
+      ]
+    },
+    {
+      "name": "ImportCollisionOptions",
+      "values": [
+        "OverwriteOnColl",
+        "DiscardOnColl",
+        "CancelOnColl"
+      ]
+    },
+    {
+      "name": "DataType",
+      "values": [
+        "BYTE_ARRAY",
+        "BOOL",
+        "SINT",
+        "INT",
+        "DINT",
+        "LINT",
+        "USINT",
+        "UINT",
+        "UDINT",
+        "ULINT",
+        "STRING",
+        "REAL",
+        "LREAL"
+      ]
+    },
+    {
+      "name": "RequestedUploadMergeMode",
+      "values": [
+        "INHIBIT",
+        "ATTEMPT",
+        "REQUIRED"
+      ]
+    },
+    {
+      "name": "ConnectedState",
+      "values": [
+        "Unknown",
+        "Offline",
+        "Connected",
+        "Online"
+      ]
+    }
+  ]
+}

@@ -11,6 +11,14 @@ try {
     $png = Join-Path $repo 'artifacts/test-results/desktop.png'
     $process = Start-Process -FilePath $gui -ArgumentList @('--self-test', ('"' + $png + '"')) -WindowStyle Hidden -PassThru -Wait
     if ($process.ExitCode -ne 0 -or !(Test-Path -LiteralPath $png)) { throw 'Desktop render test failed.' }
+    $connection = Get-Content -LiteralPath (Join-Path $repo '.local/connection.json') -Raw | ConvertFrom-Json
+    $headers = @{ Authorization = 'Bearer ' + (Get-Content -LiteralPath $connection.tokenFile -Raw).Trim() }
+    $sdkStatus = Invoke-RestMethod -Uri ($connection.url + '/api/sdk/capabilities') -Headers $headers
+    if ($sdkStatus.nativeBridgeConfigured) {
+        $sdkPng = Join-Path $repo 'artifacts/test-results/desktop-SDK.png'
+        $sdkProcess = Start-Process -FilePath $gui -ArgumentList @('--self-test-sdk', ('"' + $sdkPng + '"')) -WindowStyle Hidden -PassThru -Wait
+        if ($sdkProcess.ExitCode -ne 0 -or !(Test-Path -LiteralPath $sdkPng)) { throw 'Desktop SDK render test failed.' }
+    }
     $schemaDir = 'C:\Program Files (x86)\Rockwell Software\RSView Enterprise\Schemas'
     if (Test-Path -LiteralPath $schemaDir) {
         foreach ($edition in @('ME','SE')) {

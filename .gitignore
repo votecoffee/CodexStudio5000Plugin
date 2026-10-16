@@ -7,3 +7,4 @@ service.local.json
 .vs/
 work/
 examples/NativeFixture.acd
+examples/sdk-*.l5x

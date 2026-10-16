@@ -17,6 +17,14 @@ Default base URL: `http://127.0.0.1:5487`. Read `.local/connection.json` for the
 | GET | `/api/artifacts/{id}` | Download hash-bound artifact bytes |
 | POST | `/api/artifacts/{id}/save` | Save a new file under OutputRoots |
 | GET | `/api/audit?projectId=...` | Last 500 matching local audit events |
+| GET | `/api/sdk/capabilities` | Full version-specific SDK operation/argument/enum catalog |
+| GET | `/api/sdk/coverage` | Installed public-signature and compiled-binding parity |
+| POST | `/api/sdk/source` | Hash an allowed SDK source/import file |
+| GET/POST | `/api/sdk/jobs` | List jobs / submit ordered native SDK calls |
+| GET | `/api/sdk/jobs/{id}` | Per-call results, diagnostics, status and output artifacts |
+| POST | `/api/sdk/jobs/{id}/cancel` | Request cancellation; poll completion; no rollback |
+
+SDK request/response examples, target configuration and evidence boundaries are in [SDK.md](SDK.md). These endpoints use the same shared service as XML editing and FactoryTalk.
 
 Register and edit using PowerShell:
 

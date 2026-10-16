@@ -6,6 +6,8 @@
     "OutputRoots": ["artifacts/exports"],
     "NativeBridgePath": null,
     "NativeTimeoutSeconds": 180,
+    "EnableControllerOperations": false,
+    "ControllerTargets": [],
     "FactoryTalkSchemaDirectory": "C:\\Program Files (x86)\\Rockwell Software\\RSView Enterprise\\Schemas",
     "FactoryTalkStudioPath": "C:\\Program Files (x86)\\Rockwell Software\\RSView Enterprise\\Launcher.exe"
   },

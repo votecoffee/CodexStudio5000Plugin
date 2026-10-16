@@ -4,6 +4,7 @@
     <RestoreAdditionalProjectSources Condition="Exists('C:/Users/Public/Documents/Studio 5000/Logix Designer SDK/dotnet')">C:/Users/Public/Documents/Studio 5000/Logix Designer SDK/dotnet</RestoreAdditionalProjectSources>
   </PropertyGroup>
   <ItemGroup>
+    <ProjectReference Include="../Studio5000.Core/Studio5000.Core.csproj" />
     <PackageReference Include="RockwellAutomation.LogixDesigner.CSClient" Version="2.1.974" GeneratePathProperty="true" />
     <!-- The SDK's build target copies this helper to bin but omits it from publish. -->
     <None Include="$(PkgRockwellAutomation_LogixDesigner_CSClient)/FtspAdapter/FtspAdapter.exe" Link="FtspAdapter.exe" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />

@@ -1,5 +1,13 @@
 using RockwellAutomation.LogixDesigner;
 using RockwellAutomation.LogixDesigner.Logging;
+using Studio5000.NativeBridge;
+
+if (args.Length == 1 && args[0] == "--sdk-coverage")
+{
+    Console.WriteLine(System.Text.Json.JsonSerializer.Serialize(SdkRunner.Coverage(), Studio5000.Core.ProjectService.Json));
+    return 0;
+}
+if (args.Length == 2 && args[0] == "--sdk") return await SdkRunner.RunAsync(args[1]);
 
 // Offline project creation is also available for reproducible native test fixtures.
 if (args.Length == 2 && args[0] == "--create-fixture")
@@ -15,7 +23,7 @@ if (args.Length == 2 && args[0] == "--create-fixture")
     }
     catch (Exception ex) { Console.Error.WriteLine(ex); return 1; }
 }
-// Intentionally limited to offline Open/SaveAs. No controller connectivity API is called here.
+// Compatibility conversion entry point; structured SDK operations use --sdk and stdin.
 if (args.Length != 2) { Console.Error.WriteLine("Usage: Studio5000.NativeBridge <input.acd|l5x> <new-output.acd|l5x>"); return 2; }
 try
 {

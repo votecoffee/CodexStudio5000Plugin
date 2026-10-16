@@ -6,6 +6,16 @@ try
 {
     var root = ServiceClient.FindRoot();
     using var client = new ServiceClient(root);
+    if (args.Length == 2 && args[0] == "--self-test-sdk")
+    {
+        using var sdk = new SdkForm(client, null);
+        sdk.StartPosition = FormStartPosition.Manual; sdk.Location = new(-30000, -30000); sdk.ShowInTaskbar = false;
+        sdk.LoadForTest();
+        sdk.Show(); Application.DoEvents();
+        using var bitmap = new Bitmap(sdk.Width, sdk.Height);
+        sdk.DrawToBitmap(bitmap, new Rectangle(Point.Empty, sdk.Size)); bitmap.Save(args[1], System.Drawing.Imaging.ImageFormat.Png);
+        sdk.Close(); return;
+    }
     using var form = new MainForm(client);
     if (args.Length == 2 && args[0] == "--self-test")
     {
@@ -27,6 +37,6 @@ try
 }
 catch (Exception ex)
 {
-    if (args.Contains("--self-test")) { Console.Error.WriteLine(ex); Environment.ExitCode = 1; }
+    if (args.Contains("--self-test") || args.Contains("--self-test-sdk")) { Console.Error.WriteLine(ex); Environment.ExitCode = 1; }
     else MessageBox.Show(ex.Message, "Studio 5000 service", MessageBoxButtons.OK, MessageBoxIcon.Error);
 }

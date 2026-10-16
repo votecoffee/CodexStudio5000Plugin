@@ -55,7 +55,7 @@ app.Use(async (context, next) =>
     catch (Exception ex) when (ex is System.Xml.XmlException or System.Xml.Schema.XmlSchemaException or System.Xml.XPath.XPathException or ArgumentException or System.Text.Json.JsonException)
     { context.Response.StatusCode = 400; await context.Response.WriteAsJsonAsync(new { code = "invalid_request", message = ex.Message }); }
 });
-app.MapGet("/health", () => new { status = "ok", version = "0.2.0" });
+app.MapGet("/health", () => new { status = "ok", version = "0.3.0" });
 app.MapGet("/api/capabilities", (ProjectService service) => service.Capabilities());
 app.MapGet("/api/projects", (ProjectService service) => service.Projects());
 app.MapPost("/api/projects", (ProjectService service, RegisterRequest request, CancellationToken ct) => service.RegisterAsync(request.Path, ct));
@@ -74,6 +74,13 @@ app.MapGet("/api/artifacts/{id}", (ProjectService service, string id) =>
 });
 app.MapPost("/api/artifacts/{id}/save", (ProjectService service, string id, SaveArtifactRequest request, CancellationToken ct) => service.SaveArtifactAsync(id, request.Path, ct));
 app.MapGet("/api/audit", (ProjectService service, string? projectId) => service.History(projectId));
+app.MapGet("/api/sdk/capabilities", (ProjectService service) => service.SdkCapabilities());
+app.MapGet("/api/sdk/coverage", (ProjectService service, CancellationToken ct) => service.SdkCoverageAsync(ct));
+app.MapPost("/api/sdk/source", (ProjectService service, RegisterRequest request, CancellationToken ct) => service.InspectSdkSourceAsync(request.Path, ct));
+app.MapGet("/api/sdk/jobs", (ProjectService service) => service.SdkJobList());
+app.MapPost("/api/sdk/jobs", (ProjectService service, SdkRunRequest request, CancellationToken ct) => service.StartSdkJobAsync(request, ct));
+app.MapGet("/api/sdk/jobs/{id}", (ProjectService service, string id) => service.SdkJob(id));
+app.MapPost("/api/sdk/jobs/{id}/cancel", (ProjectService service, string id) => service.CancelSdkJob(id));
 app.MapGet("/api/factorytalk/status", (ProjectService service) => service.FactoryTalkStatus());
 app.MapPost("/api/factorytalk/launch", (ProjectService service) => service.LaunchFactoryTalkStudio());
 app.MapGet("/api/projects/{id}/graphics-validation", (ProjectService service, string id) => service.ValidateGraphics(id));

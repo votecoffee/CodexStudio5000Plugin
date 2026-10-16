@@ -1,0 +1,90 @@
+# Logix Designer SDK operations
+
+All **59 operation names in RockwellAutomation.LogixDesigner.CSClient 2.1.974** are exposed through native jobs. This is version-specific: it excludes APIs added by newer packages, and each operation still depends on the installed Logix version and project/controller support.
+
+The frozen API has **67 public signatures, 63 unique method names**: 59 domain operations, four internally managed event/disposal methods, and four alternative enumerable-logger overloads. Generated direct C# calls compile against the vendor package. `/api/sdk/coverage` compares actual signatures and inspects compiled IL, reporting both `matchesFrozenSurface` and `allOperationsBound`. Runtime dispatch uses an explicit switch; requests cannot invoke arbitrary methods or upload executable callbacks. The alternate logger overloads use the bridge's event collector. `RequestedUploadMergeMode` is an enum without a public method parameter in this version; the catalog preserves it without inventing an API.
+
+| Family | Operations |
+|---|---|
+| Projects | Open/create/save/SaveAs; detailed L5X/L5K; revision conversion; controller-type conversion; processor catalog |
+| Builds | Default, physical-controller and Echo targets |
+| Components | Partial export; collision-aware import; import with target; rung insertion/replacement and edit disposition |
+| Tag values | Raw bytes and BOOL/SINT/INT/DINT/LINT/USINT/UINT/UDINT/ULINT/REAL/LREAL/STRING; offline and online |
+| Communications | Get/set path, connection state, go online/offline |
+| Transfers/modes | Download, upload, upload to new project; read mode; request Run/Program/Test |
+| Safety | Network number, lock state, lock/unlock/password changes, get/generate/delete signature |
+| SD card | Store/load image, load event/mode, firmware-update setting, image name/note |
+| Lifecycle | Collected/redacted status/error/progress events, handler lifecycle and disposal |
+
+## Shared API and GUI
+
+Read `studio_sdk_catalog` / `GET /api/sdk/capabilities` for exact methods, parameters and enum names. SDK XPath strings start at `Controller/...`; XML editor selectors normally start at `/RSLogix5000Content/...`.
+
+`POST /api/sdk/jobs` starts a job. Calls execute in order in one native project session. Supply one source (`projectId`, `sourcePath` or `sourceArtifactId`) with its exact `expectedSha256`, or start with `CreateNewProjectAsync` / `UploadToNewProjectAsync`. Factories must come first. Static `GetProcessorTypesAsync` needs no source. Opening a source can be implicit or an explicit first `OpenLogixProjectAsync` call.
+
+```json
+{
+  "calls": [
+    { "method": "CreateNewProjectAsync", "arguments": {
+      "majorRevision": 38, "processorTypeName": "1756-L81E", "controllerName": "Demo"
+    } },
+    { "method": "BuildAsync", "arguments": { "target": "DefaultTarget" } },
+    { "method": "SaveAsAsync", "arguments": { "savePath": "detailed.l5x", "detailedL5x": true } }
+  ]
+}
+```
+
+Poll `GET /api/sdk/jobs/{id}` / `studio_sdk_get_job`. Results contain status (`queued`, `running`, `succeeded`, `failed`, `cancelled`, `indeterminate`), per-call values, diagnostics, artifacts and a new managed result project. Source files/revisions/artifacts remain preserved. A successful project session produces final ACD/L5X artifacts and explicitly requested exports. Use `studio_save_artifact` to save a new file under `OutputRoots`. Native XML over the managed editor's 64 MiB limit remains available as artifacts for SDK jobs without editor adoption. SDK source inputs support up to 500 MiB.
+
+`GET /api/sdk/jobs` lists the last 100 jobs. `POST /api/sdk/jobs/{id}/cancel` requests cancellation; poll its terminal status. Client disconnection does not cancel submitted work. Cancellation is not rollback. Timeout, child-process termination or a service restart can leave effects indeterminate; inspect any external target before retrying. The service never automatically retries. Per-call results remain relevant if a later call or final publication fails.
+
+`studio_sdk_inspect_source` / `POST /api/sdk/source` with `{ "path": "C:\\Projects\\Machine.acd" }` reads a source hash without opening it in the SDK. Jobs snapshot and rehash inputs again, rejecting stale hashes. `SaveAsync` saves the private copy. Source ACD/L5X/L5K and external XML files require an allowed root; managed artifact inputs are verified in storage.
+
+Output `savePath` / partial-export `filePath` values are simple new filenames, remapped into the job directory. SaveAs accepts ACD/L5X/L5K; partial export accepts XML/L5X. Overwrite mode, traversal, duplicate names and reserved input/import/created/final names are rejected. Factory paths are injected: omit `projectFilePath` and conversion `projectPath`.
+
+Partial imports use aliases bound to a path or previous artifact plus its exact hash:
+
+```json
+{
+  "sourceArtifactId": "ACD_ARTIFACT_ID",
+  "expectedSha256": "ACD_SHA256",
+  "inputFiles": {
+    "program": { "artifactId": "PARTIAL_L5X_ID", "sha256": "PARTIAL_L5X_SHA256" }
+  },
+  "calls": [{ "method": "PartialImportFromXmlFileAsync", "arguments": {
+    "xPath": "Controller/Programs/Program[@Name='MainProgram']",
+    "xmlFileToImport": "program", "collisionOption": "OverwriteOnColl"
+  } }]
+}
+```
+
+An external import instead uses `{ "path": "C:\\Exports\\Program.l5x", "sha256": "..." }`. XML DTDs/external entities are rejected. Enum arguments are exact string names. Typed values are JSON scalars with SDK range checks; use an integer-capable client for exact 64-bit values. Raw `tagValue` is base64, maximum 30000 decoded bytes. Raw reads return `{ "base64": "...", "bytes": n }`; the bridge does not guess byte order/layouts.
+
+The **SDK operations…** GUI uses this same service. Add methods from its catalog, choose a source or the selected managed project, edit JSON arguments, run, refresh and save an output. The catalog shows configured targets. Password arguments remain in memory/stdin; the raw request is not persisted. Collected diagnostics redact supplied nonempty passwords, and the GUI clears them after submission. Vendor diagnostics outside this application have independent behavior.
+
+## Controller targets
+
+Controller APIs are implemented but disabled by default. Configure an authorized target in ignored `service.local.json`, restart, then select its `controllerTargetId`:
+
+```json
+{
+  "Studio5000": {
+    "EnableControllerOperations": true,
+    "ControllerTargets": [{ "Id": "lab-plc", "CommunicationsPath": "EXACT_FACTORYTALK_LINX_PATH" }]
+  }
+}
+```
+
+The service injects this path, preventing request overrides. Any `mode=Online`, go-online, download/upload, controller mode, SD-card or generate/delete-signature call requires the enabled target. Setting a path on an offline copy requires a configured target but does not connect or require live operations enabled. Sessions end when the job disconnects/disposes.
+
+The agent needs explicit user authorization for the actual target/action. Offline development tests do not authorize actions on a plant controller. The bridge does not automatically change mode, download, remove a signature or unlock safety to make another operation succeed.
+
+## Native evidence
+
+`scripts/Verify-Sdk.ps1` uses generated version-38 standard/GuardLogix fixtures for builds, typed/raw round trips, partial exports/imports, conversion and offline safety. Its isolated path fixture writes a TEST-NET address into a copy with controller operations disabled and never calls a connection API. Reports retain hashes, attempted calls and diagnostics.
+
+Development evidence: 48 distinct operation names completed successfully; get-safety-signature returned the expected missing-signature diagnostic; the ten controller-only operations have no live validation. Coverage also confirmed 67 matching public signatures and all 59 operation names bound in compiled code. This does not test every argument combination/version.
+
+A fresh GuardLogix project has no signature: get-signature preserves `XMLSrv_E_NO_VALUE_TO_GET` as an expected negative case. The installed version-35 Logix build reports `BuildAsync` unsupported; version 38 passed. The archived sample also has a separate untouched-export reimport failure recorded in `VALIDATION.md`. Native call completion is distinct from controller, physical I/O, runtime, safety and commissioning acceptance. Live validation remains pending.
+
+Newer SDK content-protection APIs are outside this frozen installed surface. Add those after upgrading and reinventorying the actual package. See [Rockwell's SDK guide](https://literature.rockwellautomation.com/idc/groups/literature/documents/gr/ldsdk-gr001_-en-p.pdf); installed package documentation/examples define this version's signatures.

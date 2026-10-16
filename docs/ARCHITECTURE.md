@@ -33,9 +33,19 @@ This is a single trusted Windows-user application. Another process running with 
 
 Supported edit operations are scalar `set_text` on Description/Text/Comment; `set_attribute` on an existing attribute within a Tag/Routine except Name/Number; `replace_element`; `add_element`; and `remove_element`. Components include tags, routines, rungs, ST lines, programs, UDTs and AOIs. One preview can contain up to 200 edits. Selectors must resolve to one element. Duplicate sibling names are rejected case-insensitively. RLL/ST content must match the routine type.
 
-These are structural checks. References, rung semantics, safety signatures, I/O behavior, native compiler results, project version compatibility and commissioning remain separate. Source-protected and unsupported native content is preserved by snapshots but is not decoded by the editor. No online connection, mode change, force, tag write, controller download, or safety-signature API is exposed. Native availability means the bridge executable is configured; only a successful actual conversion demonstrates native operation for that project.
+These are structural checks. References, rung semantics, safety signatures, I/O behavior, native compiler results, project version compatibility and commissioning remain separate. Source-protected and unsupported native content is preserved by snapshots but is not decoded by the XML editor. The separate SDK job API exposes the installed SDK's project, tag, controller, safety and SD card operations. Native availability means the bridge executable is configured; only successful execution establishes native evidence for that operation/project/version.
 
 The native SDK runs under the current interactive Windows account because FactoryTalk authentication/licensing can depend on that account. The background process is deliberately a per-user shared service rather than an SCM service under LocalSystem.
+
+## SDK jobs
+
+`SdkSurface.json` freezes the installed 2.1.974 public API. Generated direct C# calls compile against the vendor package; a coverage command compares reflected signatures and inspects the bridge IL for bound method names. No arbitrary reflection or callback execution is exposed. Vendor logging callbacks and disposal are managed inside the child process.
+
+Each job snapshots a hash-bound project/file/artifact and its imported XML files into `sdk-jobs/<id>/work`. File parameters are remapped to that directory. SaveAs cannot overwrite existing files. Native calls are serialized with conversions; each job retains one project session across its ordered calls, then disconnects and exports new ACD/L5X files. Success publishes hashed artifacts and a new managed project. The source project/revision remains preserved. The raw request is never persisted; password arguments travel over stdin and are redacted from collected diagnostics. Vendor logging outside this application has its own behavior.
+
+REST returns a job ID immediately. MCP and GUI poll the same durable result. Cancellation kills the child process tree and is not rollback. If the process is interrupted after dispatch, its result is `indeterminate`; a service restart similarly marks unfinished jobs. Completed controller effects must be inspected before a retry. A terminal failure retains per-call results, diagnostics and staging without publishing it as a successful artifact. Output publication failures are distinct from prior SDK call completion and can leave retained files.
+
+Controller entry points and `mode=Online` require both `EnableControllerOperations` and a selected configured `ControllerTargetId`. The communications path is injected from configuration, never accepted as an arbitrary request override. Setting a communications path on an offline copy requires a configured target but does not require enabling controller operations. SDK calls that go online hold that session only within the job; disposal ends it. Local offline fixture evidence does not establish live-controller, runtime, safety or commissioning acceptance.
 
 ## FactoryTalk ME/SE
 
