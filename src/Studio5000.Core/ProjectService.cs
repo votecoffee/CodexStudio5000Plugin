@@ -309,6 +309,7 @@ public sealed partial class ProjectService : IDisposable
             if (File.Exists(path)) throw new OperationException("output_exists", "Choose a new output filename; existing files are preserved.");
             Directory.CreateDirectory(Path.GetDirectoryName(path)!);
             File.Copy(source, path, overwrite: false);
+            if (artifact.Format == "csv") return new(path, artifact.Sha256, artifact.Bytes);
             var info = File.Exists(ProjectMeta(artifact.ProjectId)) ? Get(artifact.ProjectId) :
                 File.Exists(VdMeta(artifact.ProjectId)) ? ViewDesignerProject(artifact.ProjectId) : SdkAuditProject(SdkJob(artifact.ProjectId));
             Audit("save_artifact", info, null, artifact.Sha256, path);

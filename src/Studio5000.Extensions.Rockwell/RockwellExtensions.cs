@@ -79,5 +79,11 @@ public sealed class WatchesExtension : ProxyExtension
         Get("studio_watch_history", "Read bounded cached history.", a => Query(a, $"/api/watches/{E(a, "watchId")}/history", "limit"), F<string>("watchId"), F<int>("limit", true));
         Post<StructureExtractRequest>("studio_structure_extract", "read", "Extract saved/upload snapshot UDT definitions and nested values with pagination.", _ => "/api/structures/extract");
         Post<StructurePullRequest>("studio_structure_pull", "control", "Upload the explicitly authorized controller to a new SDK snapshot. Requires enabled configured Upload scope; never a download.", _ => "/api/structures/pull");
+        Post<TagBrowseRequest>("studio_tag_browse", "read", "Search snapshot controller/program tags and lazily expand declared UDT members/array cells. No controller connection.", _ => "/api/tags/browse");
+        Post<BrowserWatchRequest>("studio_tag_create_watch", "apply", "Create a stopped watch list from exact snapshot tag/member selections. Preserves a hash-bound source artifact; never starts polling.", _ => "/api/tags/watch");
+        Get("studio_watch_recording", "Recording settings, storage and recovery status.", a => $"/api/watches/{E(a, "watchId")}/recording", F<string>("watchId"));
+        Post<WatchRecordingUpdate>("studio_watch_recording_configure", "apply", "Enable/pause recording and set bounded retention without changing polling. Uses recording settings revision.", a => $"/api/watches/{E(a, "watchId")}/recording", F<string>("watchId"));
+        Post<WatchRecordingQuery>("studio_watch_recording_query", "read", "Page durable samples and gap/session events by UTC range and watch revision. Stale values must not be treated as current.", a => $"/api/watches/{E(a, "watchId")}/recording/query", F<string>("watchId"));
+        Post<WatchRecordingQuery>("studio_watch_recording_export", "apply", "Export retained UTC samples, quality and gap events as a downloadable CSV artifact. Pagination limit does not truncate CSV.", a => $"/api/watches/{E(a, "watchId")}/recording/export", F<string>("watchId"));
     }
 }

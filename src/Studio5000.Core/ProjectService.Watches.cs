@@ -5,9 +5,11 @@ namespace Studio5000.Core;
 
 public sealed partial class ProjectService
 {
-    private sealed class WatchRuntime(WatchDefinition definition)
+    private sealed class WatchRuntime(WatchDefinition definition, string directory)
     {
         public WatchDefinition Definition = definition;
+        public readonly WatchRecorder Recorder = new(directory, definition);
+        public string Session = "";
         public string State = "stopped";
         public string? Error;
         public WatchSnapshot? Latest;
@@ -27,9 +29,12 @@ public sealed partial class ProjectService
         foreach (var file in Directory.GetFiles(WatchDirectory, "definition.json", SearchOption.AllDirectories))
         {
             var definition = Read<WatchDefinition>(file); WatchValidation.Validate(definition.Settings);
-            var runtime = new WatchRuntime(definition);
+            var runtime = new WatchRuntime(definition, WatchDir(definition.Id));
             var latest = Path.Combine(Path.GetDirectoryName(file)!, "latest.json");
             if (File.Exists(latest)) runtime.Latest = Read<WatchSnapshot>(latest);
+            foreach (var sample in runtime.Recorder.Query(new(), definition.Revision).Where(r => r.Snapshot is not null).Select(r => r.Snapshot!))
+                CacheSample(runtime, sample);
+            runtime.Recorder.Append(definition.Revision, "", "service_restart", detail: "Polling remains stopped after service startup.");
             watches.Add(definition.Id, runtime); // Always stopped, including after an interrupted online session.
         }
     }
@@ -56,8 +61,8 @@ public sealed partial class ProjectService
             if (id is null)
             {
                 if (watches.Count >= 100) throw new OperationException("watch_limit", "Maximum 100 saved watch lists.");
-                id = Guid.NewGuid().ToString("N"); runtime = new(new(id, 0, DateTimeOffset.UtcNow, Clone(request)!));
-                Directory.CreateDirectory(WatchDir(id)); watches.Add(id, runtime);
+                id = Guid.NewGuid().ToString("N"); Directory.CreateDirectory(WatchDir(id));
+                runtime = new(new(id, 0, DateTimeOffset.UtcNow, Clone(request)!), WatchDir(id)); watches.Add(id, runtime);
             }
             else
             {
@@ -69,6 +74,7 @@ public sealed partial class ProjectService
                 var old = Path.Combine(WatchDir(id), "latest.json"); if (File.Exists(old)) File.Delete(old);
             }
             Save(Path.Combine(WatchDir(id), "definition.json"), runtime.Definition);
+            runtime.Recorder.PreserveDefinition(runtime.Definition);
             return Status(runtime);
         }
     }
@@ -101,6 +107,8 @@ public sealed partial class ProjectService
                 throw new OperationException("sdk_controller_disabled", "Online watch polling requires enabled controller access and a configured target.");
             if (watches.Values.Count(w => w.Task is { IsCompleted: false }) >= 4) throw new OperationException("watch_limit", "Maximum four active watch lists.");
             watch.Cancel?.Dispose(); watch.Cancel = new(); watch.State = "starting"; watch.Error = null;
+            watch.Session = Guid.NewGuid().ToString("N");
+            watch.Recorder.Append(watch.Definition.Revision, watch.Session, "start");
             var token = watch.Cancel.Token;
             watch.Task = Task.Run(() => PollWatchAsync(watch, target, token));
             return Task.FromResult(Status(watch));
@@ -141,9 +149,8 @@ public sealed partial class ProjectService
                     var sample = new WatchSnapshot((watch.Latest?.Sequence ?? 0) + 1, start, DateTimeOffset.UtcNow, settings.Mode, values);
                     var bytes = JsonSerializer.SerializeToUtf8Bytes(sample, Json).Length;
                     if (bytes > 4 * 1024 * 1024) throw new OperationException("watch_too_large", "A sample exceeds 4 MiB; reduce the list.");
-                    watch.Latest = sample; watch.History.Enqueue(sample); watch.HistoryBytes += bytes;
-                    while (watch.History.Count > settings.HistoryLimit || watch.HistoryBytes > 8 * 1024 * 1024)
-                        watch.HistoryBytes -= JsonSerializer.SerializeToUtf8Bytes(watch.History.Dequeue(), Json).Length;
+                    watch.Recorder.Append(watch.Definition.Revision, watch.Session, "sample", sample);
+                    watch.Latest = sample; CacheSample(watch, sample);
                     Save(Path.Combine(WatchDir(watch.Definition.Id), "latest.json"), sample);
                 }
                 var remaining = settings.IntervalMs - clock.ElapsedMilliseconds;
@@ -152,6 +159,21 @@ public sealed partial class ProjectService
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested) { lock (watchLock) watch.State = "stopped"; }
         catch (Exception ex) { lock (watchLock) { watch.State = "faulted"; watch.Error = ex.Message; } }
+        finally
+        {
+            lock (watchLock)
+            {
+                try { watch.Recorder.Append(watch.Definition.Revision, watch.Session, watch.State == "faulted" ? "fault" : "stop", detail: watch.Error); }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { watch.State = "faulted"; watch.Error = "Recording failed: " + ex.Message; }
+            }
+        }
+    }
+
+    private static void CacheSample(WatchRuntime watch, WatchSnapshot sample)
+    {
+        watch.History.Enqueue(sample); watch.HistoryBytes += JsonSerializer.SerializeToUtf8Bytes(sample, Json).Length;
+        while (watch.History.Count > watch.Definition.Settings.HistoryLimit || watch.HistoryBytes > 8 * 1024 * 1024)
+            watch.HistoryBytes -= JsonSerializer.SerializeToUtf8Bytes(watch.History.Dequeue(), Json).Length;
     }
 
     public async Task<WatchStatus> StopWatchAsync(string id)
