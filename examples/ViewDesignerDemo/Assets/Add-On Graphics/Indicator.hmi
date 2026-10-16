@@ -1,0 +1,11 @@
+namespace ViewDesigner::AOG;
+using HMICatalog;
+AddOnGraphic Indicator {
+    Description := "Development indicator";
+    Major := 1;
+    Minor := 0;
+    UserProperties {
+        TagInstance { DataType := "::LGX.REAL"; Description := "Process value"; }
+    }
+    NumericDisplay Value { Value := 0 -> "TagInstance"; }
+}

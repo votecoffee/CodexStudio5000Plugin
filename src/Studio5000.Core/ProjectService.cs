@@ -53,6 +53,7 @@ public sealed partial class ProjectService : IDisposable
         outputRoots,
         projectKinds = new[] { "logix", "ftview-me", "ftview-se" },
         factoryTalk = FactoryTalkStatus(),
+        viewDesigner = ViewDesignerStatus(),
         sdk = SdkCapabilities(),
         watches = new { minimumIntervalMs = 100, maximumTags = 64, maximumActiveLists = 4, autoStartAfterRestart = false, structures = "SDK-native decorated XML; no inferred memory offsets" },
         validation = "XML checks and installed SDK operations have distinct evidence levels. Live controller operations require an enabled, configured target; validation is operation/version-specific."
@@ -307,7 +308,8 @@ public sealed partial class ProjectService : IDisposable
             if (File.Exists(path)) throw new OperationException("output_exists", "Choose a new output filename; existing files are preserved.");
             Directory.CreateDirectory(Path.GetDirectoryName(path)!);
             File.Copy(source, path, overwrite: false);
-            var info = File.Exists(ProjectMeta(artifact.ProjectId)) ? Get(artifact.ProjectId) : SdkAuditProject(SdkJob(artifact.ProjectId));
+            var info = File.Exists(ProjectMeta(artifact.ProjectId)) ? Get(artifact.ProjectId) :
+                File.Exists(VdMeta(artifact.ProjectId)) ? ViewDesignerProject(artifact.ProjectId) : SdkAuditProject(SdkJob(artifact.ProjectId));
             Audit("save_artifact", info, null, artifact.Sha256, path);
             return new(path, artifact.Sha256, artifact.Bytes);
         }

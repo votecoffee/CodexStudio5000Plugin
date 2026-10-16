@@ -1,0 +1,7 @@
+namespace ViewDesigner;
+using HMICatalog;
+Shortcut Overview {
+    TargetScreenName := "User-Defined Screens\Overview";
+    Caption := "Overview";
+    UseScreenSecurity := true;
+}

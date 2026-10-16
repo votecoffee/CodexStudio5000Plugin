@@ -1,0 +1,8 @@
+namespace ViewDesigner;
+using HMICatalog;
+DataLog Process {
+    SamplingRate := EnumSamplingRate._1000_ms;
+    Duration := 1;
+    DurationUnit := EnumDurationUnit.Days;
+    DataLogEntry Result { TagName := "::LGX.CodexTest.CodexSdk_Result"; }
+}

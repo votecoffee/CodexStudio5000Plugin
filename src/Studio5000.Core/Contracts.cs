@@ -11,6 +11,7 @@ public sealed class ServiceOptions
     public ControllerTarget[] ControllerTargets { get; set; } = [];
     public string FactoryTalkSchemaDirectory { get; set; } = @"C:\Program Files (x86)\Rockwell Software\RSView Enterprise\Schemas";
     public string FactoryTalkStudioPath { get; set; } = @"C:\Program Files (x86)\Rockwell Software\RSView Enterprise\Launcher.exe";
+    public string ViewDesignerPath { get; set; } = @"C:\Program Files (x86)\Rockwell Software\Studio 5000\View Designer\ENU\V9\ViewDesigner.exe";
 }
 
 public sealed record ProjectInfo(string Id, string Name, string SourcePath, string SourceSha256,

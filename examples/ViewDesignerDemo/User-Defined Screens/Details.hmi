@@ -1,0 +1,7 @@
+namespace ViewDesigner;
+using HMICatalog;
+Popup Details {
+    Caption := "Process details";
+    CloseButtonVisible := true;
+    FillColor := "#ffffff";
+}

@@ -1,0 +1,29 @@
+namespace ViewDesigner;
+using HMICatalog;
+Screen Overview {
+    ShowDefaultBanner := true;
+    FillColor := "#ffffff";
+    UpdateRate := EnumUpdateRate._500_ms;
+    Width := 800;
+    Height := 480;
+    TextDisplay Status {
+        Text := "Ready";
+        X := 20;
+        Y := 20;
+        FontSize := 20;
+        ^Visible := true;
+    }
+    NumericDisplay ProcessValue {
+        Value := 0 -> "::LGX.CodexTest.CodexSdk_Result";
+        X := 20;
+        Y := 70;
+    }
+    Button Details {
+        Text := "Details";
+        Border { Color := "#000000"; Width := 1; }
+        OnTouchRelease OpenDetails {
+            ReleaseOnOpenClose := false;
+            DisplayPopupCommand OpenPopup (Title := "Process", Width := 400, Height := 300, PopupName := "User-Defined Screens\Details")
+        }
+    }
+}

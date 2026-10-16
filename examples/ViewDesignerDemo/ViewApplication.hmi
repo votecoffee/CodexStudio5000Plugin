@@ -1,0 +1,6 @@
+namespace ViewDesigner;
+using HMICatalog;
+// Generated development fixture. Native View Designer import has not been tested.
+ViewProject CodexHmiDemo {
+    HomeScreen := "Overview";
+}
