@@ -1,0 +1,18 @@
+---
+name: logix-online-edits
+description: Prepare Logix online rung or routine imports through the shared service and carry accepted edits through Studio 5000 Test, Untest and Assemble using observed native UI. Use for PLC online-edit workflows, including existing accepted edits; FactoryTalk HMI work uses its own skill.
+---
+
+Use the installed SDK catalog and the shared `studio_*` tools. The SDK 2.1.974 can import with `LeaveEdits`, `AcceptEdits` or `FinalizeEdits`; it has no standalone Test/Untest/Assemble API. **Controller Test mode is not Test Edits.** Never substitute `ChangeControllerModeAsync(Test)` or claim that SDK `FinalizeEdits` provided a test interval.
+
+Honor the user's current scope. A request to build the plugin or prepare a plan does not authorize a controller connection. For an actual online change, identify the saved ACD, exact controller/FactoryTalk Linx path, program/routine and intended change. Use existing authorization for those actions; do not add a fresh approval gate merely because Studio displays a normal confirmation dialog. Resolve genuinely missing target details, extra affected routines or requested functional criteria before their dependent actions. If the user says to test later, finish local preparation without connecting.
+
+For a new import, hash the current matching ACD and component export with `studio_sdk_inspect_source`. Call `studio_online_edit_plan` with the configured target, explicit program/routine, hashes and rung range or routine import kind. Default `accept_for_test` maps to SDK `AcceptEdits`. Review the returned `sdkRequest` and component/dependency scope, then submit through `studio_sdk_start_job` only within the authorized live scope. Planning never connects or enables a target. `PartialImportFromXmlFileAsync` is offline-only; use the with-target or rung API online. A GoOnline correlation failure is not permission to download or change modes.
+
+Poll the shared job and inspect every attempted call. SDK completion is not native test/assemble evidence. For accepted/pending imports, save the returned final ACD artifact as a new file and use it for Studio handoff. The SDK job disconnects/disposes its session; no persistent chat-held online connection is promised. If accepted edits are not visible after reconnecting, investigate the observed state instead of reimporting to guess a fix.
+
+For Test/Untest/Assemble, read [references/studio-workflow.md](references/studio-workflow.md). Load the available Windows Computer Use skill and its runtime/confirmation guidance before driving Studio. Use current UI evidence and supported tools; do not invent SDK methods, send terminal-driven input, call undocumented interfaces or guess coordinates. If Computer Use is unavailable or stopped, report the native phase as pending and retain the plan/job artifacts. Existing accepted edits can go directly to native inspection; do not reimport them to manufacture a test step.
+
+Choose `finalize_during_import` only when the user's requested workflow actually skips the test interval. It selects SDK `FinalizeEdits`, which the installed documentation says assembles in Run mode. Do not silently replace a requested test-then-assemble sequence with this shortcut, and do not change controller mode to force that outcome.
+
+Keep these evidence levels separate: plan prepared; SDK import returned; native Testing Edits observed; stated functional checks passed; native assembly observed; saved/re-exported result retained. Plans set test/finalization observations false. File equality, a build, or an SDK job success does not upgrade those observations. Interrupted/indeterminate work is not retried automatically, and cancellation is not rollback.

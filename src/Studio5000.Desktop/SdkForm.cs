@@ -29,6 +29,7 @@ public sealed class SdkForm : Form
         Button(toolbar, "Choose source…", ChooseSourceAsync);
         Button(toolbar, "Catalog", async () => Show(await client.GetAsync<JsonElement>("/api/sdk/capabilities")));
         Button(toolbar, "Coverage", async () => Show(await client.GetAsync<JsonElement>("/api/sdk/coverage")));
+        Button(toolbar, "Online edit…", PrepareOnlineEditAsync);
         var actions = new FlowLayoutPanel { Dock = DockStyle.Top, Height = 46, Padding = new(8, 3, 8, 3) };
         Button(actions, "Run job", SubmitAsync); actions.Controls.Add(jobId);
         Button(actions, "Refresh job", RefreshAsync);
@@ -106,6 +107,16 @@ public sealed class SdkForm : Form
         if (dialog.ShowDialog(this) != DialogResult.OK) return;
         var info = await client.PostAsync<JsonElement>("/api/sdk/source", new RegisterRequest(dialog.FileName));
         Request(Request() with { ProjectId = null, ExpectedSha256 = info.GetProperty("sha256").GetString(), SourcePath = dialog.FileName, SourceArtifactId = null });
+    }
+    private Task PrepareOnlineEditAsync()
+    {
+        using var dialog = new OnlineEditDialog(client);
+        if (dialog.ShowDialog(this) == DialogResult.OK && dialog.Plan is { } plan)
+        {
+            Request(plan.SdkRequest); Show(plan);
+            status.Text = "Online-edit plan prepared only. Native test/assemble observations remain pending; Run job is a separate action.";
+        }
+        return Task.CompletedTask;
     }
     private async Task SubmitAsync()
     {
