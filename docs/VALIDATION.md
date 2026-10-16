@@ -6,11 +6,13 @@ The default solution builds the core, REST service, transport client, MCP adapte
 
 `scripts/Verify.ps1` runs:
 
-1. **33 core tests:** original Logix/ME/SE checks plus SDK argument/range/enum validation, disabled/allowlisted controller entry points, input hashes, traversal and XML-entity rejection, method classification and interrupted-job recovery. Some tests cover multiple assertions. These tests do not require a native SDK.
-2. **34 REST/MCP integration checks with this installed SDK and FactoryTalk schemas:** original shared-service/authentication/edit/export checks plus ME/SE XSDs, edits/import plans, SDK catalog, native processor query job submitted through MCP and read through REST. The official MCP client launches the actual PowerShell wrapper and discovers all 27 tools. Graphics tests preserve native import as unobserved even when supplied XML values match. Without the native SDK the two query-job checks are omitted; without FactoryTalk schemas the 16 installed-schema checks are omitted.
-3. **Desktop render:** the actual WinForms form loads data through the shared HTTP client and renders off screen. Both ME and SE examples were visually inspected in the expanded GUI. This does not automate every button or validate Studio's native wizard.
+1. **41 core tests:** Logix/ME/SE editing and SDK policy checks plus online-plan option mapping, no-connection preparation, exact scope and hash validation, XML/sequence rejection, and separation of controller Test mode from native Test Edits. These tests require no native SDK.
+2. **42 REST/MCP integration checks with this installed SDK and FactoryTalk schemas:** shared-service/authentication/edit/export checks, ME/SE XSDs/plans, SDK catalog/query, and an isolated online-planning service. That fixture uses an inert bridge with controller execution disabled; it tests MCP/REST plans, stale input and blocked execution without creating a native job. The official client discovers all 28 tools. Without the SDK the two local processor-query checks are omitted; without FactoryTalk schemas the 16 installed-schema checks are omitted. Graphics XML matches preserve native import as unobserved.
+3. **Desktop render:** the actual main form, SDK editor and online-edit dialog load service data and render off screen; both ME and SE examples also render. This does not automate every button or validate native Studio Test/Untest/Assemble or graphics import.
 
 Evidence files are `artifacts/test-results/core.trx`, `integration.json`, and `desktop.png`. `dotnet build CodexStudio5000.sln -c Release` completed with zero warnings and errors in this development environment.
+
+Online-planning evidence is `online-edit-plan.json` and `desktop-online-edit.png`. The bundled `logix-online-edits` skill passes the skill frontmatter/placeholder validator. Its native workflow has not been exercised against a controller; per the user's instruction, live testing is deferred. See [ONLINE_EDITS.md](ONLINE_EDITS.md).
 
 ## FactoryTalk evidence
 

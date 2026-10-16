@@ -20,6 +20,7 @@ Default base URL: `http://127.0.0.1:5487`. Read `.local/connection.json` for the
 | GET | `/api/sdk/capabilities` | Full version-specific SDK operation/argument/enum catalog |
 | GET | `/api/sdk/coverage` | Installed public-signature and compiled-binding parity |
 | POST | `/api/sdk/source` | Hash an allowed SDK source/import file |
+| POST | `/api/sdk/online-edits/plan` | Prepare an online import and native Test/Assemble handoff; never connects |
 | GET/POST | `/api/sdk/jobs` | List jobs / submit ordered native SDK calls |
 | GET | `/api/sdk/jobs/{id}` | Per-call results, diagnostics, status and output artifacts |
 | POST | `/api/sdk/jobs/{id}/cancel` | Request cancellation; poll completion; no rollback |

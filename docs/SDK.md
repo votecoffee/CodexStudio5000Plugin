@@ -64,6 +64,8 @@ The **SDK operations…** GUI uses this same service. Add methods from its catal
 
 ## Controller targets
 
+For online rung/routine changes, use the [online-edit planner and native lifecycle workflow](ONLINE_EDITS.md). The installed SDK has no standalone Test/Untest/Assemble methods; controller Test mode is not Test Edits. The default plan accepts imports for later native testing. Finalizing during import is an explicit alternative with no test interval. Planning does not connect or enable a target.
+
 Controller APIs are implemented but disabled by default. Configure an authorized target in ignored `service.local.json`, restart, then select its `controllerTargetId`:
 
 ```json

@@ -1,6 +1,6 @@
 {
   "name": "studio5000-workspace",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Use the full installed Logix SDK operation catalog and edit FactoryTalk ME/SE graphics through one shared service, MCP and GUI.",
   "skills": "./skills/",
   "mcpServers": "./.mcp.json",

@@ -42,7 +42,7 @@ public sealed partial class ProjectService : IDisposable
 
     public object Capabilities() => new
     {
-        version = "0.3.0", nativeBridgeConfigured = native.Available,
+        version = "0.4.0", nativeBridgeConfigured = native.Available,
         operations = new[] { "register", "inspect", "read_element", "preview", "apply", "export_l5x", "explode", "register_exploded", "audit", "export_acd" },
         editOperations = new[] { "set_text", "set_attribute", "replace_element", "add_element", "remove_element" },
         allowedRoots = roots,
