@@ -14,6 +14,7 @@ public sealed partial class ProjectService : IDisposable
     public static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web) { WriteIndented = true };
     private readonly ServiceOptions options;
     private readonly NativeConverter native;
+    private readonly IWatchSessionFactory watchFactory;
     private readonly string state;
     private readonly string[] roots;
     private readonly string[] outputRoots;
@@ -21,7 +22,7 @@ public sealed partial class ProjectService : IDisposable
     private readonly object auditGate = new();
     private readonly FileStream instanceLock;
 
-    public ProjectService(ServiceOptions options)
+    public ProjectService(ServiceOptions options, IWatchSessionFactory? watchFactory = null)
     {
         this.options = options;
         if (options.ControllerTargets.Any(t => string.IsNullOrWhiteSpace(t.Id) || string.IsNullOrWhiteSpace(t.CommunicationsPath)) ||
@@ -38,7 +39,9 @@ public sealed partial class ProjectService : IDisposable
         Directory.CreateDirectory(Path.Combine(state, "projects"));
         Directory.CreateDirectory(Path.Combine(state, "artifacts"));
         native = new(options);
+        this.watchFactory = watchFactory ?? native;
         InitializeSdkJobs();
+        InitializeWatches();
     }
 
     public object Capabilities() => new
@@ -51,6 +54,7 @@ public sealed partial class ProjectService : IDisposable
         projectKinds = new[] { "logix", "ftview-me", "ftview-se" },
         factoryTalk = FactoryTalkStatus(),
         sdk = SdkCapabilities(),
+        watches = new { minimumIntervalMs = 100, maximumTags = 64, maximumActiveLists = 4, autoStartAfterRestart = false, structures = "SDK-native decorated XML; no inferred memory offsets" },
         validation = "XML checks and installed SDK operations have distinct evidence levels. Live controller operations require an enabled, configured target; validation is operation/version-specific."
     };
 
@@ -388,5 +392,5 @@ public sealed partial class ProjectService : IDisposable
     private static XDocument ParseDocument(ProjectInfo info, byte[] bytes) => FactoryTalkGraphics.IsFactoryTalk(info.Kind) ? FactoryTalkGraphics.Parse(bytes) : XmlProjects.Parse(bytes);
     private byte[] ApplyDocument(ProjectInfo info, byte[] bytes, Edit[] edits) => FactoryTalkGraphics.IsFactoryTalk(info.Kind)
         ? FactoryTalkGraphics.Apply(bytes, edits, options.FactoryTalkSchemaDirectory) : XmlProjects.Apply(bytes, edits);
-    public void Dispose() { DisposeSdkJobs(); instanceLock.Dispose(); gate.Dispose(); }
+    public void Dispose() { DisposeWatches(); DisposeSdkJobs(); instanceLock.Dispose(); gate.Dispose(); }
 }

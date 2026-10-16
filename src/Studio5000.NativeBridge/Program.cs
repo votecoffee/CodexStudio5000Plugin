@@ -8,6 +8,7 @@ if (args.Length == 1 && args[0] == "--sdk-coverage")
     return 0;
 }
 if (args.Length == 2 && args[0] == "--sdk") return await SdkRunner.RunAsync(args[1]);
+if (args.Length == 1 && args[0] == "--watch") return await SdkRunner.RunWatchAsync();
 
 // Offline project creation is also available for reproducible native test fixtures.
 if (args.Length == 2 && args[0] == "--create-fixture")

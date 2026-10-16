@@ -3,7 +3,7 @@ using System.Text.Json;
 
 namespace Studio5000.Core;
 
-public sealed class NativeConverter(ServiceOptions options)
+public sealed partial class NativeConverter(ServiceOptions options)
 {
     private readonly SemaphoreSlim gate = new(1, 1);
     public bool Available => !string.IsNullOrWhiteSpace(options.NativeBridgePath) && File.Exists(options.NativeBridgePath);
