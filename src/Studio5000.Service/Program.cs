@@ -2,6 +2,7 @@ using System.Net;
 using System.Security.Cryptography;
 using System.Text;
 using Studio5000.Core;
+using Studio5000.Extensibility;
 
 var root = Path.GetFullPath(Environment.GetEnvironmentVariable("STUDIO5000_PLUGIN_ROOT") ?? Directory.GetCurrentDirectory());
 var builder = WebApplication.CreateBuilder(new WebApplicationOptions { Args = args, ContentRootPath = root });
@@ -22,6 +23,8 @@ if (options.NativeBridgePath != null) options.NativeBridgePath = Path.GetFullPat
 options.FactoryTalkSchemaDirectory = Path.GetFullPath(options.FactoryTalkSchemaDirectory, root);
 options.FactoryTalkStudioPath = Path.GetFullPath(options.FactoryTalkStudioPath, root);
 options.ViewDesignerPath = Path.GetFullPath(options.ViewDesignerPath, root);
+options.ExtensionsDirectory = Path.GetFullPath(options.ExtensionsDirectory, root);
+options.ExtensionWorkerPath = Path.GetFullPath(options.ExtensionWorkerPath, root);
 var local = Path.Combine(root, ".local");
 Directory.CreateDirectory(local);
 ProjectService.RejectLinks(local);
@@ -31,6 +34,7 @@ var token = File.ReadAllText(tokenPath).Trim();
 if (token.Length < 32) throw new InvalidOperationException("service.key is too short.");
 builder.Services.AddSingleton(options);
 builder.Services.AddSingleton<ProjectService>();
+builder.Services.AddSingleton(_ => new ExtensionHost(options, root));
 var app = builder.Build();
 _ = app.Services.GetRequiredService<ProjectService>(); // hold one exclusive process lock before publishing connection info
 File.WriteAllText(Path.Combine(local, "connection.json"), System.Text.Json.JsonSerializer.Serialize(new { url, tokenFile = tokenPath }));
@@ -109,6 +113,14 @@ app.MapPost("/api/viewdesigner/projects/{id}/previews", (ProjectService service,
 app.MapPost("/api/viewdesigner/projects/{id}/previews/{previewId}/apply", (ProjectService service, string id, string previewId, ApplyRequest request, CancellationToken ct) => service.ApplyViewDesignerAsync(id, previewId, request, ct));
 app.MapPost("/api/viewdesigner/projects/{id}/imports", (ProjectService service, string id, ViewDesignerImportRequest request, CancellationToken ct) => service.PrepareViewDesignerImportAsync(id, request, ct));
 app.MapPost("/api/viewdesigner/imports/{planId}/verify", (ProjectService service, string planId, VerifyGraphicsImportRequest request, CancellationToken ct) => service.VerifyViewDesignerImportAsync(planId, request, ct));
+app.MapGet("/api/extensions", (ExtensionHost host, CancellationToken ct) => host.CatalogAsync(ct));
+app.MapGet("/api/extensions/operation", (ExtensionHost host, string extensionId, string operation, string generation, CancellationToken ct) => host.DescribeAsync(extensionId, operation, generation, ct));
+app.MapPost("/api/extensions/reload", (ExtensionHost host, ExtensionReloadRequest request, CancellationToken ct) => host.ReloadAsync(request, ct));
+app.MapPost("/api/extensions/invoke/{effect}", (ExtensionHost host, string effect, ExtensionCall request, CancellationToken ct) => host.InvokeAsync(effect, request, ct));
+app.MapGet("/api/extensions/jobs", (ExtensionHost host) => host.Jobs());
+app.MapGet("/api/extensions/jobs/{id}", (ExtensionHost host, string id) => host.Job(id));
+app.MapPost("/api/extensions/jobs", (ExtensionHost host, ExtensionJobRequest request, CancellationToken ct) => host.StartJobAsync(request, ct));
+app.MapPost("/api/extensions/jobs/{id}/cancel", (ExtensionHost host, string id) => host.CancelJob(id));
 await app.RunAsync();
 
 public partial class Program { }

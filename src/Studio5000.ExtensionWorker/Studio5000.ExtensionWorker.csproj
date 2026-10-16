@@ -1,0 +1,4 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup><OutputType>Exe</OutputType></PropertyGroup>
+  <ItemGroup><ProjectReference Include="../Studio5000.Extensibility/Studio5000.Extensibility.csproj" /></ItemGroup>
+</Project>

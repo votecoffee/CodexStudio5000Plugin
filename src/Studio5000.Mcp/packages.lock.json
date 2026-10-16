@@ -375,8 +375,12 @@
       "studio5000.core": {
         "type": "Project",
         "dependencies": {
-          "L5xploderLib": "[1.0.0, )"
+          "L5xploderLib": "[1.0.0, )",
+          "Studio5000.Extensibility": "[1.0.0, )"
         }
+      },
+      "studio5000.extensibility": {
+        "type": "Project"
       }
     }
   }

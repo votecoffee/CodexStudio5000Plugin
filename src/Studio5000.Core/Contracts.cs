@@ -12,6 +12,9 @@ public sealed class ServiceOptions
     public string FactoryTalkSchemaDirectory { get; set; } = @"C:\Program Files (x86)\Rockwell Software\RSView Enterprise\Schemas";
     public string FactoryTalkStudioPath { get; set; } = @"C:\Program Files (x86)\Rockwell Software\RSView Enterprise\Launcher.exe";
     public string ViewDesignerPath { get; set; } = @"C:\Program Files (x86)\Rockwell Software\Studio 5000\View Designer\ENU\V9\ViewDesigner.exe";
+    public string ExtensionsDirectory { get; set; } = "extensions";
+    public string ExtensionWorkerPath { get; set; } = "artifacts/app/ExtensionWorker/Studio5000.ExtensionWorker.exe";
+    public int ExtensionTimeoutSeconds { get; set; } = 240;
 }
 
 public sealed record ProjectInfo(string Id, string Name, string SourcePath, string SourceSha256,

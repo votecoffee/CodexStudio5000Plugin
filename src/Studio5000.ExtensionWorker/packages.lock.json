@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "dependencies": {
+    "net8.0": {
+      "studio5000.extensibility": {
+        "type": "Project"
+      }
+    }
+  }
+}
