@@ -10,6 +10,7 @@ public static class SdkTargetPolicies
         "GoOnlineAsync", "GoOfflineAsync", "ReadConnectedStateAsync", "ReadControllerModeAsync", "GetCommunicationsPathAsync",
         "SetCommunicationsPathAsync", "SaveAsync", "SaveAsAsync", "PartialExportToXmlFileAsync"];
     private static readonly string[] ImportMethods = ["PartialImportRungsFromXmlFileAsync", "PartialImportWithTargetFromXmlFileAsync"];
+    private static readonly string[] BuiltinTypes = ["BOOL", "SINT", "INT", "DINT", "LINT", "USINT", "UINT", "UDINT", "ULINT", "REAL", "LREAL"];
     public static void ValidateConfiguration(ControllerTarget target)
     {
         if (target.Policy is not { } policy) return;
@@ -58,7 +59,9 @@ public static class SdkTargetPolicies
         var controller = root!.Element("Controller");
         if (controller is null || (string?)controller.Attribute("Use") != "Context") Deny("Controller must be context only.");
         foreach (var child in controller!.Elements())
-            if (child.Name != "Programs" && !(child.Name.LocalName is "Tags" or "DataTypes" or "AddOnInstructionDefinitions" && !child.HasElements))
+            if (child.Name != "Programs" && !(child.Name.LocalName is "Tags" or "AddOnInstructionDefinitions" && !child.HasElements) &&
+                !(child.Name == "DataTypes" && child.Elements().All(e => e.Name == "DataType" && !e.HasElements &&
+                    (string?)e.Attribute("Class") == "ProductDefined" && BuiltinTypes.Contains((string?)e.Attribute("Name")))))
                 Deny("Program-scoped imports cannot define controller tags, types, instructions, tasks or modules.");
         if (controller.Elements().GroupBy(e => e.Name).Any(g => g.Count() != 1)) Deny("Duplicate controller sections are not allowed.");
         var programs = controller.Element("Programs");
@@ -78,7 +81,8 @@ public static class SdkTargetPolicies
         var routines = program.Element("Routines");
         if (routines is null || routines.Elements().Count() != 1) Deny("Import requires exactly one routine.");
         var routine = routines!.Element("Routine");
-        if (routine is null || (string?)routine.Attribute("Name") != policy.RoutineName || (string?)routine.Attribute("Type") != "RLL")
+        if (routine is null || (string?)routine.Attribute("Name") != policy.RoutineName || routine.Attribute("Type") is { Value: not "RLL" } ||
+            routine.Elements("RLLContent").Count() != 1 || routine.Elements().Any(e => e.Name.LocalName is not ("RLLContent" or "Description")))
             Deny("Import must contain the exact configured ladder routine.");
         // Instruction operands still require engineering review. This is an address/definition boundary,
         // not an interpreter proving that arbitrary imported ladder cannot reference existing global data.

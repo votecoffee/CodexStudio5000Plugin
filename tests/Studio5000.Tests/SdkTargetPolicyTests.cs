@@ -46,9 +46,16 @@ public sealed class SdkTargetPolicyTests
     {
         var target = Target("PartialImportRungsFromXmlFileAsync"); var call = Import();
         SdkTargetPolicies.ValidateCalls(target, [call]); SdkTargetPolicies.ValidateImport(target, call, Component());
+        var contextRungs = Component(); contextRungs.Descendants("Routine").Single().Attribute("Type")!.Remove();
+        SdkTargetPolicies.ValidateImport(target, call, contextRungs); // Native rung exports omit the context routine's Type.
+        contextRungs.Descendants("Controller").Single().AddFirst(new XElement("DataTypes",
+            new XElement("DataType", new XAttribute("Name", "BOOL"), new XAttribute("Class", "ProductDefined")),
+            new XElement("DataType", new XAttribute("Name", "DINT"), new XAttribute("Class", "ProductDefined"))));
+        SdkTargetPolicies.ValidateImport(target, call, contextRungs); // Native exports include built-in scalar context types.
         foreach (var mutate in new Action<XDocument>[] {
             d => d.Descendants("Controller").Single().Element("Tags")!.Add(new XElement("Tag", new XAttribute("Name", "Global"))),
             d => d.Descendants("Controller").Single().Add(new XElement("Modules", new XElement("Module"))),
+            d => d.Descendants("Controller").Single().Add(new XElement("DataTypes", new XElement("DataType", new XAttribute("Name", "NewType"), new XAttribute("Class", "User")))),
             d => d.Descendants("Program").Single().SetAttributeValue("Name", "Other"),
             d => d.Descendants("Routine").Single().SetAttributeValue("Name", "Other"),
             d => d.Descendants("Routines").Single().Add(new XElement("Routine", new XAttribute("Name", "Other"))),

@@ -9,6 +9,7 @@ using Studio5000.Core;
 
 var root = ServiceClient.FindRoot();
 if (args.Length == 2 && args[0] == "--sdk-offline-path") { await SdkOfflinePath.RunAsync(root, Path.GetFullPath(args[1])); return; }
+if (args.Length == 1 && args[0] == "--online-plan-only") { await OnlineEditPlanIntegration.RunAsync(root); return; }
 using var client = new ServiceClient(root);
 var checks = new List<string>();
 void Check(bool valid, string name) { if (!valid) throw new Exception("FAIL: " + name); checks.Add(name); Console.WriteLine("PASS: " + name); }

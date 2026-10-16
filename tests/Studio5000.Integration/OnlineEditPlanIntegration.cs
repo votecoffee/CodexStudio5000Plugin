@@ -16,14 +16,15 @@ internal static class OnlineEditPlanIntegration
         var fixture = Path.Combine(Path.GetTempPath(), "OnlineEditIntegration", Guid.NewGuid().ToString("N")); Directory.CreateDirectory(fixture);
         var source = Path.Combine(fixture, "fixture.acd"); var import = Path.Combine(fixture, "fixture.l5x");
         await File.WriteAllTextAsync(source, "Opaque ACD fixture: planning must not open a native project or contact a controller.");
-        await File.WriteAllTextAsync(import, "<RSLogix5000Content><Controller><Programs><Program Name='MainProgram'><Routines><Routine Name='MainRoutine' Type='RLL'/></Routines></Program></Programs></Controller></RSLogix5000Content>");
+        await File.WriteAllTextAsync(import, "<RSLogix5000Content><Controller Use='Context'><Programs><Program Name='MainProgram' Use='Context'><Routines><Routine Name='MainRoutine' Type='RLL'><RLLContent/></Routine></Routines></Program></Programs></Controller></RSLogix5000Content>");
         var inertBridge = Path.Combine(fixture, "never-execute.exe"); await File.WriteAllTextAsync(inertBridge, "not executable");
         using var listener = new TcpListener(IPAddress.Loopback, 0); listener.Start(); var port = ((IPEndPoint)listener.LocalEndpoint).Port; listener.Stop();
         var url = "http://127.0.0.1:" + port;
         await File.WriteAllTextAsync(Path.Combine(fixture, "service.local.json"), JsonSerializer.Serialize(new
         {
             ServiceUrl = url, Studio5000 = new ServiceOptions { StateDirectory = Path.Combine(fixture, "state"), AllowedRoots = [fixture],
-                NativeBridgePath = inertBridge, EnableControllerOperations = false, ControllerTargets = [new("plan-only", @"AB_ETH-1\192.0.2.1\Backplane\0")] },
+                NativeBridgePath = inertBridge, EnableControllerOperations = false, ControllerTargets = [new("plan-only", @"AB_ETH-1\192.0.2.1\Backplane\0",
+                    new(["GoOnlineAsync", "ReadConnectedStateAsync", "ReadControllerModeAsync", "PartialImportRungsFromXmlFileAsync", "SaveAsync", "GetTagValueDINTAsync"], "MainProgram", "MainRoutine"))] },
             Logging = new { LogLevel = new Dictionary<string, string> { ["Default"] = "Warning", ["Microsoft.AspNetCore"] = "Warning" } }
         }, ProjectService.Json));
         var start = new ProcessStartInfo(Path.Combine(root, "artifacts", "app", "Service", "Studio5000.Service.exe"))
@@ -46,6 +47,10 @@ internal static class OnlineEditPlanIntegration
             }
             Check(ready, "Isolated planning service starts with controller operations disabled");
             using var client = new ServiceClient(fixture);
+            var capabilities = await client.GetAsync<JsonElement>("/api/sdk/capabilities");
+            var policy = capabilities.GetProperty("controllerTargets")[0].GetProperty("policy");
+            Check(policy.GetProperty("allowedMethods").GetArrayLength() == 6 && policy.GetProperty("programName").GetString() == "MainProgram",
+                "Configuration binding preserves the exact target method allowlist and program scope");
             await using var mcp = await McpClient.CreateAsync(new StdioClientTransport(new StdioClientTransportOptions
             {
                 Command = Path.Combine(root, "artifacts", "app", "Mcp", "Studio5000.Mcp.exe"), Name = "Local-only online edit planning",
@@ -64,6 +69,17 @@ internal static class OnlineEditPlanIntegration
             try { await client.PostAsync<SdkJob>("/api/sdk/jobs", plan.SdkRequest); throw new Exception("Disabled controller job was accepted."); }
             catch (HttpRequestException ex) when (ex.StatusCode == HttpStatusCode.BadRequest && ex.Message.Contains("sdk_controller_disabled", StringComparison.Ordinal))
             { Check(true, "Submitting the prepared plan still cannot bypass the disabled controller gate"); }
+            var tagArgs = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>("{\"tagPath\":\"Controller/Tags/Tag[@Name='Global']\",\"mode\":\"Offline\"}")!;
+            try
+            {
+                await client.PostAsync<SdkJob>("/api/sdk/jobs", new SdkRunRequest([new("GetTagValueDINTAsync", tagArgs)],
+                    SourcePath: source, ExpectedSha256: sourceHash, ControllerTargetId: "plan-only"));
+                throw new Exception("Controller tag escaped the program policy.");
+            }
+            catch (HttpRequestException ex) when (ex.StatusCode == HttpStatusCode.BadRequest && ex.Message.Contains("sdk_target_policy", StringComparison.Ordinal))
+            { Check(true, "REST rejects controller-scoped tag requests before creating a native job"); }
+            var foreign = await mcp.CallToolAsync("studio_online_edit_plan", new Dictionary<string, object?> { ["request"] = request with { RoutineName = "OtherRoutine" } });
+            Check(foreign.IsError == true, "MCP planning rejects another routine under the configured target policy");
             var stale = await mcp.CallToolAsync("studio_online_edit_plan", new Dictionary<string, object?> { ["request"] = request with { ExpectedSha256 = "stale" } });
             Check(stale.IsError == true, "MCP rejects a stale online-edit source hash before dispatch");
             Check((await client.GetAsync<SdkJob[]>("/api/sdk/jobs")).Length == 0 &&
