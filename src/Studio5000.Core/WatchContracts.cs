@@ -7,6 +7,7 @@ public sealed record WatchTag(string Key, string TagName, string? ProgramName = 
 public sealed record WatchListRequest(string Name, WatchTag[] Tags, string ExpectedSha256, string? SourcePath = null,
     string? SourceArtifactId = null, string? ControllerTargetId = null, string Mode = "Online", int IntervalMs = 1000, int HistoryLimit = 100);
 public sealed record WatchDefinition(string Id, int Revision, DateTimeOffset CreatedAt, WatchListRequest Settings);
+public sealed record WatchUpdateRequest(WatchListRequest Settings, int ExpectedRevision);
 public sealed record WatchValue(string Key, string TagName, string? ProgramName, string DataType, JsonNode? Value, string Quality, string? Error = null);
 public sealed record WatchSnapshot(long Sequence, DateTimeOffset StartedAt, DateTimeOffset CompletedAt, string Mode, WatchValue[] Values);
 public sealed record WatchStatus(WatchDefinition Definition, string State, WatchSnapshot? Latest, bool Stale, string? Error, StructureType[] Types);

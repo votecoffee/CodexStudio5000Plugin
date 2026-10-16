@@ -46,6 +46,7 @@ public sealed class MainForm : Form
         AddButton(toolbar, "Explode ZIP…", () => ExportAsync("explode"));
         AddButton(toolbar, "Audit", AuditAsync);
         AddButton(toolbar, "SDK operations…", () => { using var sdk = new SdkForm(client, project); sdk.ShowDialog(this); return Task.CompletedTask; });
+        AddButton(toolbar, "Watch lists…", () => { using var watches = new WatchForm(client, project); watches.ShowDialog(this); return Task.CompletedTask; });
         AddButton(toolbar, "Capabilities", async () => MessageBox.Show((await client.GetAsync<JsonElement>("/api/capabilities")).ToString(), "Service capabilities"));
         var graphicsToolbar = new FlowLayoutPanel { Dock = DockStyle.Top, Height = 44, Padding = new Padding(8, 3, 8, 3) };
         graphicsToolbar.Controls.Add(new Label { Text = "FACTORYTALK", AutoSize = true, Padding = new Padding(0, 7, 5, 0) });

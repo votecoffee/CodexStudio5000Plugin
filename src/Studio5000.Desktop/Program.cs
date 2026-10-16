@@ -6,6 +6,19 @@ try
 {
     var root = ServiceClient.FindRoot();
     using var client = new ServiceClient(root);
+    if (args.Length == 2 && args[0] is "--self-test-watches" or "--self-test-watches-values")
+    {
+        using var watches = new WatchForm(client, null);
+        watches.StartPosition = FormStartPosition.Manual; watches.Location = new(-30000, -30000); watches.ShowInTaskbar = false;
+        var settings = new Studio5000.Core.WatchListRequest("UDT process values", [new("record", "Record", "WatchProgram")], new string('0', 64), SourcePath: "Example.ACD", Mode: "Offline");
+        var sample = new Studio5000.Core.WatchSnapshot(3, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow, "Offline",
+            [new("record", "Record", "WatchProgram", "WatchRecord", System.Text.Json.Nodes.JsonNode.Parse("{\"Count\":7,\"Position\":1.5,\"Inner\":{\"Count\":8},\"Samples\":[10,20,30]}"), "good")]);
+        watches.LoadForTest(new(new("00000000000000000000000000000000", 0, DateTimeOffset.UtcNow, settings), "stopped", sample, true, null, []), showValues: args[0].EndsWith("values", StringComparison.Ordinal));
+        watches.Show(); Application.DoEvents();
+        using var bitmap = new Bitmap(watches.Width, watches.Height);
+        watches.DrawToBitmap(bitmap, new Rectangle(Point.Empty, watches.Size)); bitmap.Save(args[1], System.Drawing.Imaging.ImageFormat.Png);
+        watches.Close(); return;
+    }
     if (args.Length == 2 && args[0] == "--self-test-online-edit")
     {
         using var online = new OnlineEditDialog(client);
@@ -46,6 +59,6 @@ try
 }
 catch (Exception ex)
 {
-    if (args.Contains("--self-test") || args.Contains("--self-test-sdk") || args.Contains("--self-test-online-edit")) { Console.Error.WriteLine(ex); Environment.ExitCode = 1; }
+    if (args.Any(a => a.StartsWith("--self-test", StringComparison.Ordinal))) { Console.Error.WriteLine(ex); Environment.ExitCode = 1; }
     else MessageBox.Show(ex.Message, "Studio 5000 service", MessageBoxButtons.OK, MessageBoxIcon.Error);
 }
