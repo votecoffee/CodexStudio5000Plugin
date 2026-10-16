@@ -9,7 +9,7 @@ using L5xploderLib.Services;
 namespace Studio5000.Core;
 
 // The only owner of project mutations. REST, MCP and the desktop UI share this instance through HTTP.
-public sealed class ProjectService : IDisposable
+public sealed partial class ProjectService : IDisposable
 {
     public static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web) { WriteIndented = true };
     private readonly ServiceOptions options;
@@ -38,11 +38,13 @@ public sealed class ProjectService : IDisposable
 
     public object Capabilities() => new
     {
-        version = "0.1.0", nativeBridgeConfigured = native.Available,
+        version = "0.2.0", nativeBridgeConfigured = native.Available,
         operations = new[] { "register", "inspect", "read_element", "preview", "apply", "export_l5x", "explode", "register_exploded", "audit", "export_acd" },
         editOperations = new[] { "set_text", "set_attribute", "replace_element", "add_element", "remove_element" },
         allowedRoots = roots,
         outputRoots,
+        projectKinds = new[] { "logix", "ftview-me", "ftview-se" },
+        factoryTalk = FactoryTalkStatus(),
         validation = "XML structure checks; native ACD conversion requires the installed licensed SDK. No controller connection or download is implemented."
     };
 
@@ -50,10 +52,11 @@ public sealed class ProjectService : IDisposable
     {
         source = AllowedSource(source);
         var extension = Path.GetExtension(source).ToLowerInvariant();
-        if (extension is not (".l5x" or ".acd")) throw new OperationException("unsupported_file", "Select an L5X or ACD project.");
+        if (extension is not (".l5x" or ".acd" or ".xml")) throw new OperationException("unsupported_file", "Select an L5X/ACD project or FactoryTalk ME/SE display XML.");
         await gate.WaitAsync(ct);
         try
         {
+            if (new FileInfo(source).Length > 64 * 1024 * 1024) throw new OperationException("file_too_large", "Project exceeds the 64 MiB import limit.");
             var bytes = await File.ReadAllBytesAsync(source, ct);
             if (bytes.Length > 64 * 1024 * 1024) throw new OperationException("file_too_large", "Project exceeds the 64 MiB import limit.");
             var id = Guid.NewGuid().ToString("N");
@@ -67,9 +70,16 @@ public sealed class ProjectService : IDisposable
                 l5x = await File.ReadAllBytesAsync(Path.Combine(dir, "converted.l5x"), ct);
             }
             else l5x = bytes;
-            XmlProjects.Parse(l5x);
-            await File.WriteAllBytesAsync(RevisionFile(id, 0), l5x, ct);
-            var info = new ProjectInfo(id, Path.GetFileNameWithoutExtension(source), source, Hash(bytes), Hash(l5x), 0, DateTimeOffset.UtcNow);
+            var kind = "logix";
+            if (extension == ".xml")
+            {
+                var graphics = FactoryTalkGraphics.Parse(l5x);
+                kind = FactoryTalkGraphics.Kind(graphics);
+                FactoryTalkGraphics.Validate(graphics, options.FactoryTalkSchemaDirectory, requireSchema: false);
+            }
+            else XmlProjects.Parse(l5x);
+            await File.WriteAllBytesAsync(RevisionFile(id, 0, kind), l5x, ct);
+            var info = new ProjectInfo(id, Path.GetFileNameWithoutExtension(source), source, Hash(bytes), Hash(l5x), 0, DateTimeOffset.UtcNow, kind);
             Save(ProjectMeta(id), info);
             Audit("register", info, null, info.CurrentSha256, "Original source bytes preserved; working copy created.");
             return info;
@@ -86,7 +96,7 @@ public sealed class ProjectService : IDisposable
     public ProjectInfo Get(string id)
     {
         var info = Read<ProjectInfo>(ProjectMeta(id));
-        if (Hash(File.ReadAllBytes(RevisionFile(id, info.Revision))) != info.CurrentSha256)
+        if (Hash(File.ReadAllBytes(RevisionFile(id, info.Revision, info.Kind))) != info.CurrentSha256)
             throw new OperationException("state_tampered", "Working revision hash does not match its manifest.");
         return info;
     }
@@ -94,20 +104,23 @@ public sealed class ProjectService : IDisposable
     public Inspection Inspect(string id, string? kind = null, string? query = null, int offset = 0, int limit = 200)
     {
         var info = Get(id);
-        var doc = XmlProjects.Parse(File.ReadAllBytes(RevisionFile(id, info.Revision)));
-        var elements = doc.Descendants().Where(e => e.Attribute("Name") != null || e.Name.LocalName is "Rung" or "Line")
+        var doc = ParseDocument(info, File.ReadAllBytes(RevisionFile(id, info.Revision, info.Kind)));
+        var graphics = FactoryTalkGraphics.IsFactoryTalk(info.Kind);
+        var elements = doc.Descendants().Where(e => graphics
+                ? e.Attribute("name") != null || e.Attribute("stateId") != null || e.Attribute("expression") != null || e.Name == "displaySettings"
+                : e.Attribute("Name") != null || e.Name.LocalName is "Rung" or "Line")
             .Where(e => string.IsNullOrWhiteSpace(kind) || e.Name.LocalName.Equals(kind, StringComparison.OrdinalIgnoreCase))
-            .Where(e => string.IsNullOrEmpty(query) || ((string?)e.Attribute("Name") ?? e.Name.LocalName).Contains(query, StringComparison.OrdinalIgnoreCase))
-            .Select(e => new ElementInfo(XmlProjects.PathOf(e), e.Name.LocalName,
-                (string?)e.Attribute("Name") ?? (string?)e.Attribute("Number"),
-                (string?)e.Ancestors("Program").FirstOrDefault()?.Attribute("Name"))).ToArray();
+            .Where(e => string.IsNullOrEmpty(query) || (graphics ? string.Join(" ", e.Attributes().Select(a => a.Value)) : (string?)e.Attribute("Name") ?? e.Name.LocalName).Contains(query, StringComparison.OrdinalIgnoreCase))
+            .Select(e => new ElementInfo(graphics ? FactoryTalkGraphics.StablePath(e) : XmlProjects.PathOf(e), e.Name.LocalName,
+                graphics ? (string?)e.Attribute("name") ?? (string?)e.Attribute("stateId") ?? e.Name.LocalName : (string?)e.Attribute("Name") ?? (string?)e.Attribute("Number"),
+                graphics ? (string?)e.Ancestors("group").FirstOrDefault()?.Attribute("name") : (string?)e.Ancestors("Program").FirstOrDefault()?.Attribute("Name"))).ToArray();
         return new(info, elements.Skip(Math.Max(0, offset)).Take(Math.Clamp(limit, 1, 1000)).ToArray(), elements.Length, Math.Max(0, offset));
     }
 
     public ElementContent ReadElement(string id, string xpath)
     {
         var info = Get(id);
-        var doc = XmlProjects.Parse(File.ReadAllBytes(RevisionFile(id, info.Revision)));
+        var doc = ParseDocument(info, File.ReadAllBytes(RevisionFile(id, info.Revision, info.Kind)));
         var xml = XmlProjects.Select(doc, xpath).ToString();
         if (xml.Length > 1024 * 1024) throw new OperationException("element_too_large", "Select a smaller component (maximum 1 MiB).");
         return new(xpath, xml, info.CurrentSha256);
@@ -120,14 +133,14 @@ public sealed class ProjectService : IDisposable
         {
             var info = Get(id);
             Expect(info, request.ExpectedSha256);
-            var baseline = await File.ReadAllBytesAsync(RevisionFile(id, info.Revision), ct);
-            var bytes = XmlProjects.Apply(baseline, request.Edits);
+            var baseline = await File.ReadAllBytesAsync(RevisionFile(id, info.Revision, info.Kind), ct);
+            var bytes = ApplyDocument(info, baseline, request.Edits);
             var diffParts = new List<string>();
             var intermediate = baseline;
             foreach (var edit in request.Edits)
             {
-                diffParts.Add(DescribeEdit(intermediate, edit));
-                intermediate = XmlProjects.Apply(intermediate, [edit]);
+                diffParts.Add(DescribeEdit(info, intermediate, edit));
+                intermediate = ApplyDocument(info, intermediate, [edit]);
             }
             var diff = string.Join("\n\n", diffParts);
             var preview = new ChangePreview(Guid.NewGuid().ToString("N"), id, info.CurrentSha256, Hash(bytes), request.Edits, diff, DateTimeOffset.UtcNow);
@@ -151,10 +164,10 @@ public sealed class ProjectService : IDisposable
                 throw new OperationException("stale_revision", "Apply must use the preview's exact base hash.");
             if (info.CurrentSha256 == draft.ResultSha256) return info; // retry after a lost response
             Expect(info, request.ExpectedSha256);
-            var bytes = XmlProjects.Apply(await File.ReadAllBytesAsync(RevisionFile(id, info.Revision), ct), draft.Edits);
+            var bytes = ApplyDocument(info, await File.ReadAllBytesAsync(RevisionFile(id, info.Revision, info.Kind), ct), draft.Edits);
             if (Hash(bytes) != draft.ResultSha256) throw new OperationException("draft_tampered", "Draft result does not match preview hash.");
             var next = info with { CurrentSha256 = draft.ResultSha256, Revision = info.Revision + 1 };
-            AtomicBytes(RevisionFile(id, next.Revision), bytes);
+            AtomicBytes(RevisionFile(id, next.Revision, next.Kind), bytes);
             Audit("apply_intent", info, info.CurrentSha256, next.CurrentSha256, draft.Id);
             Save(ProjectMeta(id), next); // manifest atomically selects one immutable revision
             Audit("apply", next, info.CurrentSha256, next.CurrentSha256, draft.Id);
@@ -171,12 +184,19 @@ public sealed class ProjectService : IDisposable
             var info = Get(id);
             Expect(info, request.ExpectedSha256);
             var format = request.Format.ToLowerInvariant();
-            if (format is not ("l5x" or "acd" or "explode")) throw new OperationException("unsupported_format", "Use l5x, acd, or explode.");
+            var graphics = FactoryTalkGraphics.IsFactoryTalk(info.Kind);
+            if (graphics ? format != "xml" : format is not ("l5x" or "acd" or "explode"))
+                throw new OperationException("unsupported_format", graphics ? "Use xml for a FactoryTalk display; prepare an import plan for a ZIP package." : "Use l5x, acd, or explode.");
             var artifactId = Guid.NewGuid().ToString("N");
             var dir = ArtifactDir(artifactId);
             Directory.CreateDirectory(dir);
-            var source = RevisionFile(id, info.Revision);
+            var source = RevisionFile(id, info.Revision, info.Kind);
             var validation = "XML structure only; native import/verification pending.";
+            if (graphics)
+            {
+                var report = FactoryTalkGraphics.Validate(FactoryTalkGraphics.Parse(await File.ReadAllBytesAsync(source, ct)), options.FactoryTalkSchemaDirectory, requireSchema: false);
+                validation = report.SchemaValidated ? $"Validated against installed {report.SchemaFile}; native Studio import pending." : "Graphics XML structure only; matching installed schema and native import pending.";
+            }
             string output;
             if (format == "explode")
             {
@@ -291,9 +311,9 @@ public sealed class ProjectService : IDisposable
                     .Where(e => id is null || e.ProjectId == id).TakeLast(500).ToArray() : [];
     }
 
-    private static string DescribeEdit(byte[] baseline, Edit edit)
+    private static string DescribeEdit(ProjectInfo info, byte[] baseline, Edit edit)
     {
-        var before = XmlProjects.Select(XmlProjects.Parse(baseline), edit.XPath).ToString();
+        var before = XmlProjects.Select(ParseDocument(info, baseline), edit.XPath).ToString();
         return $"{edit.Operation} {edit.XPath}{(edit.Attribute is null ? "" : " @" + edit.Attribute)}\nBEFORE\n{before}\nREQUESTED VALUE\n{edit.Value ?? "(remove)"}";
     }
 
@@ -338,7 +358,7 @@ public sealed class ProjectService : IDisposable
     private static string Id(string value) => Guid.TryParseExact(value, "N", out var id) ? id.ToString("N") : throw new OperationException("invalid_id", "Expected a project, draft or artifact ID.");
     private string ProjectDir(string id) => Path.Combine(state, "projects", Id(id));
     private string ProjectMeta(string id) => Path.Combine(ProjectDir(id), "project.json");
-    private string RevisionFile(string id, int revision) => Path.Combine(ProjectDir(id), $"revision-{revision}.l5x");
+    private string RevisionFile(string id, int revision, string kind = "logix") => Path.Combine(ProjectDir(id), $"revision-{revision}." + (FactoryTalkGraphics.IsFactoryTalk(kind) ? "xml" : "l5x"));
     private string DraftFile(string id, string draft) => Path.Combine(ProjectDir(id), Id(draft) + ".draft.json");
     private string ArtifactDir(string id) => Path.Combine(state, "artifacts", Id(id));
     private static T Read<T>(string path) => File.Exists(path) ? JsonSerializer.Deserialize<T>(File.ReadAllText(path), Json)!
@@ -355,5 +375,8 @@ public sealed class ProjectService : IDisposable
         var e = new AuditEvent(DateTimeOffset.UtcNow, action, info.Id, before, after, detail);
         lock (auditGate) File.AppendAllText(Path.Combine(state, "audit.jsonl"), JsonSerializer.Serialize(e) + "\n", Encoding.UTF8);
     }
+    private static XDocument ParseDocument(ProjectInfo info, byte[] bytes) => FactoryTalkGraphics.IsFactoryTalk(info.Kind) ? FactoryTalkGraphics.Parse(bytes) : XmlProjects.Parse(bytes);
+    private byte[] ApplyDocument(ProjectInfo info, byte[] bytes, Edit[] edits) => FactoryTalkGraphics.IsFactoryTalk(info.Kind)
+        ? FactoryTalkGraphics.Apply(bytes, edits, options.FactoryTalkSchemaDirectory) : XmlProjects.Apply(bytes, edits);
     public void Dispose() { instanceLock.Dispose(); gate.Dispose(); }
 }

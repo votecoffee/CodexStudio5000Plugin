@@ -6,11 +6,24 @@ The default solution builds the core, REST service, transport client, MCP adapte
 
 `scripts/Verify.ps1` runs:
 
-1. **10 core tests:** preserved source bytes, UTF-8 text, preview/apply/restart behavior, idempotent retry, competing-client conflicts, malformed XML/DTD rejection, duplicate declarations, repeated dependency references, path/hash protection, XML component operations, explode/recompose retention of RLL/ST logic and ExportDate, native-unavailable errors, and single-service ownership. Some tests cover multiple related assertions.
-2. **15 REST/MCP integration checks:** real bearer authentication and browser-origin rejection, shared state across both clients, preview isolation, apply, export/download hash equality, new-file saving, preservation of existing outputs and original sources, stale revision rejection, audit events, and discovery of all 11 tools by the official MCP client.
-3. **Desktop render:** the actual WinForms form loads a project through the shared HTTP client, lists a routine and displays its XML, then renders off screen. The saved PNG is manually inspected for layout. This does not automate every interactive button or validate Studio's native UI integration.
+1. **22 core tests:** original Logix checks plus ME/SE detection, source preservation, schema routing (authored test schemas for portable unit tests), UTF-8 captions and connections, identity/structure protection, missing/invalid schemas, external schema rejection, import-plan targets/tamper checks, matching/mismatching/missing export evidence, reordered objects and compatibility with older manifests. Some tests cover multiple related assertions.
+2. **31 REST/MCP integration checks in this installed environment:** the original shared-service/authentication/edit/export checks plus both ME/SE fixtures, actual installed Rockwell XSDs, graphics edits, import plans and simulated export verification. The official MCP client launches the actual PowerShell plugin wrapper and discovers all 20 tools. The graphics tests deliberately preserve native import as unobserved even when supplied file values match. When FactoryTalk schemas are absent, the 16 installed-schema integration checks are skipped explicitly; the portable core tests still run.
+3. **Desktop render:** the actual WinForms form loads data through the shared HTTP client and renders off screen. Both ME and SE examples were visually inspected in the expanded GUI. This does not automate every button or validate Studio's native wizard.
 
 Evidence files are `artifacts/test-results/core.trx`, `integration.json`, and `desktop.png`. `dotnet build CodexStudio5000.sln -c Release` completed with zero warnings and errors in this development environment.
+
+## FactoryTalk evidence
+
+`docs/FACTORYTALK.md` records ME/SE scope and boundaries. The supplied archive was checked against installed graphics schemas with:
+
+```powershell
+$env:STUDIO5000_PLUGIN_ROOT = (Get-Location).Path
+dotnet run --project tests/Studio5000.Integration -c Release -- --factorytalk-corpus 'C:\...\FTViewME Screen Exports.zip'
+```
+
+The report `artifacts/test-results/factorytalk-corpus.json` records the archive hash, each input hash, schema hash and result. It contains **59 valid graphics XML files, one rejected ActiveX graphics file and two non-display batch XML files**. Corpus validation intentionally exits nonzero for that rejection. Neither the archive nor installed schemas were modified. Both authored ME/SE examples passed their actual installed XSDs and REST/MCP property edits.
+
+The user stopped Computer Use with Escape at Studio's application-type selection. Native ME and SE wizard import/save/re-export were not tested, and no native HMI project was changed. File/schema checks and simulated re-export tests do not upgrade that pending native boundary. The bundled skill supplies the workflow for a later authorized native session.
 
 ## Native checks
 

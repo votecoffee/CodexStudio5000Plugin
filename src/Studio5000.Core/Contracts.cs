@@ -7,10 +7,12 @@ public sealed class ServiceOptions
     public string[] OutputRoots { get; set; } = ["artifacts/exports"];
     public string? NativeBridgePath { get; set; }
     public int NativeTimeoutSeconds { get; set; } = 180;
+    public string FactoryTalkSchemaDirectory { get; set; } = @"C:\Program Files (x86)\Rockwell Software\RSView Enterprise\Schemas";
+    public string FactoryTalkStudioPath { get; set; } = @"C:\Program Files (x86)\Rockwell Software\RSView Enterprise\Launcher.exe";
 }
 
 public sealed record ProjectInfo(string Id, string Name, string SourcePath, string SourceSha256,
-    string CurrentSha256, int Revision, DateTimeOffset CreatedAt);
+    string CurrentSha256, int Revision, DateTimeOffset CreatedAt, string Kind = "logix");
 public sealed record RegisterRequest(string Path);
 public sealed record ElementInfo(string XPath, string Kind, string? Name, string? Program);
 public sealed record Inspection(ProjectInfo Project, IReadOnlyList<ElementInfo> Elements, int Total, int Offset);

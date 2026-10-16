@@ -14,7 +14,7 @@ try
         form.ShowInTaskbar = false;
         form.Show(); // create the real control handles off screen
         Application.DoEvents();
-        form.LoadForTest(Path.Combine(root, "examples", "Demo.L5X"));
+        form.LoadForTest(Path.Combine(root, "examples", Environment.GetEnvironmentVariable("STUDIO5000_GUI_FIXTURE") ?? "Demo.L5X"));
         Application.DoEvents();
         using var bitmap = new Bitmap(form.Width, form.Height);
         form.DrawToBitmap(bitmap, new Rectangle(Point.Empty, form.Size));

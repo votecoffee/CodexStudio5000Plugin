@@ -19,6 +19,7 @@ public sealed class MainForm : Form
     private readonly ComboBox operation = new() { Width = 150, DropDownStyle = ComboBoxStyle.DropDownList };
     private readonly TextBox attribute = new() { Width = 100, PlaceholderText = "Attribute" };
     private readonly TextBox search = new() { Width = 160, PlaceholderText = "Filter component name" };
+    private readonly TextBox graphicsPlanId = new() { Width = 225, PlaceholderText = "FactoryTalk import plan ID" };
     private readonly ToolStripStatusLabel status = new() { Text = "Connect to the shared local service." };
     private readonly TabControl tabs = new() { Dock = DockStyle.Fill };
     private readonly Button apply = new() { Text = "Apply preview", AutoSize = true, Enabled = false };
@@ -30,10 +31,10 @@ public sealed class MainForm : Form
     public MainForm(ServiceClient client)
     {
         this.client = client;
-        Text = "Studio 5000 Workspace — shared operations service";
+        Text = "Rockwell Workspace — Logix + FactoryTalk ME / SE";
         Size = new Size(1400, 920); MinimumSize = new Size(1000, 700);
         Font = new Font("Segoe UI", 10); BackColor = Color.FromArgb(244, 246, 249);
-        var header = new Label { Text = "STUDIO 5000  /  WORKSPACE", Dock = DockStyle.Top, Height = 54,
+        var header = new Label { Text = "ROCKWELL WORKSPACE  /  LOGIX + FACTORYTALK ME / SE", Dock = DockStyle.Top, Height = 54,
             Padding = new Padding(16), BackColor = Color.FromArgb(24, 40, 61), ForeColor = Color.White, Font = new Font("Segoe UI", 13, FontStyle.Bold) };
         var toolbar = new FlowLayoutPanel { Dock = DockStyle.Top, Height = 48, Padding = new Padding(8) };
         AddButton(toolbar, "Open project…", OpenAsync);
@@ -45,6 +46,14 @@ public sealed class MainForm : Form
         AddButton(toolbar, "Explode ZIP…", () => ExportAsync("explode"));
         AddButton(toolbar, "Audit", AuditAsync);
         AddButton(toolbar, "Capabilities", async () => MessageBox.Show((await client.GetAsync<JsonElement>("/api/capabilities")).ToString(), "Service capabilities"));
+        var graphicsToolbar = new FlowLayoutPanel { Dock = DockStyle.Top, Height = 44, Padding = new Padding(8, 3, 8, 3) };
+        graphicsToolbar.Controls.Add(new Label { Text = "FACTORYTALK", AutoSize = true, Padding = new Padding(0, 7, 5, 0) });
+        AddButton(graphicsToolbar, "Studio status", async () => ShowJson(await client.GetAsync<JsonElement>("/api/factorytalk/status")));
+        AddButton(graphicsToolbar, "Open Studio", async () => ShowJson(await client.PostAsync<JsonElement>("/api/factorytalk/launch", new { })));
+        AddButton(graphicsToolbar, "Export display XML…", () => ExportAsync("xml"));
+        AddButton(graphicsToolbar, "Prepare import…", PrepareGraphicsAsync);
+        graphicsToolbar.Controls.Add(graphicsPlanId);
+        AddButton(graphicsToolbar, "Verify re-export", VerifyGraphicsAsync);
         var layout = new SplitContainer { Dock = DockStyle.Fill, SplitterDistance = 240, FixedPanel = FixedPanel.Panel1 };
         layout.Panel1.Padding = new Padding(8);
         layout.Panel1.Controls.Add(projects);
@@ -64,7 +73,7 @@ public sealed class MainForm : Form
         detail.Panel2.Controls.Add(tabs); detail.Panel2.Controls.Add(targetBar); detail.Panel2.Controls.Add(actions);
         layout.Panel2.Controls.Add(detail);
         var statusBar = new StatusStrip(); statusBar.Items.Add(status);
-        Controls.Add(layout); Controls.Add(toolbar); Controls.Add(header); Controls.Add(statusBar);
+        Controls.Add(layout); Controls.Add(graphicsToolbar); Controls.Add(toolbar); Controls.Add(header); Controls.Add(statusBar);
         Shown += (_, _) =>
         {
             layout.SplitterDistance = 240;
@@ -100,7 +109,7 @@ public sealed class MainForm : Form
     });
     private async Task OpenAsync()
     {
-        using var dialog = new OpenFileDialog { Filter = "Logix projects|*.L5X;*.ACD|L5X|*.L5X|ACD|*.ACD" };
+        using var dialog = new OpenFileDialog { Filter = "Logix / FactoryTalk files|*.L5X;*.ACD;*.xml|Logix projects|*.L5X;*.ACD|FactoryTalk display XML|*.xml" };
         if (dialog.ShowDialog(this) != DialogResult.OK) return;
         project = await client.PostAsync<ProjectInfo>("/api/projects", new RegisterRequest(dialog.FileName));
         await RefreshAsync(project.Id);
@@ -119,7 +128,15 @@ public sealed class MainForm : Form
     {
         InvalidateDraft();
         project = projects.SelectedItem as ProjectInfo;
-        if (project != null) await LoadElementsAsync();
+        if (project != null)
+        {
+            var currentOperation = operation.Text;
+            operation.Items.Clear();
+            operation.Items.AddRange(FactoryTalkGraphics.IsFactoryTalk(project.Kind)
+                ? ["replace_element", "set_text", "set_attribute"] : ["replace_element", "set_text", "set_attribute", "add_element", "remove_element"]);
+            operation.SelectedItem = operation.Items.Contains(currentOperation) ? currentOperation : "replace_element";
+            await LoadElementsAsync();
+        }
     }
     private async Task LoadElementsAsync()
     {
@@ -128,11 +145,12 @@ public sealed class MainForm : Form
         project = result.Project;
         suppress = true; elements.DataSource = result.Elements.ToArray();
         if (elements.Columns["XPath"] is { } column) column.Visible = false;
-        var preferred = result.Elements.Select((e, i) => (Element: e, Index: i)).FirstOrDefault(e => e.Element.Kind is "Tag" or "Routine");
+        if (elements.Columns["Program"] is { } contextColumn) contextColumn.HeaderText = "Program / group";
+        var preferred = result.Elements.Select((e, i) => (Element: e, Index: i)).FirstOrDefault(e => e.Element.Kind is "Tag" or "Routine" or "text");
         if (preferred.Element != null && elements.Rows.Count > preferred.Index)
             elements.CurrentCell = elements.Rows[preferred.Index].Cells["Kind"];
         suppress = false;
-        status.Text = $"{project.Name}  ·  revision {project.Revision}  ·  {result.Elements.Count}/{result.Total} components  ·  SHA {project.CurrentSha256[..12]}";
+        status.Text = $"{project.Name}  ·  {project.Kind}  ·  revision {project.Revision}  ·  {result.Elements.Count}/{result.Total} components  ·  SHA {project.CurrentSha256[..12]}";
         await LoadSelectedAsync();
     }
     private async Task LoadSelectedAsync()
@@ -172,21 +190,48 @@ public sealed class MainForm : Form
         tabs.SelectedIndex = 1;
     }
 
+    private void ShowJson(object value)
+    {
+        review.Text = JsonSerializer.Serialize(value, ProjectService.Json); tabs.SelectedIndex = 1;
+    }
+
+    private async Task PrepareGraphicsAsync()
+    {
+        if (project is null || !FactoryTalkGraphics.IsFactoryTalk(project.Kind))
+            throw new InvalidOperationException("Select an ME or SE display XML working copy first.");
+        using var dialog = new GraphicsTargetDialog(project.Name);
+        if (dialog.ShowDialog(this) != DialogResult.OK) return;
+        var plan = await client.PostAsync<GraphicsImportPlan>($"/api/projects/{project.Id}/graphics-imports",
+            new PrepareGraphicsImportRequest(project.CurrentSha256, dialog.ApplicationName, dialog.DisplayName, dialog.Language));
+        graphicsPlanId.Text = plan.Id; ShowJson(plan);
+        status.Text = $"{plan.Edition} update import prepared for {plan.ApplicationName} / {plan.DisplayName} ({plan.Language}) · native import pending";
+    }
+
+    private async Task VerifyGraphicsAsync()
+    {
+        if (string.IsNullOrWhiteSpace(graphicsPlanId.Text)) throw new InvalidOperationException("Prepare an import or enter its plan ID from Codex.");
+        var result = await client.PostAsync<GraphicsVerification>($"/api/factorytalk/imports/{graphicsPlanId.Text.Trim()}/verify", new VerifyGraphicsImportRequest());
+        ShowJson(result);
+        status.Text = $"Re-export: {result.Status} · native application/language and completion must also be observed in Studio";
+    }
+
     // Exercises the real HTTP client and renders the actual WinForms layout without displaying a window.
     public void LoadForTest(string path)
     {
         var (info, inspection, content) = Task.Run(async () =>
         {
             var info = await client.PostAsync<ProjectInfo>("/api/projects", new RegisterRequest(path));
-            var inspection = await client.GetAsync<Inspection>($"/api/projects/{info.Id}/elements?kind=Routine");
+            var kind = FactoryTalkGraphics.IsFactoryTalk(info.Kind) ? "text" : "Routine";
+            var inspection = await client.GetAsync<Inspection>($"/api/projects/{info.Id}/elements?kind={kind}");
             var component = inspection.Elements.First();
             var content = await client.GetAsync<ElementContent>($"/api/projects/{info.Id}/element?xpath={Uri.EscapeDataString(component.XPath)}");
             return (info, inspection, content);
         }).GetAwaiter().GetResult();
         suppress = true; projects.DataSource = new[] { info }; elements.DataSource = inspection.Elements.ToArray();
         if (elements.Columns["XPath"] is { } column) column.Visible = false;
+        if (elements.Columns["Program"] is { } contextColumn) contextColumn.HeaderText = "Program / group";
         xpath.Text = content.XPath; editor.Text = content.Xml; project = info;
-        status.Text = $"{info.Name}  ·  revision {info.Revision}  ·  SHA {info.CurrentSha256[..12]}  ·  Shared service connected";
+        status.Text = $"{info.Name}  ·  {info.Kind}  ·  revision {info.Revision}  ·  SHA {info.CurrentSha256[..12]}  ·  Shared service connected";
         PerformLayout();
     }
 }

@@ -11,4 +11,14 @@ try {
     $png = Join-Path $repo 'artifacts/test-results/desktop.png'
     $process = Start-Process -FilePath $gui -ArgumentList @('--self-test', ('"' + $png + '"')) -WindowStyle Hidden -PassThru -Wait
     if ($process.ExitCode -ne 0 -or !(Test-Path -LiteralPath $png)) { throw 'Desktop render test failed.' }
+    $schemaDir = 'C:\Program Files (x86)\Rockwell Software\RSView Enterprise\Schemas'
+    if (Test-Path -LiteralPath $schemaDir) {
+        foreach ($edition in @('ME','SE')) {
+            $env:STUDIO5000_GUI_FIXTURE = "Demo$edition.xml"
+            $graphicsPng = Join-Path $repo "artifacts/test-results/desktop-$edition.png"
+            $graphicsProcess = Start-Process -FilePath $gui -ArgumentList @('--self-test', ('"' + $graphicsPng + '"')) -WindowStyle Hidden -PassThru -Wait
+            if ($graphicsProcess.ExitCode -ne 0 -or !(Test-Path -LiteralPath $graphicsPng)) { throw "Desktop $edition render test failed." }
+        }
+        Remove-Item Env:\STUDIO5000_GUI_FIXTURE
+    }
 } finally { Pop-Location }

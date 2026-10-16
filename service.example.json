@@ -5,7 +5,9 @@
     "AllowedRoots": ["examples"],
     "OutputRoots": ["artifacts/exports"],
     "NativeBridgePath": null,
-    "NativeTimeoutSeconds": 180
+    "NativeTimeoutSeconds": 180,
+    "FactoryTalkSchemaDirectory": "C:\\Program Files (x86)\\Rockwell Software\\RSView Enterprise\\Schemas",
+    "FactoryTalkStudioPath": "C:\\Program Files (x86)\\Rockwell Software\\RSView Enterprise\\Launcher.exe"
   },
   "Logging": { "LogLevel": { "Default": "Information", "Microsoft.AspNetCore": "Warning" } }
 }

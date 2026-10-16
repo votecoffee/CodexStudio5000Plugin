@@ -18,6 +18,8 @@ options.StateDirectory = Path.GetFullPath(options.StateDirectory, root);
 options.AllowedRoots = options.AllowedRoots.Select(p => Path.GetFullPath(p, root)).ToArray();
 options.OutputRoots = options.OutputRoots.Select(p => Path.GetFullPath(p, root)).ToArray();
 if (options.NativeBridgePath != null) options.NativeBridgePath = Path.GetFullPath(options.NativeBridgePath, root);
+options.FactoryTalkSchemaDirectory = Path.GetFullPath(options.FactoryTalkSchemaDirectory, root);
+options.FactoryTalkStudioPath = Path.GetFullPath(options.FactoryTalkStudioPath, root);
 var local = Path.Combine(root, ".local");
 Directory.CreateDirectory(local);
 ProjectService.RejectLinks(local);
@@ -50,10 +52,10 @@ app.Use(async (context, next) =>
         context.Response.StatusCode = ex.Code == "not_found" ? 404 : ex.Code is "stale_revision" or "state_tampered" or "draft_tampered" ? 409 : 400;
         await context.Response.WriteAsJsonAsync(new { code = ex.Code, message = ex.Message });
     }
-    catch (Exception ex) when (ex is System.Xml.XmlException or System.Xml.XPath.XPathException or ArgumentException or System.Text.Json.JsonException)
+    catch (Exception ex) when (ex is System.Xml.XmlException or System.Xml.Schema.XmlSchemaException or System.Xml.XPath.XPathException or ArgumentException or System.Text.Json.JsonException)
     { context.Response.StatusCode = 400; await context.Response.WriteAsJsonAsync(new { code = "invalid_request", message = ex.Message }); }
 });
-app.MapGet("/health", () => new { status = "ok", version = "0.1.0" });
+app.MapGet("/health", () => new { status = "ok", version = "0.2.0" });
 app.MapGet("/api/capabilities", (ProjectService service) => service.Capabilities());
 app.MapGet("/api/projects", (ProjectService service) => service.Projects());
 app.MapPost("/api/projects", (ProjectService service, RegisterRequest request, CancellationToken ct) => service.RegisterAsync(request.Path, ct));
@@ -72,6 +74,12 @@ app.MapGet("/api/artifacts/{id}", (ProjectService service, string id) =>
 });
 app.MapPost("/api/artifacts/{id}/save", (ProjectService service, string id, SaveArtifactRequest request, CancellationToken ct) => service.SaveArtifactAsync(id, request.Path, ct));
 app.MapGet("/api/audit", (ProjectService service, string? projectId) => service.History(projectId));
+app.MapGet("/api/factorytalk/status", (ProjectService service) => service.FactoryTalkStatus());
+app.MapPost("/api/factorytalk/launch", (ProjectService service) => service.LaunchFactoryTalkStudio());
+app.MapGet("/api/projects/{id}/graphics-validation", (ProjectService service, string id) => service.ValidateGraphics(id));
+app.MapPost("/api/projects/{id}/graphics-imports", (ProjectService service, string id, PrepareGraphicsImportRequest request, CancellationToken ct) => service.PrepareGraphicsImportAsync(id, request, ct));
+app.MapGet("/api/factorytalk/imports/{planId}", (ProjectService service, string planId) => service.GraphicsPlan(planId));
+app.MapPost("/api/factorytalk/imports/{planId}/verify", (ProjectService service, string planId, VerifyGraphicsImportRequest request, CancellationToken ct) => service.VerifyGraphicsImportAsync(planId, request, ct));
 await app.RunAsync();
 
 public partial class Program { }

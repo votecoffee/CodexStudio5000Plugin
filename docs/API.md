@@ -40,4 +40,29 @@ Export body: `{"expectedSha256":"...","format":"acd"}`. Save body: `{"path":"C:\
 
 Failures include `401 unauthorized`, `403 origin_denied`, `404 not_found`, `409 stale_revision`/state mismatch, and `400` for invalid edits, paths, native failures or unavailable native support. On stale revision, read the latest project and create a new preview. Native failures include diagnostics but never return a successful artifact. HTTP requests are limited to 2 MiB; imported project files to 64 MiB; returned components to 1 MiB. Inspection pages contain at most 1,000 elements.
 
+## FactoryTalk ME/SE endpoints
+
+FactoryTalk uses the same registration, inspection, preview/apply, XML export and artifact-save endpoints. Register a `.xml` file rooted at `gfx`; `kind` identifies `ftview-me` or `ftview-se`. `set_attribute`, `set_text` and shape-preserving `replace_element` edit existing properties. Export with `format="xml"`.
+
+| Method | Path | Purpose |
+|---|---|---|
+| GET | `/api/factorytalk/status` | Installed schemas, launcher and current Studio window titles |
+| POST | `/api/factorytalk/launch` | Request the installed Studio launcher; no arbitrary arguments |
+| GET | `/api/projects/{id}/graphics-validation` | Declared schema name/hash and validation status |
+| POST | `/api/projects/{id}/graphics-imports` | Prepare a fixed-target update import plan and ZIP |
+| GET | `/api/factorytalk/imports/{planId}` | Read the persisted plan and local native file paths |
+| POST | `/api/factorytalk/imports/{planId}/verify` | Compare changed properties in supplied re-export XML |
+
+Prepare body:
+
+```json
+{"expectedSha256":"...","applicationName":"MachineHMI","displayName":"Main","language":"en-US"}
+```
+
+The response includes `xmlPath`, `batchPath`, `backupPath`, `reexportPath`, changed-property checks, schema hash and a standard ZIP artifact. Application and language are explicit caller-supplied context, not extracted proof. The wizard must target that same context. A plan requires at least one applied change. The original XML is retained separately from native graphics backups.
+
+Verify body is `{}` for the plan's expected re-export path, or `{"reexportPath":"C:\\AllowedSourceRoot\\Main.xml"}` for another allowed source file. `status` is `property_values_match` or `property_values_mismatch`. In both cases `nativeImportStatus` stays `not_observed_by_service`; a matching supplied file alone does not prove Studio import. Missing export, edition mismatch and stale revision are explicit errors. Stable object-name selectors tolerate native object-order changes while checking the intended properties.
+
+Actual native interaction is supplied by the packaged `factorytalk-studio` skill and available Computer Use tools. API-only callers receive prepared files and verification results, not an unattended Studio UI automation endpoint.
+
 Any local agent/API client can call this REST API. A cloud OpenAI API request cannot directly reach the user's loopback address; run the tool execution loop locally and forward function calls to these endpoints, or use the local MCP transport. No cloud exposure is configured by this project.

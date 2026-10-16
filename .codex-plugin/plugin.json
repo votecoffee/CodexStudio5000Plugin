@@ -1,7 +1,8 @@
 {
   "name": "studio5000-workspace",
-  "version": "0.1.0",
-  "description": "Inspect, preview, apply and export Logix Designer projects through the local shared service.",
+  "version": "0.2.0",
+  "description": "Inspect and edit Logix projects and FactoryTalk View ME/SE display properties with a shared service and Studio workflow.",
+  "skills": "./skills/",
   "mcpServers": "./.mcp.json",
   "requires_local_executor": true
 }

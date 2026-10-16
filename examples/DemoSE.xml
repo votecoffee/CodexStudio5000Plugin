@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<gfx xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="Gfx-SE17.xsd">
+  <displaySettings width="800" height="600" backColor="white" />
+  <text name="Title" left="20" top="20" width="400" height="40" fontFamily="Arial" fontSize="18" foreColor="black" caption="FactoryTalk SE demonstration" />
+  <numericDisplay name="CycleCount" left="20" top="90" width="120" height="30" fontFamily="Arial" fontSize="14" foreColor="black">
+    <connections><connection name="Value" expression="{[PLC]Demo.CycleCount}" /></connections>
+  </numericDisplay>
+</gfx>
