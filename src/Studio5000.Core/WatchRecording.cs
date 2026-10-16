@@ -8,7 +8,7 @@ public sealed record WatchRecordingUpdate(WatchRecordingSettings Settings, int E
 public sealed record WatchRecordingStatus(WatchRecordingSettings Settings, int Revision, long Bytes, long LastIndex, string? RecoveryNote);
 public sealed record WatchRecord(long Index, int WatchRevision, string Session, DateTimeOffset At, string Kind, WatchSnapshot? Snapshot = null, string? Detail = null);
 public sealed record WatchRecordingQuery(int? WatchRevision = null, DateTimeOffset? From = null, DateTimeOffset? To = null, long AfterIndex = 0, int Limit = 1000);
-public sealed record WatchRecordingPage(WatchRecord[] Records, long NextIndex, bool HasMore, DateTimeOffset ServerTime, bool Stale, string State, WatchRecordingStatus Recording);
+public sealed record WatchRecordingPage(WatchRecord[] Records, long NextIndex, bool HasMore, DateTimeOffset ServerTime, bool Stale, string State, WatchRecordingStatus Recording, WatchDefinition? Definition = null);
 
 // A bounded, segmented journal. Callers serialize access using the shared watch lock.
 internal sealed class WatchRecorder
@@ -63,8 +63,12 @@ internal sealed class WatchRecorder
         var path = Path.Combine(directory, $"revision-{definition.Revision}.json");
         if (!File.Exists(path)) WriteAtomic(path, JsonSerializer.SerializeToUtf8Bytes(definition, Compact));
     }
-    public WatchDefinition Definition(int watchRevision) => JsonSerializer.Deserialize<WatchDefinition>(
-        File.ReadAllBytes(Path.Combine(directory, $"revision-{watchRevision}.json")), Compact)!;
+    public WatchDefinition Definition(int watchRevision)
+    {
+        var path = Path.Combine(directory, $"revision-{watchRevision}.json");
+        if (!File.Exists(path)) throw new OperationException("not_found", "Watch revision is not recorded.");
+        return JsonSerializer.Deserialize<WatchDefinition>(File.ReadAllBytes(path), Compact)!;
+    }
     private static void Validate(WatchRecordingSettings value)
     {
         if (value.RetentionDays is < 1 or > 365 || value.MaxMiB is < 8 or > 256)

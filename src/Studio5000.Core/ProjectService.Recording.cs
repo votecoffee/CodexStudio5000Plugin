@@ -27,7 +27,7 @@ public sealed partial class ProjectService
                 records.Add(entry); bytes += size;
             }
             return new(records.ToArray(), records.LastOrDefault()?.Index ?? request.AfterIndex, more, DateTimeOffset.UtcNow,
-                Status(watch).Stale, watch.State, watch.Recorder.Status);
+                Status(watch).Stale, watch.State, watch.Recorder.Status, watch.Recorder.Definition(request.WatchRevision ?? watch.Definition.Revision));
         }
     }
     public Artifact ExportRecording(string id, WatchRecordingQuery request)

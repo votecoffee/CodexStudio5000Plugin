@@ -36,7 +36,7 @@ public sealed class MainForm : Form
         Font = new Font("Segoe UI", 10); BackColor = Color.FromArgb(244, 246, 249);
         var header = new Label { Text = "ROCKWELL WORKSPACE  /  LOGIX + FACTORYTALK + VIEW DESIGNER", Dock = DockStyle.Top, Height = 54,
             Padding = new Padding(16), BackColor = Color.FromArgb(24, 40, 61), ForeColor = Color.White, Font = new Font("Segoe UI", 13, FontStyle.Bold) };
-        var toolbar = new FlowLayoutPanel { Dock = DockStyle.Top, Height = 48, Padding = new Padding(8) };
+        var toolbar = new FlowLayoutPanel { Dock = DockStyle.Top, Height = 84, Padding = new Padding(8) };
         AddButton(toolbar, "Open project…", OpenAsync);
         AddButton(toolbar, "Refresh", () => RefreshAsync());
         toolbar.Controls.Add(search);
@@ -47,6 +47,7 @@ public sealed class MainForm : Form
         AddButton(toolbar, "Audit", AuditAsync);
         AddButton(toolbar, "SDK operations…", () => { using var sdk = new SdkForm(client, project); sdk.ShowDialog(this); return Task.CompletedTask; });
         AddButton(toolbar, "Watch lists…", () => { using var watches = new WatchForm(client, project); watches.ShowDialog(this); return Task.CompletedTask; });
+        AddButton(toolbar, "Tag / UDT browser…", () => { using var browser = new TagBrowserForm(client, project); browser.ShowDialog(this); return Task.CompletedTask; });
         AddButton(toolbar, "Capabilities", async () => MessageBox.Show((await client.GetAsync<JsonElement>("/api/capabilities")).ToString(), "Service capabilities"));
         var graphicsToolbar = new FlowLayoutPanel { Dock = DockStyle.Top, Height = 44, Padding = new Padding(8, 3, 8, 3) };
         graphicsToolbar.Controls.Add(new Label { Text = "FACTORYTALK", AutoSize = true, Padding = new Padding(0, 7, 5, 0) });

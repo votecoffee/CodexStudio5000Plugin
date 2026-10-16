@@ -35,10 +35,15 @@ public sealed class WatchForm : Form
     {
         this.client = client; this.project = project;
         Text = "Watch lists and UDT structures"; Size = new(1280, 850); MinimumSize = new(1050, 650); Font = new("Segoe UI", 10);
-        var toolbar = new FlowLayoutPanel { Dock = DockStyle.Top, Height = 46, Padding = new(6) };
+        var toolbar = new FlowLayoutPanel { Dock = DockStyle.Top, Height = 84, Padding = new(6) };
         Button(toolbar, "Refresh lists", RefreshAsync); Button(toolbar, "New", () => { New(); return Task.CompletedTask; });
         Button(toolbar, "Save list", SaveAsync); Button(toolbar, "Start polling", () => ActionAsync("start")); Button(toolbar, "Stop polling", () => ActionAsync("stop"));
         Button(toolbar, "Delete stopped list", DeleteAsync); Button(toolbar, "History", HistoryAsync);
+        Button(toolbar, "Tag / UDT browser…", BrowserAsync); Button(toolbar, "Trends & recording…", () =>
+        {
+            if (selected is null) throw new ArgumentException("Save or select a watch list first.");
+            using var form = new TrendForm(client, selected); form.ShowDialog(this); return Task.CompletedTask;
+        });
         var split = new SplitContainer { Dock = DockStyle.Fill, FixedPanel = FixedPanel.Panel1 };
         split.Panel1.Controls.Add(lists);
         var settings = new TabPage("List settings");
@@ -120,6 +125,11 @@ public sealed class WatchForm : Form
     { if (selected is null) return; await client.PostAsync<JsonElement>("/api/watches/" + selected.Definition.Id + "/delete", new { }); New(); await RefreshAsync(); }
     private async Task HistoryAsync()
     { if (selected is not null) { history.Text = JsonSerializer.Serialize(await client.GetAsync<WatchSnapshot[]>("/api/watches/" + selected.Definition.Id + "/history"), ProjectService.Json); tabs.SelectedIndex = 3; } }
+    private async Task BrowserAsync()
+    {
+        using var browser = new TagBrowserForm(client, project); browser.ShowDialog(this);
+        if (browser.CreatedWatch is { } created) { LoadWatch(created); await RefreshAsync(); tabs.SelectedIndex = 0; }
+    }
     private async Task ExtractAsync()
     {
         if (project is null) throw new ArgumentException("Select a Logix project in the main window first.");

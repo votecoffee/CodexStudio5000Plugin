@@ -40,13 +40,13 @@ public sealed partial class ProjectService : IDisposable
         Directory.CreateDirectory(Path.Combine(state, "artifacts"));
         native = new(options);
         this.watchFactory = watchFactory ?? native;
-        InitializeSdkJobs();
-        InitializeWatches();
+        try { InitializeSdkJobs(); InitializeWatches(); }
+        catch { instanceLock.Dispose(); gate.Dispose(); throw; }
     }
 
     public object Capabilities() => new
     {
-        version = "0.7.0", nativeBridgeConfigured = native.Available,
+        version = "0.8.0", nativeBridgeConfigured = native.Available,
         operations = new[] { "register", "inspect", "read_element", "preview", "apply", "export_l5x", "explode", "register_exploded", "audit", "export_acd" },
         editOperations = new[] { "set_text", "set_attribute", "replace_element", "add_element", "remove_element" },
         allowedRoots = roots,
@@ -56,7 +56,8 @@ public sealed partial class ProjectService : IDisposable
         viewDesigner = ViewDesignerStatus(),
         extensions = new { protocolVersion = 1, catalog = "/api/extensions", reload = "/api/extensions/reload", fixedMcpTools = "studio_extensions_*", activation = "Versioned trusted local packages; existing calls retain their generation" },
         sdk = SdkCapabilities(),
-        watches = new { minimumIntervalMs = 100, maximumTags = 64, maximumActiveLists = 4, autoStartAfterRestart = false, structures = "SDK-native decorated XML; no inferred memory offsets" },
+        watches = new { minimumIntervalMs = 100, maximumTags = 64, maximumActiveLists = 4, autoStartAfterRestart = false, structures = "SDK-native decorated XML; no inferred memory offsets",
+            browser = "/api/tags/browse", recording = "Durable segmented journal, default 7 days/64 MiB per list; explicit gaps, revision/time queries and CSV" },
         validation = "XML checks and installed SDK operations have distinct evidence levels. Live controller operations require an enabled, configured target; validation is operation/version-specific."
     };
 

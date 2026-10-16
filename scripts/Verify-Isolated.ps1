@@ -46,7 +46,7 @@ try {
     dotnet run --project (Join-Path $repo 'tests/Studio5000.Integration/Studio5000.Integration.csproj') -c Release
     if ($LASTEXITCODE -ne 0) { throw 'Isolated REST/MCP checks failed.' }
     $gui = Join-Path $fixtureRoot 'artifacts/app/Desktop/Studio5000.Desktop.exe'
-    foreach ($view in @('extensions', 'viewdesigner', 'watches', 'watches-values', 'online-edit', 'main')) {
+    foreach ($view in @('browser', 'trends', 'extensions', 'viewdesigner', 'watches', 'watches-values', 'online-edit', 'main')) {
         $flag = if ($view -eq 'main') { '--self-test' } else { "--self-test-$view" }
         $png = Join-Path $fixtureRoot "artifacts/test-results/desktop-$view.png"
         $guiProcess = Start-Process -FilePath $gui -ArgumentList @($flag, ('"' + $png + '"')) -WindowStyle Hidden -PassThru -Wait

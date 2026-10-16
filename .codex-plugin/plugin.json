@@ -1,7 +1,7 @@
 {
   "name": "studio5000-workspace",
-  "version": "0.7.0",
-  "description": "Reload versioned extensions without restarting Codex; shared Logix, FactoryTalk, View Designer, watches and UDT operations with MCP and GUI.",
+  "version": "0.8.0",
+  "description": "Shared Rockwell workspace with tag/UDT browsing, persistent watch recordings, trends and CSV; reloadable extensions with MCP and GUI.",
   "skills": "./skills/",
   "mcpServers": "./.mcp.json",
   "requires_local_executor": true

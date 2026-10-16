@@ -6,6 +6,37 @@ try
 {
     var root = ServiceClient.FindRoot();
     using var client = new ServiceClient(root);
+    if (args.Length == 2 && args[0] is "--self-test-browser" or "--self-test-trends")
+    {
+        using Form view = args[0] == "--self-test-browser" ? new TagBrowserForm(client, null) : new TrendForm(client,
+            new(new("00000000000000000000000000000000", 0, DateTimeOffset.UtcNow, new("Process values", [new("Count", "Record", "WatchProgram", "Inner.Count")], new string('0', 64), SourcePath: "Fixture.L5X", Mode: "Offline")), "stopped", null, true, null, []));
+        view.StartPosition = FormStartPosition.Manual; view.Location = new(-30000, -30000); view.ShowInTaskbar = false;
+        if (view is TagBrowserForm browser)
+        {
+            browser.LoadForTest(new("fixture", new string('a', 64), "WatchDemo", ["WatchProgram"],
+                [new("WatchRecord", null, [new("Inner", "WatchInner", [], false, null, null, null), new("Samples", "DINT", [3], false, null, null, null)])],
+                [new("Record", "tag", "WatchRecord", [], "WatchProgram", "Record", null, true, true), new("Records", "tag", "WatchRecord", [2], "WatchProgram", "Records", null, true, true),
+                 new("Enabled", "tag", "BOOL", [], "WatchProgram", "Enabled", null, false, true)], 3, 0, 100));
+        }
+        else if (view is TrendForm trends)
+        {
+            var start = DateTimeOffset.UtcNow.AddSeconds(-60); var records = new List<Studio5000.Core.WatchRecord>();
+            records.Add(new(1, 0, "one", start, "start"));
+            for (var i = 0; i < 55; i++)
+            {
+                var at = start.AddSeconds(i + 1);
+                if (i == 22) records.Add(new(records.Count + 1, 0, "one", at, "fault", Detail: "Communication interrupted"));
+                if (i is >= 22 and < 32) continue;
+                var sample = new Studio5000.Core.WatchSnapshot(i + 1, at.AddMilliseconds(-30), at, "Offline",
+                    [new("Count", "Record", "WatchProgram", "DINT", System.Text.Json.Nodes.JsonValue.Create(8 + Math.Sin(i * .3) * 2), "good"),
+                     new("Enabled", "Enabled", "WatchProgram", "BOOL", System.Text.Json.Nodes.JsonValue.Create(i % 15 < 8), "good")]);
+                records.Add(new(records.Count + 1, 0, i < 32 ? "one" : "two", at, "sample", sample));
+            }
+            records.Add(new(records.Count + 1, 0, "two", start.AddSeconds(57), "stop")); trends.LoadForTest(records.ToArray());
+        }
+        view.Show(); Application.DoEvents(); using var bitmap = new Bitmap(view.Width, view.Height);
+        view.DrawToBitmap(bitmap, new Rectangle(Point.Empty, view.Size)); bitmap.Save(args[1], System.Drawing.Imaging.ImageFormat.Png); view.Close(); return;
+    }
     if (args.Length == 2 && args[0] == "--self-test-extensions")
     {
         using var extensions = new ExtensionsForm(client);
