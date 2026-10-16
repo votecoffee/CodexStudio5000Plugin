@@ -1,5 +1,7 @@
 # Architecture
 
+Version 0.7 adds `Studio5000.Extensibility` (stable contract), `Studio5000.ExtensionWorker` (one isolated process per selected/draining version), and `Studio5000.Extensions.Rockwell` (reloadable operation catalogs/compositions). The shared Core `ExtensionHost` validates packages, publishes generations and pins in-flight work. REST and the ten stable MCP tools use that host; the desktop generates operation fields from the same schemas. Existing endpoints/tools remain compatible. [EXTENSIONS.md](EXTENSIONS.md) describes lifecycle, jobs, trust and limits.
+
 ```text
 Codex chat ── stdio MCP adapter ─┐
 Windows GUI ── HTTP client ──────┼── authenticated loopback REST

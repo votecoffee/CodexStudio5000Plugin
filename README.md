@@ -2,7 +2,9 @@
 
 A Windows project-editing service with a Codex MCP plugin, REST API and desktop GUI for **Logix Designer, FactoryTalk View Studio ME/SE and Studio 5000 View Designer**. Operations live in `Studio5000.Core` and run in **one shared service process**. The MCP adapter and GUI use that service over authenticated loopback HTTP.
 
-Version 0.6 adds **View Designer export editing** for PanelView 5000: preserved export folders/assets, nested object/property inspection, reviewed text/geometry/binding/parameter changes, import ZIPs and re-export comparison. Open **View Designer…** in the desktop workspace or use the nine `viewdesigner_*` MCP tools. Native import/build/runtime validation is pending; direct VPD/VPDR editing is not supplied. See [View Designer](docs/VIEW_DESIGNER.md).
+Version 0.7 adds **reloadable extensions** behind ten stable MCP tools and a live operation catalog. Update extension DLLs and schemas, reload a module by command or through **Extensions…**, and keep the MCP connection/Codex chat running. Calls/jobs retain their original version until finished. The existing 46 tools stay compatible. One initial bridge/service upgrade is required; see [extensions and reload](docs/EXTENSIONS.md).
+
+Version 0.6 added **View Designer export editing** for PanelView 5000: preserved export folders/assets, nested object/property inspection, reviewed text/geometry/binding/parameter changes, import ZIPs and re-export comparison. Open **View Designer…** in the desktop workspace or use the nine `viewdesigner_*` MCP tools. Native import/build/runtime validation is pending; direct VPD/VPDR editing is not supplied. See [View Designer](docs/VIEW_DESIGNER.md).
 
 Version 0.5 added **persistent watch lists and UDT structure extraction** through REST, MCP and GUI. Poll exact tags at configurable intervals, inspect nested objects/arrays and member selections, and retain bounded history with timestamps/quality. Pull a controller's UDT definitions into a new upload snapshot, or extract a saved project's structures as JSON. See [watch lists and UDTs](docs/WATCHES.md).
 
@@ -47,7 +49,7 @@ codex mcp add studio5000 -- powershell.exe -NoProfile -ExecutionPolicy Bypass -F
 
 Start a new local chat after adding the server. Registration is a user setup step; this repository does not change the user's global Codex configuration automatically.
 
-Direct MCP registration exposes all 46 tools. Load the plugin package to discover its bundled `factorytalk-studio` and `logix-online-edits` skills. A direct MCP-only setup can read those skills from this repository for the corresponding native workflow.
+Direct MCP registration exposes all 56 tools (46 existing tools plus ten stable extension tools). Load the plugin package to discover its bundled `factorytalk-studio` and `logix-online-edits` skills. A direct MCP-only setup can read those skills from this repository for the corresponding native workflow.
 
 Example chat request:
 
@@ -65,7 +67,11 @@ Tools expose their schemas and descriptions. Inspect/read first, pass the return
 
 View Designer adds nine `viewdesigner_*` tools listed in [VIEW_DESIGNER.md](docs/VIEW_DESIGNER.md).
 
+The stable `studio_extensions_*` bridge discovers new operations and their argument schemas at runtime. Prefer live catalog/describe for extension features; use the matching read, preview, apply or control dispatcher. [EXTENSIONS.md](docs/EXTENSIONS.md) covers deployment, generation pinning, background jobs and rollback.
+
 ## Desktop workflow
+
+**Extensions…** opens the live catalog, schema-generated operation forms, installed-version reload and pinned job controls. New extension operations appear after a catalog refresh without replacing the GUI shell.
 
 **View Designer…** opens its exported-project workspace with file/property browsing, preview/apply, import packaging and re-export comparison. All mutations run through the shared service.
 
