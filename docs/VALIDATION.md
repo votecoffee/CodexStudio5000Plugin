@@ -56,7 +56,23 @@ The user authorized a particular 1756-L82ES, firmware 35.11, and only `MainTask 
 - The user changed the requested workflow to direct finalization. An offline-only, routine-targeted replacement using FinalizeEdits failed with `XMLSrv_E_PIE_CONTROLLER_EDITS_EXIST_FOR_PROGRAM`, because the saved ACD already contained accepted edits. No live replacement was attempted. The user then reported finalizing CodexTest in Studio, clearing its edit state and observing Result 42.
 - A subsequent API connection reported Online / Run, read Enable true, Input 41 and Result 42, then set Enable false and read it back false. This verifies this arithmetic result and scoped tag access; the cleared native edit state is user-reported.
 
-No download, controller mode change, force, safety change or SD-card operation was requested. API-only FinalizeEdits on an initial live import remains unverified. This check does not establish general machine behavior, physical I/O, safety acceptance, all SDK controller operations or commissioning approval.
+No download, controller mode change, force, safety change or SD-card operation was requested. That phase did not verify API-only FinalizeEdits on an initial live import; the separate initial-import check below does. These checks do not establish general machine behavior, physical I/O, safety acceptance, all SDK controller operations or commissioning approval.
+
+## Routine replacement regression (2026-10-16)
+
+A native offline negative control imported a changed routine at the existing routine XPath. The SDK returned success but appended its rung, leaving two rungs. The corrected shared planner imports into the parent program with the exact routine target name, and scoped policies require matching Routine-target metadata. A fresh job through that planner/policy reported Offline throughout and exported exactly one routine and one changed rung. All 19 other programs and the three local tag definitions/data matched the baseline after normalized XML comparison; the source ACD hash was unchanged. Opaque protected AOI payload equality and runtime behavior are outside this offline check. An independent explicit-rung replacement also retained exactly one rung.
+
+The 52 core tests and 47 REST/MCP checks include the corrected mapping and rejection of the old path. `Verify-Sdk.ps1` now inspects exported rung count and logic after partial imports, since SDK import/build success alone misses this failure.
+
+## Initial API import and finalization (2026-10-16)
+
+The same authorized version-35 controller/program/routine was used for a fresh API-only test after the user resumed work. A preflight API job reported Online / Run, Enable false, Input 41 and Result 42, and exported the existing single Input + 1 rung. The shared planner prepared explicit rung replacement at position 0, replaceCount 1, with `finalize_during_import`. Its import payload defined no tags/types and referenced only the three existing program-local test tags.
+
+The live job disabled the test, set Input to 41 and Result to sentinel -1234567, then made exactly one PartialImportRungs call with `FinalizeEdits` from the outset. The SDK import returned zero warnings/errors. A native export contained exactly one Input + 2 rung, and the online reads after enabling returned Input 41 and Result 43. The user then reported **CodexTest shows No Edits** while instructed only to observe; no manual Accept, Test or Finalize step was requested or performed for this import. No separate test interval was provided.
+
+An independent SDK session reopened the saved result, reported Online / Run, read Enable true, Input 41 and Result 43, then set Enable false and read it back false. Another process restarted the shared service during that session. The service correctly retained its job as indeterminate; the original native child subsequently completed with a successful receipt containing all eight calls and saved artifacts. That receipt was recovered separately without retrying the controller actions or rewriting the service job's status. This distinction is retained in the private evidence report.
+
+The saved import export retained all 19 other programs after normalized readable XML comparison, one selected routine/rung and exactly the three local base tags. Source ACDs were preserved. A hash-verified ACD copy, the small routine export, request/results and the user observation are retained in the chat's `outputs/live-v35/initial-finalize/` directory; private job paths remain under ignored `.local`. This establishes the bounded API-only import/finalize and arithmetic check for this controller/version. Native Test/Untest, other PLC features/versions and FactoryTalk runtime/import acceptance are not established by this check.
 
 ## Upstream source
 
