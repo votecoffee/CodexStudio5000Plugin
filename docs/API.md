@@ -33,6 +33,8 @@ Default base URL: `http://127.0.0.1:5487`. Read `.local/connection.json` for the
 | POST | `/api/structures/pull` | Start a fresh controller upload for UDT/schema extraction |
 | POST | `/api/structures/extract` | Extract definitions and nested tag values from projectId or successful jobId |
 
+[VIEW_DESIGNER.md](VIEW_DESIGNER.md) documents the separate `/api/viewdesigner` export-folder API, edit shape and native import boundary.
+
 SDK request/response examples, target configuration and evidence boundaries are in [SDK.md](SDK.md). These endpoints use the same shared service as XML editing and FactoryTalk.
 
 [WATCHES.md](WATCHES.md) covers watch request/response shapes, intervals, UDT extraction, scope policy and native decoding. Reading cached watches never connects; starting online polling or pulling structures requires controller authorization/access.
