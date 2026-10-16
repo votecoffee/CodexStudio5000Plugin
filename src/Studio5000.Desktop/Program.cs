@@ -6,6 +6,15 @@ try
 {
     var root = ServiceClient.FindRoot();
     using var client = new ServiceClient(root);
+    if (args.Length == 2 && args[0] == "--self-test-extensions")
+    {
+        using var extensions = new ExtensionsForm(client);
+        extensions.StartPosition = FormStartPosition.Manual; extensions.Location = new(-30000, -30000); extensions.ShowInTaskbar = false;
+        extensions.LoadForTest(); extensions.Show(); Application.DoEvents();
+        using var bitmap = new Bitmap(extensions.Width, extensions.Height);
+        extensions.DrawToBitmap(bitmap, new Rectangle(Point.Empty, extensions.Size)); bitmap.Save(args[1], System.Drawing.Imaging.ImageFormat.Png);
+        extensions.Close(); return;
+    }
     if (args.Length == 2 && args[0] == "--self-test-viewdesigner")
     {
         using var view = new ViewDesignerForm(client);

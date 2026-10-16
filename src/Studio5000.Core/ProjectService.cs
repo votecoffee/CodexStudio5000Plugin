@@ -46,7 +46,7 @@ public sealed partial class ProjectService : IDisposable
 
     public object Capabilities() => new
     {
-        version = "0.6.0", nativeBridgeConfigured = native.Available,
+        version = "0.7.0", nativeBridgeConfigured = native.Available,
         operations = new[] { "register", "inspect", "read_element", "preview", "apply", "export_l5x", "explode", "register_exploded", "audit", "export_acd" },
         editOperations = new[] { "set_text", "set_attribute", "replace_element", "add_element", "remove_element" },
         allowedRoots = roots,
@@ -54,6 +54,7 @@ public sealed partial class ProjectService : IDisposable
         projectKinds = new[] { "logix", "ftview-me", "ftview-se" },
         factoryTalk = FactoryTalkStatus(),
         viewDesigner = ViewDesignerStatus(),
+        extensions = new { protocolVersion = 1, catalog = "/api/extensions", reload = "/api/extensions/reload", fixedMcpTools = "studio_extensions_*", activation = "Versioned trusted local packages; existing calls retain their generation" },
         sdk = SdkCapabilities(),
         watches = new { minimumIntervalMs = 100, maximumTags = 64, maximumActiveLists = 4, autoStartAfterRestart = false, structures = "SDK-native decorated XML; no inferred memory offsets" },
         validation = "XML checks and installed SDK operations have distinct evidence levels. Live controller operations require an enabled, configured target; validation is operation/version-specific."

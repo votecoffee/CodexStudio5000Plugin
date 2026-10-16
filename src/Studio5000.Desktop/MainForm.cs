@@ -57,6 +57,7 @@ public sealed class MainForm : Form
         graphicsToolbar.Controls.Add(graphicsPlanId);
         AddButton(graphicsToolbar, "Verify re-export", VerifyGraphicsAsync);
         AddButton(graphicsToolbar, "View Designer…", () => { using var view = new ViewDesignerForm(client); view.ShowDialog(this); return Task.CompletedTask; });
+        AddButton(graphicsToolbar, "Extensions…", () => { using var extensions = new ExtensionsForm(client); extensions.ShowDialog(this); return Task.CompletedTask; });
         var layout = new SplitContainer { Dock = DockStyle.Fill, SplitterDistance = 240, FixedPanel = FixedPanel.Panel1 };
         layout.Panel1.Padding = new Padding(8);
         layout.Panel1.Controls.Add(projects);

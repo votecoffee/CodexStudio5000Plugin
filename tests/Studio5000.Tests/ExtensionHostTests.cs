@@ -95,6 +95,17 @@ public sealed class ExtensionHostTests : IDisposable
         Assert.Single(workers);
     }
     [Fact]
+    public async Task CancellationIsIndeterminateAndArgumentPayloadIsNotPersisted()
+    {
+        Package("1"); var summary = await host.ReloadAsync(new("demo", "1")); workers[0].Block = true;
+        var job = await host.StartJobAsync(new("read", Call(summary, new { text = "private payload marker" })));
+        await workers[0].Started.Task.WaitAsync(TimeSpan.FromSeconds(3)); host.CancelJob(job.Id);
+        for (var i = 0; i < 200 && host.Job(job.Id).Status is "queued" or "running"; i++) await Task.Delay(10);
+        Assert.Equal("indeterminate", host.Job(job.Id).Status);
+        Assert.DoesNotContain("private payload marker", File.ReadAllText(Path.Combine(options.StateDirectory, "extensions", "job-" + job.Id + ".json")));
+        Assert.Equal(0, Assert.Single((await host.CatalogAsync()).Extensions).ActiveCalls);
+    }
+    [Fact]
     public async Task StartupRestoresActivePackageAndMarksInterruptedJobsIndeterminate()
     {
         Package("1"); await host.ReloadAsync(new("demo", "1"));

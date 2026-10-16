@@ -8,6 +8,9 @@ try {
     dotnet run --project tests/Studio5000.Integration/Studio5000.Integration.csproj -c Release
     if ($LASTEXITCODE -ne 0) { throw 'REST/MCP integration failed. Start the shared service first.' }
     $gui = Join-Path $repo 'artifacts/app/Desktop/Studio5000.Desktop.exe'
+    $extensionsPng = Join-Path $repo 'artifacts/test-results/desktop-extensions.png'
+    $extensionsProcess = Start-Process -FilePath $gui -ArgumentList @('--self-test-extensions', ('"' + $extensionsPng + '"')) -WindowStyle Hidden -PassThru -Wait
+    if ($extensionsProcess.ExitCode -ne 0 -or !(Test-Path -LiteralPath $extensionsPng)) { throw 'Extensions GUI render test failed.' }
     $viewPng = Join-Path $repo 'artifacts/test-results/desktop-viewdesigner.png'
     $viewProcess = Start-Process -FilePath $gui -ArgumentList @('--self-test-viewdesigner', ('"' + $viewPng + '"')) -WindowStyle Hidden -PassThru -Wait
     if ($viewProcess.ExitCode -ne 0 -or !(Test-Path -LiteralPath $viewPng)) { throw 'View Designer workspace render test failed.' }

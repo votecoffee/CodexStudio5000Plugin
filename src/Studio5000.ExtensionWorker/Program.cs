@@ -5,12 +5,12 @@ using Studio5000.Extensibility;
 
 if (args.Length != 3) throw new ArgumentException("Expected assembly path, entry type and workspace root.");
 var assemblyPath = Path.GetFullPath(args[0]);
+var output = Console.Out; Console.SetOut(Console.Error); // Includes assembly initialization/constructor diagnostics.
 var load = new ExtensionLoadContext(assemblyPath);
 var assembly = load.LoadFromAssemblyPath(assemblyPath);
 var extension = Activator.CreateInstance(assembly.GetType(args[1], throwOnError: true)!) as IWorkspaceExtension
     ?? throw new ArgumentException("Entry type must implement IWorkspaceExtension.");
 var context = new ExtensionContext(Path.GetDirectoryName(assemblyPath)!, Path.GetFullPath(args[2]));
-var output = Console.Out; Console.SetOut(Console.Error); // Extension Console.WriteLine cannot corrupt the protocol.
 while (await Console.In.ReadLineAsync() is { } line)
 {
     WorkerReply reply;

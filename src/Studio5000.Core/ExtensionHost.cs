@@ -193,23 +193,25 @@ public sealed class ExtensionHost : IDisposable
         var job = new ExtensionJob(Guid.NewGuid().ToString("N"), request.Call.ExtensionId, request.Call.Operation, request.Call.Generation,
             request.Effect, "queued", DateTimeOffset.UtcNow);
         var cancel = new CancellationTokenSource();
-        try { lock (sync) { Save(JobPath(job.Id), job); jobs.Add(job.Id, (job, cancel)); } }
+        try { lock (sync) { Save(JobPath(job.Id), job); jobs.Add(job.Id, (job, cancel)); Audit("job_started", job.ExtensionId, job.Generation, job.Id + ":" + job.Operation); } }
         catch { Release(generation); cancel.Dispose(); throw; }
         _ = Task.Run(async () =>
         {
             var dispatched = false;
+            ExtensionJob completion;
             try
             {
                 Update(job with { Status = "running" });
                 dispatched = true;
                 var result = await InvokePinnedAsync(generation, request.Call, cancel.Token);
-                Update(job with { Status = "succeeded", Result = result });
+                completion = job with { Status = "succeeded", Result = result };
             }
             catch (Exception ex)
-            { Update(job with { Status = "indeterminate", Error = ex.Message + " No rollback or automatic retry was performed." }); }
+            { completion = job with { Status = "indeterminate", Error = ex.Message + " No rollback or automatic retry was performed." }; }
             finally { if (!dispatched) Release(generation); Audit("job_finished", job.ExtensionId, job.Generation, job.Id); }
+            Update(completion);
         });
-        Audit("job_started", job.ExtensionId, job.Generation, job.Id + ":" + job.Operation); return job;
+        return job;
     }
     private void Update(ExtensionJob job)
     {
@@ -249,7 +251,7 @@ internal sealed class ProcessExtensionWorker : IExtensionWorker
 {
     private readonly Process process;
     private readonly SemaphoreSlim gate = new(1);
-    private bool broken;
+    private int closed;
     public ProcessExtensionWorker(string executable, string assembly, string type, string workspace)
     {
         ProjectService.RejectLinks(executable);
@@ -267,7 +269,7 @@ internal sealed class ProcessExtensionWorker : IExtensionWorker
         await gate.WaitAsync(ct);
         try
         {
-            if (broken || process.HasExited) throw new IOException("Extension worker exited or was interrupted. Reload explicitly; inspect effects before retrying.");
+            if (Volatile.Read(ref closed) != 0 || process.HasExited) throw new IOException("Extension worker exited or was interrupted. Reload explicitly; inspect effects before retrying.");
             await process.StandardInput.WriteLineAsync(JsonSerializer.Serialize(request, ExtensionProtocol.Json).AsMemory(), ct); await process.StandardInput.FlushAsync(ct);
             var line = await process.StandardOutput.ReadLineAsync(ct) ?? throw new IOException("Extension worker closed without a result.");
             if (line.Length > 2 * 1024 * 1024) throw new IOException("Extension result exceeds 2 MiB.");
@@ -275,9 +277,15 @@ internal sealed class ProcessExtensionWorker : IExtensionWorker
             if (!reply.Success) throw new OperationException("extension_operation_failed", reply.Error ?? "Extension failed; inspect effects before retrying.");
             return reply.Value!.Value.Clone();
         }
-        catch (Exception ex) when (ex is IOException or OperationCanceledException or JsonException)
+        catch (Exception ex) when (ex is IOException or OperationCanceledException or JsonException or InvalidOperationException)
         { Dispose(); throw new OperationException("extension_indeterminate", "Worker interrupted; inspect effects before retrying: " + ex.Message); }
         finally { gate.Release(); }
     }
-    public void Dispose() { if (broken) return; broken = true; try { if (!process.HasExited) process.Kill(entireProcessTree: true); } catch (InvalidOperationException) { } }
+    public void Dispose()
+    {
+        if (Interlocked.Exchange(ref closed, 1) != 0) return;
+        try { if (!process.HasExited) process.Kill(entireProcessTree: true); }
+        catch (Exception ex) when (ex is InvalidOperationException or System.ComponentModel.Win32Exception) { }
+        finally { process.Dispose(); }
+    }
 }

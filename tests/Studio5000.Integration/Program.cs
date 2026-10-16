@@ -44,7 +44,7 @@ await using var mcp = await McpClient.CreateAsync(new StdioClientTransport(new S
     Name = "Studio 5000 integration"
 }));
 var tools = await mcp.ListToolsAsync();
-Check(tools.Count == 46, "Official MCP client discovers all 46 Logix/FactoryTalk/View Designer/SDK/watch tools");
+Check(tools.Count == 56, "Official MCP client discovers 46 compatible tools plus 10 stable extension tools");
 var sdkCatalog = await mcp.CallToolAsync("studio_sdk_catalog", new Dictionary<string, object?>());
 Check(sdkCatalog.IsError != true && sdkCatalog.Content.OfType<TextContentBlock>().Any(b => b.Text.Contains("PartialImportRungsFromXmlFileAsync")), "MCP exposes the complete SDK catalog through the shared service");
 var editCapabilities = (await client.GetAsync<JsonElement>("/api/sdk/capabilities")).GetProperty("onlineEdits");
@@ -128,6 +128,7 @@ else Console.WriteLine("Installed FactoryTalk schema checks skipped: schema dire
 checks.AddRange(await OnlineEditPlanIntegration.RunAsync(root));
 checks.AddRange(await WatchIntegration.RunAsync(root, client, mcp));
 checks.AddRange(await ViewDesignerIntegration.RunAsync(root, client, mcp));
+checks.AddRange(await ExtensionIntegration.RunAsync(root, client, mcp));
 Directory.CreateDirectory(Path.Combine(root, "artifacts", "test-results"));
 await File.WriteAllTextAsync(Path.Combine(root, "artifacts", "test-results", "integration.json"),
     JsonSerializer.Serialize(new { passed = checks.Count, checks, graphicsChecks, projectId = p.Id, latest.CurrentSha256, sourceHash }, ProjectService.Json));

@@ -1,0 +1,4 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup Condition="'$(FixtureV2)' == 'true'"><DefineConstants>$(DefineConstants);FIXTURE_V2</DefineConstants></PropertyGroup>
+  <ItemGroup><ProjectReference Include="../../src/Studio5000.Extensibility/Studio5000.Extensibility.csproj" /></ItemGroup>
+</Project>
