@@ -34,9 +34,9 @@ public sealed partial class ProjectService
         }
     }
     private WatchRuntime Watch(string id) => watches.TryGetValue(Id(id), out var watch) ? watch : throw new OperationException("not_found", "Watch list not found.");
-    private WatchStatus Status(WatchRuntime watch) => new(watch.Definition, watch.State, Clone(watch.Latest),
+    private WatchStatus Status(WatchRuntime watch) => new(Clone(watch.Definition)!, watch.State, Clone(watch.Latest),
         watch.State != "running" || watch.Latest is null || (DateTimeOffset.UtcNow - watch.Latest.CompletedAt).TotalMilliseconds > Math.Max(watch.Definition.Settings.IntervalMs * 2L, 1000),
-        watch.Error, watch.Types);
+        watch.Error, Clone(watch.Types)!);
     private static T? Clone<T>(T? value) => value is null ? default : JsonSerializer.Deserialize<T>(JsonSerializer.Serialize(value, Json), Json);
     public WatchStatus[] WatchLists() { lock (watchLock) return watches.Values.Select(Status).ToArray(); }
     public WatchStatus GetWatch(string id) { lock (watchLock) return Status(Watch(id)); }

@@ -24,8 +24,18 @@ Default base URL: `http://127.0.0.1:5487`. Read `.local/connection.json` for the
 | GET/POST | `/api/sdk/jobs` | List jobs / submit ordered native SDK calls |
 | GET | `/api/sdk/jobs/{id}` | Per-call results, diagnostics, status and output artifacts |
 | POST | `/api/sdk/jobs/{id}/cancel` | Request cancellation; poll completion; no rollback |
+| GET/POST | `/api/watches` | List saved watch lists / create a stopped list |
+| GET/POST | `/api/watches/{id}` | Read status/latest/types / update stopped settings with expectedRevision |
+| POST | `/api/watches/{id}/start` | Start interval reads; online access requires an enabled allowed target |
+| POST | `/api/watches/{id}/stop` | Stop polling and retain stale cached values |
+| POST | `/api/watches/{id}/delete` | Delete a stopped list's definition |
+| GET | `/api/watches/{id}/history?limit=100` | Bounded in-memory polling history |
+| POST | `/api/structures/pull` | Start a fresh controller upload for UDT/schema extraction |
+| POST | `/api/structures/extract` | Extract definitions and nested tag values from projectId or successful jobId |
 
 SDK request/response examples, target configuration and evidence boundaries are in [SDK.md](SDK.md). These endpoints use the same shared service as XML editing and FactoryTalk.
+
+[WATCHES.md](WATCHES.md) covers watch request/response shapes, intervals, UDT extraction, scope policy and native decoding. Reading cached watches never connects; starting online polling or pulling structures requires controller authorization/access.
 
 Register and edit using PowerShell:
 

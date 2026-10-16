@@ -5,6 +5,7 @@ using Studio5000.Core;
 
 var root = Path.GetFullPath(Environment.GetEnvironmentVariable("STUDIO5000_PLUGIN_ROOT") ?? Directory.GetCurrentDirectory());
 var builder = WebApplication.CreateBuilder(new WebApplicationOptions { Args = args, ContentRootPath = root });
+builder.Services.ConfigureHttpJsonOptions(o => o.SerializerOptions.MaxDepth = 128);
 builder.Configuration.AddJsonFile(Path.Combine(root, "service.local.json"), optional: true, reloadOnChange: false);
 var url = builder.Configuration["ServiceUrl"] ?? "http://127.0.0.1:5487";
 if (!Uri.TryCreate(url, UriKind.Absolute, out var address) || address.Scheme != "http" ||
@@ -55,7 +56,7 @@ app.Use(async (context, next) =>
     catch (Exception ex) when (ex is System.Xml.XmlException or System.Xml.Schema.XmlSchemaException or System.Xml.XPath.XPathException or ArgumentException or System.Text.Json.JsonException)
     { context.Response.StatusCode = 400; await context.Response.WriteAsJsonAsync(new { code = "invalid_request", message = ex.Message }); }
 });
-app.MapGet("/health", () => new { status = "ok", version = "0.4.0" });
+app.MapGet("/health", () => new { status = "ok", version = "0.5.0" });
 app.MapGet("/api/capabilities", (ProjectService service) => service.Capabilities());
 app.MapGet("/api/projects", (ProjectService service) => service.Projects());
 app.MapPost("/api/projects", (ProjectService service, RegisterRequest request, CancellationToken ct) => service.RegisterAsync(request.Path, ct));

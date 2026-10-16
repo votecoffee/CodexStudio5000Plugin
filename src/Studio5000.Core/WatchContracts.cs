@@ -25,6 +25,12 @@ public interface IWatchSessionFactory
 
 public static class WatchValidation
 {
+    public static void MemberPath(string? path)
+    {
+        if (path is { Length: > 256 } || path is { Length: > 0 } && !Regex.IsMatch(path,
+            @"^(?:[A-Za-z_][A-Za-z0-9_]*|\[\d+\])(?:\[\d+\])*(?:\.[A-Za-z_][A-Za-z0-9_]*(?:\[\d+\])*)*$"))
+            throw new OperationException("watch_member", "Use member names, dots and numeric array indices only (maximum 256 characters).");
+    }
     public static void Identifier(string name)
     {
         if (string.IsNullOrEmpty(name) || !Regex.IsMatch(name, "^[A-Za-z_][A-Za-z0-9_]*$"))
@@ -49,9 +55,7 @@ public static class WatchValidation
         foreach (var tag in request.Tags)
         {
             _ = TagPath(tag);
-            if (tag.MemberPath is { Length: > 256 } || tag.MemberPath is { Length: > 0 } path &&
-                !Regex.IsMatch(path, @"^[A-Za-z_][A-Za-z0-9_]*(?:\[\d+\])*(?:\.[A-Za-z_][A-Za-z0-9_]*(?:\[\d+\])*)*$"))
-                throw new OperationException("watch_member", "Use member names, dots and numeric array indices only (maximum 256 characters).");
+            MemberPath(tag.MemberPath);
         }
     }
 }

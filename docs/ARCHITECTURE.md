@@ -47,6 +47,14 @@ REST returns a job ID immediately. MCP and GUI poll the same durable result. Can
 
 Controller entry points and `mode=Online` require both `EnableControllerOperations` and a selected configured `ControllerTargetId`. The communications path is injected from configuration, never accepted as an arbitrary request override. Setting a communications path on an offline copy requires a configured target but does not require enabling controller operations. SDK calls that go online hold that session only within the job; disposal ends it. Local offline fixture evidence does not establish live-controller, runtime, safety or commissioning acceptance.
 
+## Watch sessions and structured reads
+
+`ProjectService.Watches` owns persistent list definitions, source snapshots, scheduler tasks, cached samples and bounded history. REST/MCP/desktop are clients of that owner. Lists are created stopped and restore stopped after restart, with the persisted latest sample stale. Start checks configured controller access, method/program scope and exact source hashes. Poll cycles are serial; failures retain explicit quality/errors or fault the session without automatic reconnect. `IWatchSessionFactory` provides a deterministic reader seam for scheduler/scope/recovery tests.
+
+The native bridge's `--watch` protocol opens a private source snapshot and a separate offline decoder project once per run. Only the source session goes online and only reads whole base tags. Raw bytes are applied to the offline decoder, which exports the selected tag as decorated XML. `LogixStructures` extracts nested objects/arrays from this representation without inferring byte offsets, padding or BOOL packing. Native operations share the conversion/job semaphore; idle watch sessions do not hold it. Pipe EOF ends the reader when the service exits. Stop/cancellation disposes or terminates the read-only native child.
+
+`ProjectService.Structures` extracts definitions/values from managed hash-checked revisions. A fresh live pull reuses the configured, gated SDK upload-to-new-project operation; extraction of that successful job is labeled an uploaded snapshot. The service does not describe ordinary saved data as live or assume a watch's saved schema updates after controller edits. Limits and API contracts are in [WATCHES.md](WATCHES.md).
+
 ## FactoryTalk ME/SE
 
 `ProjectInfo.kind` distinguishes `logix`, `ftview-me` and `ftview-se`. Its default preserves older manifests. Graphics revisions use XML filenames while retaining the same project IDs, source snapshots, preview/apply locking, immutable artifacts and audit service. `FactoryTalkGraphics` handles local schema identity, XSD validation, existing-property edits, stable named selectors and changed-property comparison. FactoryTalk operations do not instantiate another service or own separate editing state.

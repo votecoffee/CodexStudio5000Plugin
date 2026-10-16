@@ -42,6 +42,8 @@ public static class LogixStructures
         if (!values) return new(name, program, type, dims, null, "schema_only");
         try
         {
+            var text = tag.Elements("Data").FirstOrDefault(d => (string?)d.Attribute("Format") == "String");
+            if (text is not null) return new(name, program, type, dims, JsonValue.Create(DecodeString(text.Value)), "snapshot");
             var data = tag.Elements("Data").FirstOrDefault(d => (string?)d.Attribute("Format") == "Decorated");
             if (data?.Elements().SingleOrDefault() is not { } value)
                 return new(name, program, type, dims, null, "unavailable", "No decorated value is present; saved data is not a live read.");
@@ -66,7 +68,7 @@ public static class LogixStructures
             var dims = Dimensions((string?)value.Attribute("Dimensions"));
             if (dims.Length == 0 || dims.Length > 3 || dims.Aggregate(1L, (a, b) => checked(a * b)) > budget)
                 throw new OperationException("structure_too_large", "Array dimensions exceed the extraction limit.");
-            var elements = value.Elements("Element").ToDictionary(e => (string)e.Attribute("Index")!);
+            var elements = value.Elements("Element").ToDictionary(e => "[" + string.Join(',', ((string)e.Attribute("Index")!).Trim('[', ']').Split(',').Select(v => int.Parse(v.Trim(), CultureInfo.InvariantCulture))) + "]");
             JsonArray Build(int level, int[] indices)
             {
                 var array = new JsonArray();
@@ -93,11 +95,18 @@ public static class LogixStructures
 
     private static JsonNode Scalar(string? type, string text)
     {
+        if (type == "STRING") return JsonValue.Create(DecodeString(text));
         if (type == "BOOL" || type == "BIT") return text switch { "1" or "true" or "TRUE" => JsonValue.Create(true), "0" or "false" or "FALSE" => JsonValue.Create(false), _ => throw new FormatException("Invalid BOOL value.") };
         if (type is "REAL" or "LREAL") return double.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out var number) && double.IsFinite(number)
             ? JsonValue.Create(number) : JsonValue.Create(text);
         if (type is "SINT" or "INT" or "DINT" or "LINT" or "USINT" or "UINT" or "UDINT" or "ULINT")
         {
+            if (type is "SINT" or "USINT" && text.StartsWith('\''))
+            {
+                var ascii = DecodeString(text);
+                if (ascii.Length != 1 || ascii[0] > 255) throw new FormatException("ASCII byte must contain exactly one octet.");
+                return type == "SINT" ? JsonValue.Create(unchecked((sbyte)ascii[0])) : JsonValue.Create((byte)ascii[0]);
+            }
             var plain = text.Replace("_", "");
             if (plain.Contains('#'))
             {
@@ -110,11 +119,30 @@ public static class LogixStructures
         return JsonValue.Create(text);
     }
 
+    private static string DecodeString(string literal)
+    {
+        literal = literal.Trim();
+        if (literal.Length < 2 || literal[0] != '\'' || literal[^1] != '\'') throw new FormatException("Invalid Logix string literal.");
+        var result = new System.Text.StringBuilder();
+        for (var i = 1; i < literal.Length - 1; i++)
+        {
+            var c = literal[i];
+            if (c == '$')
+            {
+                if (++i >= literal.Length - 1) throw new FormatException("Incomplete string escape.");
+                if (i + 1 < literal.Length - 1 && byte.TryParse(literal.AsSpan(i, 2), NumberStyles.HexNumber, CultureInfo.InvariantCulture, out var octet))
+                { result.Append((char)octet); i++; continue; }
+                c = char.ToUpperInvariant(literal[i]) switch { '$' => '$', '\'' => '\'', '"' => '"', 'L' => '\n', 'R' => '\r', 'T' => '\t', _ => throw new FormatException("Unsupported string escape; retain the original XML.") };
+            }
+            result.Append(c);
+        }
+        return result.ToString();
+    }
+
     public static JsonNode? Select(JsonNode? value, string? memberPath)
     {
         if (string.IsNullOrEmpty(memberPath)) return value?.DeepClone();
-        if (!System.Text.RegularExpressions.Regex.IsMatch(memberPath, @"^[A-Za-z_][A-Za-z0-9_]*(?:\[\d+\])*(?:\.[A-Za-z_][A-Za-z0-9_]*(?:\[\d+\])*)*$"))
-            throw new OperationException("watch_member", "Use member names, dots and numeric array indices only.");
+        WatchValidation.MemberPath(memberPath);
         foreach (System.Text.RegularExpressions.Match part in System.Text.RegularExpressions.Regex.Matches(memberPath, @"([A-Za-z_][A-Za-z0-9_]*)|\[(\d+)\]"))
         {
             value = part.Groups[1].Success ? value is JsonObject obj ? obj[part.Value] : null :

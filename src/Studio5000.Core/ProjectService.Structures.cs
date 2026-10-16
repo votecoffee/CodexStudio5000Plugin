@@ -27,8 +27,9 @@ public sealed partial class ProjectService
             .Where(t => request.ProgramName is null || (string?)t.Ancestors("Program").FirstOrDefault()?.Attribute("Name") == request.ProgramName)
             .Where(t => request.DataTypeName is null || (string?)t.Attribute("DataType") == request.DataTypeName).Take(257).ToArray();
         if (tags.Length > 256) throw new OperationException("structure_too_large", "Select a tag, program or data type (maximum 256 tags per extraction).");
-        var uploaded = job?.Status == "succeeded" && job.Methods.Contains("UploadToNewProjectAsync") && info.Revision == 0;
-        return new(info.Id, info.CurrentSha256, uploaded ? "controller_upload_snapshot" : "saved_project", uploaded ? job!.CreatedAt : null,
+        var uploaded = job?.Status == "succeeded" && job.Methods.Contains("UploadToNewProjectAsync") && info.Revision == 0 &&
+            job.Methods.All(m => m is "UploadToNewProjectAsync" or "ReadConnectedStateAsync" or "ReadControllerModeAsync" or "GetCommunicationsPathAsync" or "PartialExportToXmlFileAsync" or "SaveAsync" or "SaveAsAsync");
+        return new(info.Id, info.CurrentSha256, uploaded ? "controller_upload_snapshot" : "saved_project", uploaded ? info.CreatedAt : null,
             types, tags.Select(t => LogixStructures.ExtractTag(t, (string?)t.Ancestors("Program").FirstOrDefault()?.Attribute("Name"), request.IncludeValues)).ToArray(),
             "Type declarations and decorated values extracted from a hash-checked L5X revision. Uploaded values are a point-in-time snapshot; watch samples carry separate read timestamps. No inferred memory offsets or atomic multi-tag snapshot is promised.");
     }

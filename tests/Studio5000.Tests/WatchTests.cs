@@ -132,6 +132,62 @@ public sealed class WatchTests : IDisposable
     { using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(5)); while (!test()) await Task.Delay(20, timeout.Token); }
     public void Dispose() { service.Dispose(); Directory.Delete(root, true); }
 
+    [Fact]
+    public void ExtractsEscapedStringsAndSelectsRootArrayMembers()
+    {
+        var tag = System.Xml.Linq.XElement.Parse("<Tag Name='Text' DataType='STRING'><Data Format='String'><![CDATA['O$'Brien$$$0A']]></Data></Tag>");
+        Assert.Equal("O'Brien$\n", LogixStructures.ExtractTag(tag, null).Value!.GetValue<string>());
+        var array = JsonNode.Parse("[{\"Count\":11},{\"Count\":22}]");
+        Assert.Equal(22, LogixStructures.Select(array, "[1].Count")!.GetValue<int>());
+        Assert.Throws<OperationException>(() => LogixStructures.Select(array, "[9].Count"));
+    }
+
+    [Fact]
+    public async Task ReturnedDefinitionsCannotMutateTheSharedWatchConfiguration()
+    {
+        var saved = await service.SaveWatchAsync(Request()); saved.Definition.Settings.Tags[0] = new("x", "Foreign");
+        Assert.Equal("Record", service.GetWatch(saved.Definition.Id).Definition.Settings.Tags[0].TagName);
+    }
+
+    [Fact]
+    public async Task UploadProvenanceRequiresAnUnmodifiedSuccessfulUploadResult()
+    {
+        var project = await service.RegisterAsync(source); var id = Guid.NewGuid().ToString("N");
+        var dir = Path.Combine(options.StateDirectory, "sdk-jobs", id); Directory.CreateDirectory(dir);
+        var path = Path.Combine(dir, "job.json");
+        var job = new SdkJob(id, "succeeded", DateTimeOffset.UtcNow, ["UploadToNewProjectAsync"], null, "lab", true, [], [], [], project);
+        File.WriteAllText(path, System.Text.Json.JsonSerializer.Serialize(job, ProjectService.Json));
+        var uploaded = service.ExtractStructures(new(JobId: id, TagName: "Record"));
+        Assert.Equal("controller_upload_snapshot", uploaded.Origin); Assert.Equal(project.CreatedAt, uploaded.UploadedAt);
+        File.WriteAllText(path, System.Text.Json.JsonSerializer.Serialize(job with { Methods = ["UploadToNewProjectAsync", "SetTagValueDINTAsync"] }, ProjectService.Json));
+        Assert.Equal("saved_project", service.ExtractStructures(new(JobId: id, TagName: "Record")).Origin);
+        File.WriteAllText(path, System.Text.Json.JsonSerializer.Serialize(job with { Status = "indeterminate" }, ProjectService.Json));
+        Assert.Equal("structure_job", Assert.Throws<OperationException>(() => service.ExtractStructures(new(JobId: id))).Code);
+    }
+
+    [Fact]
+    public async Task LiveStructurePullCannotBypassDisabledControllerGate()
+    {
+        options.NativeBridgePath = source; // Inert file satisfies availability; it must never be executed.
+        Assert.Equal("sdk_controller_disabled", (await Assert.ThrowsAsync<OperationException>(() => service.PullStructuresAsync(new("lab")))).Code);
+        Assert.Empty(service.SdkJobList()); Assert.Equal(0, reader.Opens);
+    }
+
+    [Fact]
+    public void NestedStringMembersAndAsciiByteArraysRetainTheirValues()
+    {
+        var tag = System.Xml.Linq.XElement.Parse("""
+            <Tag Name="Record" DataType="RecordType"><Data Format="Decorated"><Structure DataType="RecordType">
+            <StructureMember Name="Label" DataType="STRING"><DataValueMember Name="LEN" DataType="DINT" Value="6"/>
+            <DataValueMember Name="DATA" DataType="STRING" Radix="ASCII" Value="'Nested'"/></StructureMember>
+            <ArrayMember Name="Bytes" DataType="SINT" Dimensions="2" Radix="ASCII"><Element Index="[0]" Value="'A'"/><Element Index="[1]" Value="'$FF'"/></ArrayMember>
+            </Structure></Data></Tag>
+            """);
+        var result = LogixStructures.ExtractTag(tag, null);
+        Assert.Equal("snapshot", result.Quality); Assert.Equal("Nested", result.Value!["Label"]!["DATA"]!.GetValue<string>());
+        Assert.Equal((sbyte)65, result.Value["Bytes"]![0]!.GetValue<sbyte>()); Assert.Equal((sbyte)-1, result.Value["Bytes"]![1]!.GetValue<sbyte>());
+    }
+
     private sealed class FakeReader : IWatchSessionFactory, IWatchSession
     {
         public int Opens, Delay, MaxConcurrent, FailAfter = int.MaxValue;

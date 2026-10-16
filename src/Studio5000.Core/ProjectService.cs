@@ -11,7 +11,7 @@ namespace Studio5000.Core;
 // The only owner of project mutations. REST, MCP and the desktop UI share this instance through HTTP.
 public sealed partial class ProjectService : IDisposable
 {
-    public static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web) { WriteIndented = true };
+    public static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web) { WriteIndented = true, MaxDepth = 128 };
     private readonly ServiceOptions options;
     private readonly NativeConverter native;
     private readonly IWatchSessionFactory watchFactory;
@@ -46,7 +46,7 @@ public sealed partial class ProjectService : IDisposable
 
     public object Capabilities() => new
     {
-        version = "0.4.0", nativeBridgeConfigured = native.Available,
+        version = "0.5.0", nativeBridgeConfigured = native.Available,
         operations = new[] { "register", "inspect", "read_element", "preview", "apply", "export_l5x", "explode", "register_exploded", "audit", "export_acd" },
         editOperations = new[] { "set_text", "set_attribute", "replace_element", "add_element", "remove_element" },
         allowedRoots = roots,

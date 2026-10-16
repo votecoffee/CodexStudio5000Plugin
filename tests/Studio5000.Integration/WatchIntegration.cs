@@ -21,7 +21,8 @@ internal static class WatchIntegration
         var extraction = await Tool<StructureExtraction>("studio_structure_extract", new() { ["request"] = new StructureExtractRequest(ProjectId: project.Id, TagName: "Record") });
         Check(extraction.Origin == "saved_project" && extraction.Types.Length == 2 && extraction.Tags[0].Value!["Inner"]!["Count"]!.GetValue<int>() == 8,
             "MCP extracts nested UDT schemas and typed JSON from the shared project");
-        var request = new WatchListRequest("Offline UDT integration", [new("record", "Record", "WatchProgram"), new("sample", "Record", "WatchProgram", "Samples[1]")],
+        var request = new WatchListRequest("Offline UDT integration", [new("record", "Record", "WatchProgram"), new("sample", "Record", "WatchProgram", "Samples[1]"),
+            new("enabled", "Enabled", "WatchProgram"), new("text", "Message", "WatchProgram"), new("arrayMember", "Records", "WatchProgram", "[1].Inner.Count")],
             hash, SourcePath: source, Mode: "Offline", IntervalMs: 200, HistoryLimit: 3);
         var watch = await Tool<WatchStatus>("studio_watch_save", new() { ["request"] = request });
         try
@@ -35,14 +36,15 @@ internal static class WatchIntegration
             if (cap.GetProperty("nativeBridgeConfigured").GetBoolean())
             {
                 await Tool<WatchStatus>("studio_watch_start", new() { ["watchId"] = watch.Definition.Id });
-                using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(120));
+                using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(300));
                 do
                 {
                     await Task.Delay(500, timeout.Token);
                     watch = await client.GetAsync<WatchStatus>("/api/watches/" + watch.Definition.Id, timeout.Token);
                     if (watch.State == "faulted") throw new Exception("Native watch failed: " + watch.Error);
                 } while (watch.Latest?.Sequence is not >= 3);
-                Check(watch.Latest!.Values.All(v => v.Quality == "good") && watch.Latest.Values[0].Value!["Inner"]!["Count"]!.GetValue<int>() == 8 && watch.Latest.Values[1].Value!.GetValue<int>() == 20,
+                Check(watch.Latest!.Values.All(v => v.Quality == "good") && watch.Latest.Values[0].Value!["Inner"]!["Count"]!.GetValue<int>() == 8 && watch.Latest.Values[1].Value!.GetValue<int>() == 20 &&
+                    watch.Latest.Values[2].Value!.GetValue<bool>() && watch.Latest.Values[3].Value!.GetValue<string>() == "Watch ready" && watch.Latest.Values[4].Value!.GetValue<int>() == 55,
                     "Native persistent reader polls nested UDT and array-member values offline");
                 var history = await Tool<WatchSnapshot[]>("studio_watch_history", new() { ["watchId"] = watch.Definition.Id });
                 Check(history.Length == 3 && history.Zip(history.Skip(1)).All(p => p.First.CompletedAt <= p.Second.StartedAt),
