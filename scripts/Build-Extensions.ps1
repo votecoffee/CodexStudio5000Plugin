@@ -8,7 +8,7 @@ foreach ($module in @(@('logix', 'LogixExtension'), @('factorytalk', 'FactoryTal
     $existing = Join-Path $PackageRoot "$($module[0])/versions/$Version/manifest.json"
     if (Test-Path -LiteralPath $existing) {
         $manifest = Get-Content -LiteralPath $existing -Raw | ConvertFrom-Json
-        $same = $true
+        $same = @($manifest.files.PSObject.Properties).Count -eq @(Get-ChildItem -LiteralPath $published -File -Recurse).Count
         foreach ($file in Get-ChildItem -LiteralPath $published -File -Recurse) {
             $relative = $file.FullName.Substring($published.TrimEnd('\').Length + 1).Replace('\', '/')
             if ($manifest.files.$relative -ne (Get-FileHash -LiteralPath $file.FullName -Algorithm SHA256).Hash.ToLowerInvariant()) { $same = $false; break }

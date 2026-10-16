@@ -113,7 +113,18 @@ app.MapPost("/api/viewdesigner/projects/{id}/previews", (ProjectService service,
 app.MapPost("/api/viewdesigner/projects/{id}/previews/{previewId}/apply", (ProjectService service, string id, string previewId, ApplyRequest request, CancellationToken ct) => service.ApplyViewDesignerAsync(id, previewId, request, ct));
 app.MapPost("/api/viewdesigner/projects/{id}/imports", (ProjectService service, string id, ViewDesignerImportRequest request, CancellationToken ct) => service.PrepareViewDesignerImportAsync(id, request, ct));
 app.MapPost("/api/viewdesigner/imports/{planId}/verify", (ProjectService service, string planId, VerifyGraphicsImportRequest request, CancellationToken ct) => service.VerifyViewDesignerImportAsync(planId, request, ct));
-app.MapGet("/api/extensions", (ExtensionHost host, CancellationToken ct) => host.CatalogAsync(ct));
+app.MapGet("/api/extensions", async (ExtensionHost host, bool? includeSchemas, string? extensionId, CancellationToken ct) =>
+{
+    var catalog = await host.CatalogAsync(ct);
+    if (extensionId is not null) catalog = catalog with { Extensions = catalog.Extensions.Where(x => x.Id == extensionId).ToArray() };
+    if (includeSchemas == false) return Results.Json(new
+    {
+        catalog.ProtocolVersion, catalog.LoadErrors,
+        extensions = catalog.Extensions.Select(x => new { x.Id, x.Version, x.Generation, x.PackageSha256, x.ActiveCalls, x.State,
+            operations = x.Operations.Select(o => new { o.Name, o.Description, o.Effect }) })
+    });
+    return Results.Json(catalog);
+});
 app.MapGet("/api/extensions/operation", (ExtensionHost host, string extensionId, string operation, string generation, CancellationToken ct) => host.DescribeAsync(extensionId, operation, generation, ct));
 app.MapPost("/api/extensions/reload", (ExtensionHost host, ExtensionReloadRequest request, CancellationToken ct) => host.ReloadAsync(request, ct));
 app.MapPost("/api/extensions/invoke/{effect}", (ExtensionHost host, string effect, ExtensionCall request, CancellationToken ct) => host.InvokeAsync(effect, request, ct));

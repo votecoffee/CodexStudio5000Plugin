@@ -1,4 +1,4 @@
-param([switch]$SkipBuild)
+param([Alias('SkipBuild')][switch]$SkipUnitTests)
 $ErrorActionPreference = 'Stop'
 $repo = Split-Path -Parent $PSScriptRoot
 $fixtureRoot = Join-Path $repo ('artifacts/isolated-validation/' + [guid]::NewGuid().ToString('N'))
@@ -9,7 +9,7 @@ try {
     New-Item -ItemType Directory -Path (Join-Path $fixtureRoot 'scripts') -Force | Out-Null
     Copy-Item -LiteralPath (Join-Path $repo 'examples') -Destination $fixtureRoot -Recurse
     Copy-Item -LiteralPath (Join-Path $repo 'scripts/Start-Mcp.ps1') -Destination (Join-Path $fixtureRoot 'scripts')
-    if (!$SkipBuild) {
+    if (!$SkipUnitTests) {
         dotnet test tests/Studio5000.Tests/Studio5000.Tests.csproj -c Release --nologo --logger 'trx;LogFileName=core.trx' --results-directory (Join-Path $fixtureRoot 'artifacts/test-results')
         if ($LASTEXITCODE -ne 0) { throw 'Core tests failed.' }
     }

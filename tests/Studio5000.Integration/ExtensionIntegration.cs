@@ -22,6 +22,10 @@ internal static class ExtensionIntegration
         if (catalog.Extensions.Length == 0) { checks.Add("Extension packages unavailable; reload integration skipped (use Verify-Isolated.ps1 for actual worker checks)."); return checks; }
         Check(catalog.LoadErrors.Length == 0, "All installed extension workers pass startup/catalog validation");
         var view = catalog.Extensions.Single(x => x.Id == "viewdesigner" && x.State == "active");
+        var descriptor = await Tool<ExtensionOperation>("studio_extensions_describe", new()
+        { ["extensionId"] = view.Id, ["operation"] = "viewdesigner_screen_summary", ["generation"] = view.Generation });
+        Check(view.Operations.All(o => o.InputSchema.ValueKind == JsonValueKind.Undefined) && descriptor.InputSchema.GetProperty("properties").TryGetProperty("file", out _),
+            "Compact live catalog omits schemas and describe returns the selected exact schema");
         Check(catalog.Extensions.Where(x => x.Id != "fixture").Sum(x => x.Operations.Length) == 47, "Live catalog exposes all 46 existing operations plus extension-only HMI summary");
         var p = await client.PostAsync<ProjectInfo>("/api/viewdesigner/projects", new RegisterRequest(Path.Combine(root, "examples", "ViewDesignerDemo")));
         var call = new ExtensionCall("viewdesigner", "viewdesigner_screen_summary", view.Generation,

@@ -9,7 +9,7 @@ namespace Studio5000.Desktop;
 public sealed class ExtensionsForm : Form
 {
     private readonly ServiceClient client;
-    private readonly ComboBox modules = new() { Width = 200, DropDownStyle = ComboBoxStyle.DropDownList, DisplayMember = "Id" };
+    private readonly ComboBox modules = new() { Width = 200, DropDownStyle = ComboBoxStyle.DropDown, DisplayMember = "Id" };
     private readonly ComboBox operations = new() { Dock = DockStyle.Top, DropDownStyle = ComboBoxStyle.DropDownList, DisplayMember = "Name" };
     private readonly TextBox version = new() { Width = 130 };
     private readonly TextBox jobId = new() { Width = 270, PlaceholderText = "Extension job ID" };
@@ -47,6 +47,12 @@ public sealed class ExtensionsForm : Form
         Controls.Add(layout); Controls.Add(jobs); Controls.Add(toolbar); Controls.Add(heading); Controls.Add(boundary); Controls.Add(statusBar);
         fields.ColumnStyles.Add(new(SizeType.Percent, 30)); fields.ColumnStyles.Add(new(SizeType.Percent, 70));
         modules.SelectedIndexChanged += (_, _) => { if (!loading) SelectModule(); };
+        modules.TextUpdate += (_, _) =>
+        {
+            if (loading) return;
+            module = null; operation = null; operations.DataSource = null; execute.Enabled = false;
+            description.Text = "Enter an installed extension ID and version, then reload to add it to the live catalog.";
+        };
         operations.SelectedIndexChanged += (_, _) => { if (!loading) SelectOperation(); };
         execute.Click += async (_, _) => await Run(ExecuteAsync);
         Shown += async (_, _) => { layout.SplitterDistance = Width / 2; if (!selfTest) await Run(RefreshAsync); };
@@ -98,7 +104,7 @@ public sealed class ExtensionsForm : Form
         }
     }
     private static string Kind(JsonElement schema) => !schema.TryGetProperty("type", out var type) ? "object" :
-        type.ValueKind == JsonValueKind.String ? type.GetString()! : type.EnumerateArray().First(x => x.GetString() != "null").GetString()!;
+        type.ValueKind == JsonValueKind.String ? type.GetString()! : type.EnumerateArray().Select(x => x.GetString()).FirstOrDefault(x => x != "null") ?? "null";
     private static JsonNode Template(JsonElement schema)
     {
         var kind = Kind(schema);
@@ -131,8 +137,9 @@ public sealed class ExtensionsForm : Form
     }
     private async Task ReloadAsync()
     {
-        if (module is null) return;
-        var loaded = await client.PostAsync<ExtensionSummary>("/api/extensions/reload", new ExtensionReloadRequest(module.Id, version.Text.Trim(), module.Generation));
+        var id = modules.Text.Trim(); if (id.Length == 0) return;
+        var loaded = await client.PostAsync<ExtensionSummary>("/api/extensions/reload", new ExtensionReloadRequest(id, version.Text.Trim(), module?.Id == id ? module.Generation : null));
+        module = loaded;
         await RefreshAsync(); Show(loaded);
     }
     private async Task ReadJobAsync() { if (!string.IsNullOrWhiteSpace(jobId.Text)) Show(await client.GetAsync<ExtensionJob>("/api/extensions/jobs/" + jobId.Text.Trim())); }
