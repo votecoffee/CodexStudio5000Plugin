@@ -73,6 +73,27 @@ public sealed class SdkTargetPolicyTests
     }
 
     [Fact]
+    public void RoutineReplacementAllowsOnlyItsParentProgramAndExactRoutineTarget()
+    {
+        var target = Target("PartialImportWithTargetFromXmlFileAsync", "PartialExportToXmlFileAsync");
+        var call = Call("PartialImportWithTargetFromXmlFileAsync", new { xPath = OnlineEdits.ProgramPath("CodexTest"), targetName = "main", xmlFileToImport = "edit", onlineImportOption = "FinalizeEdits" });
+        var document = Component(); document.Root!.SetAttributeValue("TargetType", "Routine"); document.Root.SetAttributeValue("TargetName", "main");
+        document.Descendants("Routine").Single().SetAttributeValue("Use", "Target");
+        SdkTargetPolicies.ValidateCalls(target, [call]); SdkTargetPolicies.ValidateImport(target, call, document);
+        foreach (var path in new[] { RoutinePath, OnlineEdits.ProgramPath("Other"), "Controller/Programs", "Controller" })
+        {
+            call.Arguments["xPath"] = JsonSerializer.SerializeToElement(path);
+            Assert.Throws<OperationException>(() => SdkTargetPolicies.ValidateCalls(target, [call]));
+        }
+        call.Arguments["xPath"] = JsonSerializer.SerializeToElement(OnlineEdits.ProgramPath("CodexTest"));
+        call.Arguments["targetName"] = JsonSerializer.SerializeToElement("other");
+        Assert.Throws<OperationException>(() => SdkTargetPolicies.ValidateCalls(target, [call]));
+        Assert.Throws<OperationException>(() => SdkTargetPolicies.ValidateCalls(target, [Call("PartialExportToXmlFileAsync", new { xPath = OnlineEdits.ProgramPath("CodexTest"), filePath = "broad.l5x" })]));
+        document.Root.SetAttributeValue("TargetType", "Program");
+        Assert.Throws<OperationException>(() => SdkTargetPolicies.ValidateImport(target, call, document));
+    }
+
+    [Fact]
     public async Task SharedServiceRejectsDeniedMethodBeforeCreatingOrLaunchingJob()
     {
         var root = Path.Combine(Path.GetTempPath(), "SdkTargetPolicy", Guid.NewGuid().ToString("N")); Directory.CreateDirectory(root);

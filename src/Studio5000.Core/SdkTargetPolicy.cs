@@ -43,7 +43,9 @@ public static class SdkTargetPolicies
             if (ImportMethods.Contains(call.Method) || call.Method == "PartialExportToXmlFileAsync")
             {
                 if (policy.RoutineName is null) Deny("Component operations require an explicit routine in the target policy.");
-                if (call.Arguments["xPath"].GetString() != OnlineEdits.RoutinePath(policy.ProgramName, policy.RoutineName!))
+                var expectedPath = call.Method == "PartialImportWithTargetFromXmlFileAsync"
+                    ? OnlineEdits.ProgramPath(policy.ProgramName) : OnlineEdits.RoutinePath(policy.ProgramName, policy.RoutineName!);
+                if (call.Arguments["xPath"].GetString() != expectedPath)
                     Deny("Component operation must address the exact configured program/routine.");
                 if (call.Method == "PartialImportWithTargetFromXmlFileAsync" && call.Arguments["targetName"].GetString() != policy.RoutineName)
                     Deny("The imported routine cannot be renamed outside the configured scope.");
@@ -84,6 +86,10 @@ public static class SdkTargetPolicies
         if (routine is null || (string?)routine.Attribute("Name") != policy.RoutineName || routine.Attribute("Type") is { Value: not "RLL" } ||
             routine.Elements("RLLContent").Count() != 1 || routine.Elements().Any(e => e.Name.LocalName is not ("RLLContent" or "Description")))
             Deny("Import must contain the exact configured ladder routine.");
+        if (call.Method == "PartialImportWithTargetFromXmlFileAsync" &&
+            ((string?)root.Attribute("TargetType") != "Routine" || (string?)root.Attribute("TargetName") != policy.RoutineName ||
+             (string?)routine!.Attribute("Use") != "Target"))
+            Deny("A scoped with-target import requires the exact named routine as its sole import target.");
         // Instruction operands still require engineering review. This is an address/definition boundary,
         // not an interpreter proving that arbitrary imported ladder cannot reference existing global data.
     }

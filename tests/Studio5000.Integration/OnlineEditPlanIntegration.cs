@@ -16,7 +16,7 @@ internal static class OnlineEditPlanIntegration
         var fixture = Path.Combine(Path.GetTempPath(), "OnlineEditIntegration", Guid.NewGuid().ToString("N")); Directory.CreateDirectory(fixture);
         var source = Path.Combine(fixture, "fixture.acd"); var import = Path.Combine(fixture, "fixture.l5x");
         await File.WriteAllTextAsync(source, "Opaque ACD fixture: planning must not open a native project or contact a controller.");
-        await File.WriteAllTextAsync(import, "<RSLogix5000Content><Controller Use='Context'><Programs><Program Name='MainProgram' Use='Context'><Routines><Routine Name='MainRoutine' Type='RLL'><RLLContent/></Routine></Routines></Program></Programs></Controller></RSLogix5000Content>");
+        await File.WriteAllTextAsync(import, "<RSLogix5000Content TargetType='Routine' TargetName='MainRoutine'><Controller Use='Context'><Programs><Program Name='MainProgram' Use='Context'><Routines><Routine Name='MainRoutine' Type='RLL' Use='Target'><RLLContent/></Routine></Routines></Program></Programs></Controller></RSLogix5000Content>");
         var inertBridge = Path.Combine(fixture, "never-execute.exe"); await File.WriteAllTextAsync(inertBridge, "not executable");
         using var listener = new TcpListener(IPAddress.Loopback, 0); listener.Start(); var port = ((IPEndPoint)listener.LocalEndpoint).Port; listener.Stop();
         var url = "http://127.0.0.1:" + port;
@@ -24,7 +24,7 @@ internal static class OnlineEditPlanIntegration
         {
             ServiceUrl = url, Studio5000 = new ServiceOptions { StateDirectory = Path.Combine(fixture, "state"), AllowedRoots = [fixture],
                 NativeBridgePath = inertBridge, EnableControllerOperations = false, ControllerTargets = [new("plan-only", @"AB_ETH-1\192.0.2.1\Backplane\0",
-                    new(["GoOnlineAsync", "ReadConnectedStateAsync", "ReadControllerModeAsync", "PartialImportRungsFromXmlFileAsync", "SaveAsync", "GetTagValueDINTAsync"], "MainProgram", "MainRoutine"))] },
+                    new(["GoOnlineAsync", "ReadConnectedStateAsync", "ReadControllerModeAsync", "PartialImportRungsFromXmlFileAsync", "PartialImportWithTargetFromXmlFileAsync", "SaveAsync", "GetTagValueDINTAsync"], "MainProgram", "MainRoutine"))] },
             Logging = new { LogLevel = new Dictionary<string, string> { ["Default"] = "Warning", ["Microsoft.AspNetCore"] = "Warning" } }
         }, ProjectService.Json));
         var start = new ProcessStartInfo(Path.Combine(root, "artifacts", "app", "Service", "Studio5000.Service.exe"))
@@ -49,7 +49,7 @@ internal static class OnlineEditPlanIntegration
             using var client = new ServiceClient(fixture);
             var capabilities = await client.GetAsync<JsonElement>("/api/sdk/capabilities");
             var policy = capabilities.GetProperty("controllerTargets")[0].GetProperty("policy");
-            Check(policy.GetProperty("allowedMethods").GetArrayLength() == 6 && policy.GetProperty("programName").GetString() == "MainProgram",
+            Check(policy.GetProperty("allowedMethods").GetArrayLength() == 7 && policy.GetProperty("programName").GetString() == "MainProgram",
                 "Configuration binding preserves the exact target method allowlist and program scope");
             await using var mcp = await McpClient.CreateAsync(new StdioClientTransport(new StdioClientTransportOptions
             {
@@ -66,6 +66,22 @@ internal static class OnlineEditPlanIntegration
             var direct = await client.PostAsync<OnlineEditPlan>("/api/sdk/online-edits/plan", request with { Workflow = "finalize_during_import" });
             Check(direct.SdkImportOption == "FinalizeEdits" && direct.StudioSteps.Any(s => s.Contains("no test interval", StringComparison.Ordinal)),
                 "REST exposes explicit finalization during import without inventing a test interval");
+            var routineResult = await mcp.CallToolAsync("studio_online_edit_plan", new Dictionary<string, object?>
+            { ["request"] = request with { ImportKind = "routine", ReplaceCount = 0, Workflow = "finalize_during_import" } });
+            var routinePlan = JsonSerializer.Deserialize<OnlineEditPlan>(routineResult.Content.OfType<TextContentBlock>().First().Text, ProjectService.Json)!;
+            var routineCall = routinePlan.SdkRequest.Calls.Single(c => c.Method == "PartialImportWithTargetFromXmlFileAsync");
+            Check(routineResult.IsError != true && routineCall.Arguments["xPath"].GetString() == OnlineEdits.ProgramPath("MainProgram") &&
+                routineCall.Arguments["targetName"].GetString() == "MainRoutine" && routinePlan.SdkImportOption == "FinalizeEdits",
+                "MCP routine replacement targets its parent program and exact routine name");
+            var appendArgs = new Dictionary<string, JsonElement>(routineCall.Arguments)
+            { ["xPath"] = JsonSerializer.SerializeToElement(OnlineEdits.RoutinePath("MainProgram", "MainRoutine")) };
+            try
+            {
+                await client.PostAsync<SdkJob>("/api/sdk/jobs", routinePlan.SdkRequest with { Calls = [routineCall with { Arguments = appendArgs }] });
+                throw new Exception("Append-prone routine path was accepted.");
+            }
+            catch (HttpRequestException ex) when (ex.StatusCode == HttpStatusCode.BadRequest && ex.Message.Contains("sdk_target_policy", StringComparison.Ordinal))
+            { Check(true, "REST rejects the append-prone existing-routine import path before dispatch"); }
             try { await client.PostAsync<SdkJob>("/api/sdk/jobs", plan.SdkRequest); throw new Exception("Disabled controller job was accepted."); }
             catch (HttpRequestException ex) when (ex.StatusCode == HttpStatusCode.BadRequest && ex.Message.Contains("sdk_controller_disabled", StringComparison.Ordinal))
             { Check(true, "Submitting the prepared plan still cannot bypass the disabled controller gate"); }

@@ -70,11 +70,17 @@ try {
     }
     $body=FromArtifact (Acd $typed) @(
         (Call 'PartialImportFromXmlFileAsync' @{xPath="Controller/Programs/Program[@Name='SdkProgram']";xmlFileToImport='program';collisionOption='OverwriteOnColl'}),
-        (Call 'PartialImportWithTargetFromXmlFileAsync' @{xPath="Controller/Programs/Program[@Name='SdkProgram']/Routines/Routine[@Name='MainRoutine']";targetName='MainRoutine';xmlFileToImport='routine';onlineImportOption='FinalizeEdits'}),
+        (Call 'PartialImportWithTargetFromXmlFileAsync' @{xPath="Controller/Programs/Program[@Name='SdkProgram']";targetName='MainRoutine';xmlFileToImport='routine';onlineImportOption='FinalizeEdits'}),
         (Call 'PartialImportRungsFromXmlFileAsync' @{xPath="Controller/Programs/Program[@Name='SdkProgram']/Routines/Routine[@Name='MainRoutine']";insertPosition=0;replaceCount=1;xmlFileToImport='rungs';onlineImportOption='FinalizeEdits'}),
         (Call 'BuildAsync'))
     $body.inputFiles=$inputs
-    $null=Job 'partial-imports-build' $body
+    $partial=Job 'partial-imports-build' $body
+    $partialXml=@($partial.artifacts|Where-Object {$_.validation -match 'output final.l5x;'})[0]
+    $partialPath=Join-Path $evidence 'partial-imports-final.l5x'
+    Invoke-WebRequest -Uri ($connection.url+'/api/artifacts/'+$partialXml.id) -Headers $headers -OutFile $partialPath
+    [xml]$partialDoc=Get-Content -LiteralPath $partialPath -Raw -Encoding utf8
+    $partialRungs=$partialDoc.SelectNodes("/RSLogix5000Content/Controller/Programs/Program[@Name='SdkProgram']/Routines/Routine[@Name='MainRoutine']/RLLContent/Rung")
+    if($partialRungs.Count -ne 1 -or $partialRungs[0].SelectSingleNode('Text').InnerText.Trim() -ne 'NOP();'){throw 'Partial import appended or changed rungs instead of retaining the expected single rung'}
     $base=Job 'create-v35' @{calls=@((Call 'CreateNewProjectAsync' @{majorRevision=35;processorTypeName='1756-L81E';controllerName='SdkV35'}))}
     $null=Job 'convert-controller-type' (FromArtifact (Acd $base) @((Call 'ConvertAsync' @{destinationRevision=$Revision}),
         (Call 'ChangeControllerTypeAsync' @{processorTypeName='1756-L82E'}),(Call 'BuildAsync')))

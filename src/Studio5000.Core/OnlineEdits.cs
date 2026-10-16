@@ -31,11 +31,17 @@ public static partial class OnlineEdits
     };
     [GeneratedRegex("^[A-Za-z_][A-Za-z0-9_]*$")]
     private static partial Regex Identifier();
+    public static string ProgramPath(string program)
+    {
+        if (string.IsNullOrEmpty(program) || !Identifier().IsMatch(program))
+            throw new OperationException("online_edit_scope", "Supply a simple Logix program identifier; selectors and wildcards are not accepted as names.");
+        return $"Controller/Programs/Program[@Name='{program}']";
+    }
     public static string RoutinePath(string program, string routine)
     {
         if (string.IsNullOrEmpty(program) || string.IsNullOrEmpty(routine) || !Identifier().IsMatch(program) || !Identifier().IsMatch(routine))
             throw new OperationException("online_edit_scope", "Supply simple Logix program/routine identifiers; selectors and wildcards are not accepted as names.");
-        return $"Controller/Programs/Program[@Name='{program}']/Routines/Routine[@Name='{routine}']";
+        return ProgramPath(program) + $"/Routines/Routine[@Name='{routine}']";
     }
 }
 
@@ -75,7 +81,9 @@ public sealed partial class ProjectService
             while (reader.Read()) { }
         }
         Dictionary<string, JsonElement> Args(object value) => JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(JsonSerializer.Serialize(value))!;
-        var arguments = Args(new { xPath = xpath, xmlFileToImport = "edit", onlineImportOption = option });
+        // A routine is imported into its program. Targeting the existing RLL routine appends content.
+        var arguments = Args(new { xPath = request.ImportKind == "routine" ? OnlineEdits.ProgramPath(request.ProgramName) : xpath,
+            xmlFileToImport = "edit", onlineImportOption = option });
         var method = request.ImportKind == "rungs" ? "PartialImportRungsFromXmlFileAsync" : "PartialImportWithTargetFromXmlFileAsync";
         if (request.ImportKind == "rungs")
         {

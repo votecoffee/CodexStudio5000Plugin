@@ -60,7 +60,22 @@ public sealed class OnlineEditTests : IDisposable
         var plan = await service.PrepareOnlineEditAsync(Request() with { ImportKind = "routine", ReplaceCount = 0 });
         Assert.Equal("PartialImportWithTargetFromXmlFileAsync", plan.SdkRequest.Calls[3].Method);
         Assert.Equal("Logic", plan.SdkRequest.Calls[3].Arguments["targetName"].GetString());
-        Assert.Equal("Controller/Programs/Program[@Name='Main']/Routines/Routine[@Name='Logic']", plan.SdkRequest.Calls[3].Arguments["xPath"].GetString());
+        Assert.Equal("Controller/Programs/Program[@Name='Main']", plan.SdkRequest.Calls[3].Arguments["xPath"].GetString());
+    }
+
+    [Fact]
+    public async Task ScopedRoutinePlanTargetsItsProgramAndCannotRenameOrBroadenItsPayload()
+    {
+        File.WriteAllText(import, "<RSLogix5000Content TargetType='Routine' TargetName='Logic'><Controller Use='Context'><Programs><Program Name='Main' Use='Context'><Routines><Routine Name='Logic' Type='RLL' Use='Target'><RLLContent/></Routine></Routines></Program></Programs></Controller></RSLogix5000Content>");
+        using var scoped = new ProjectService(new() { StateDirectory = Path.Combine(root, "scoped"), AllowedRoots = [root], ControllerTargets = [new("lab", "path",
+            new(["GoOnlineAsync", "ReadConnectedStateAsync", "ReadControllerModeAsync", "PartialImportWithTargetFromXmlFileAsync", "SaveAsync"], "Main", "Logic"))] });
+        var request = Request() with { ImportKind = "routine", ReplaceCount = 0, Workflow = "finalize_during_import", ImportFile = new(import, ProjectService.Hash(File.ReadAllBytes(import))) };
+        var plan = await scoped.PrepareOnlineEditAsync(request);
+        Assert.Equal("Controller/Programs/Program[@Name='Main']", plan.SdkRequest.Calls[3].Arguments["xPath"].GetString());
+        Assert.Equal("Logic", plan.SdkRequest.Calls[3].Arguments["targetName"].GetString());
+        Assert.Equal("FinalizeEdits", plan.SdkImportOption); Assert.Empty(scoped.SdkJobList());
+        File.WriteAllText(import, File.ReadAllText(import).Replace("TargetType='Routine'", "TargetType='Program'"));
+        Assert.Equal("sdk_target_policy", (await Assert.ThrowsAsync<OperationException>(() => scoped.PrepareOnlineEditAsync(request with { ImportFile = new(import, ProjectService.Hash(File.ReadAllBytes(import))) }))).Code);
     }
 
     [Fact]
