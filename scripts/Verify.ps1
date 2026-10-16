@@ -11,6 +11,9 @@ try {
     $png = Join-Path $repo 'artifacts/test-results/desktop.png'
     $process = Start-Process -FilePath $gui -ArgumentList @('--self-test', ('"' + $png + '"')) -WindowStyle Hidden -PassThru -Wait
     if ($process.ExitCode -ne 0 -or !(Test-Path -LiteralPath $png)) { throw 'Desktop render test failed.' }
+    $onlinePng = Join-Path $repo 'artifacts/test-results/desktop-online-edit.png'
+    $onlineProcess = Start-Process -FilePath $gui -ArgumentList @('--self-test-online-edit', ('"' + $onlinePng + '"')) -WindowStyle Hidden -PassThru -Wait
+    if ($onlineProcess.ExitCode -ne 0 -or !(Test-Path -LiteralPath $onlinePng)) { throw 'Online edit planner render test failed.' }
     $connection = Get-Content -LiteralPath (Join-Path $repo '.local/connection.json') -Raw | ConvertFrom-Json
     $headers = @{ Authorization = 'Bearer ' + (Get-Content -LiteralPath $connection.tokenFile -Raw).Trim() }
     $sdkStatus = Invoke-RestMethod -Uri ($connection.url + '/api/sdk/capabilities') -Headers $headers

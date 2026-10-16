@@ -43,9 +43,11 @@ await using var mcp = await McpClient.CreateAsync(new StdioClientTransport(new S
     Name = "Studio 5000 integration"
 }));
 var tools = await mcp.ListToolsAsync();
-Check(tools.Count == 27, "Official MCP client discovers all 27 Logix/FactoryTalk/SDK tools");
+Check(tools.Count == 28, "Official MCP client discovers all 28 Logix/FactoryTalk/SDK tools");
 var sdkCatalog = await mcp.CallToolAsync("studio_sdk_catalog", new Dictionary<string, object?>());
 Check(sdkCatalog.IsError != true && sdkCatalog.Content.OfType<TextContentBlock>().Any(b => b.Text.Contains("PartialImportRungsFromXmlFileAsync")), "MCP exposes the complete SDK catalog through the shared service");
+var editCapabilities = (await client.GetAsync<JsonElement>("/api/sdk/capabilities")).GetProperty("onlineEdits");
+Check(!editCapabilities.GetProperty("standaloneTestEdits").GetBoolean() && !editCapabilities.GetProperty("controllerTestModeIsTestEdits").GetBoolean(), "Catalog explicitly distinguishes native Test Edits from controller Test mode");
 if ((await client.GetAsync<JsonElement>("/api/sdk/capabilities")).GetProperty("nativeBridgeConfigured").GetBoolean())
 {
     var sdkStart = await mcp.CallToolAsync("studio_sdk_start_job", new Dictionary<string, object?>
@@ -122,6 +124,7 @@ if (Directory.Exists(schemaDirectory))
     }
 }
 else Console.WriteLine("Installed FactoryTalk schema checks skipped: schema directory unavailable.");
+checks.AddRange(await OnlineEditPlanIntegration.RunAsync(root));
 Directory.CreateDirectory(Path.Combine(root, "artifacts", "test-results"));
 await File.WriteAllTextAsync(Path.Combine(root, "artifacts", "test-results", "integration.json"),
     JsonSerializer.Serialize(new { passed = checks.Count, checks, graphicsChecks, projectId = p.Id, latest.CurrentSha256, sourceHash }, ProjectService.Json));
