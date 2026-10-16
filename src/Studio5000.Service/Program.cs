@@ -21,6 +21,7 @@ options.OutputRoots = options.OutputRoots.Select(p => Path.GetFullPath(p, root))
 if (options.NativeBridgePath != null) options.NativeBridgePath = Path.GetFullPath(options.NativeBridgePath, root);
 options.FactoryTalkSchemaDirectory = Path.GetFullPath(options.FactoryTalkSchemaDirectory, root);
 options.FactoryTalkStudioPath = Path.GetFullPath(options.FactoryTalkStudioPath, root);
+options.ViewDesignerPath = Path.GetFullPath(options.ViewDesignerPath, root);
 var local = Path.Combine(root, ".local");
 Directory.CreateDirectory(local);
 ProjectService.RejectLinks(local);
@@ -56,7 +57,7 @@ app.Use(async (context, next) =>
     catch (Exception ex) when (ex is System.Xml.XmlException or System.Xml.Schema.XmlSchemaException or System.Xml.XPath.XPathException or ArgumentException or System.Text.Json.JsonException)
     { context.Response.StatusCode = 400; await context.Response.WriteAsJsonAsync(new { code = "invalid_request", message = ex.Message }); }
 });
-app.MapGet("/health", () => new { status = "ok", version = "0.5.0" });
+app.MapGet("/health", () => new { status = "ok", version = "0.6.0" });
 app.MapGet("/api/capabilities", (ProjectService service) => service.Capabilities());
 app.MapGet("/api/projects", (ProjectService service) => service.Projects());
 app.MapPost("/api/projects", (ProjectService service, RegisterRequest request, CancellationToken ct) => service.RegisterAsync(request.Path, ct));
@@ -99,6 +100,15 @@ app.MapGet("/api/projects/{id}/graphics-validation", (ProjectService service, st
 app.MapPost("/api/projects/{id}/graphics-imports", (ProjectService service, string id, PrepareGraphicsImportRequest request, CancellationToken ct) => service.PrepareGraphicsImportAsync(id, request, ct));
 app.MapGet("/api/factorytalk/imports/{planId}", (ProjectService service, string planId) => service.GraphicsPlan(planId));
 app.MapPost("/api/factorytalk/imports/{planId}/verify", (ProjectService service, string planId, VerifyGraphicsImportRequest request, CancellationToken ct) => service.VerifyGraphicsImportAsync(planId, request, ct));
+app.MapGet("/api/viewdesigner/status", (ProjectService service) => service.ViewDesignerStatus());
+app.MapGet("/api/viewdesigner/projects", (ProjectService service) => service.ViewDesignerProjects());
+app.MapPost("/api/viewdesigner/projects", (ProjectService service, RegisterRequest request, CancellationToken ct) => service.RegisterViewDesignerAsync(request.Path, ct));
+app.MapGet("/api/viewdesigner/projects/{id}", (ProjectService service, string id) => service.InspectViewDesigner(id));
+app.MapGet("/api/viewdesigner/projects/{id}/file", (ProjectService service, string id, string file) => service.ReadViewDesignerFile(id, file));
+app.MapPost("/api/viewdesigner/projects/{id}/previews", (ProjectService service, string id, ViewDesignerPreviewRequest request, CancellationToken ct) => service.PreviewViewDesignerAsync(id, request, ct));
+app.MapPost("/api/viewdesigner/projects/{id}/previews/{previewId}/apply", (ProjectService service, string id, string previewId, ApplyRequest request, CancellationToken ct) => service.ApplyViewDesignerAsync(id, previewId, request, ct));
+app.MapPost("/api/viewdesigner/projects/{id}/imports", (ProjectService service, string id, ViewDesignerImportRequest request, CancellationToken ct) => service.PrepareViewDesignerImportAsync(id, request, ct));
+app.MapPost("/api/viewdesigner/imports/{planId}/verify", (ProjectService service, string planId, VerifyGraphicsImportRequest request, CancellationToken ct) => service.VerifyViewDesignerImportAsync(planId, request, ct));
 await app.RunAsync();
 
 public partial class Program { }

@@ -9,7 +9,8 @@
     "EnableControllerOperations": false,
     "ControllerTargets": [],
     "FactoryTalkSchemaDirectory": "C:\\Program Files (x86)\\Rockwell Software\\RSView Enterprise\\Schemas",
-    "FactoryTalkStudioPath": "C:\\Program Files (x86)\\Rockwell Software\\RSView Enterprise\\Launcher.exe"
+    "FactoryTalkStudioPath": "C:\\Program Files (x86)\\Rockwell Software\\RSView Enterprise\\Launcher.exe",
+    "ViewDesignerPath": "C:\\Program Files (x86)\\Rockwell Software\\Studio 5000\\View Designer\\ENU\\V9\\ViewDesigner.exe"
   },
   "Logging": { "LogLevel": { "Default": "Information", "Microsoft.AspNetCore": "Warning" } }
 }

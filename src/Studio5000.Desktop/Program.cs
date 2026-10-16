@@ -6,6 +6,15 @@ try
 {
     var root = ServiceClient.FindRoot();
     using var client = new ServiceClient(root);
+    if (args.Length == 2 && args[0] == "--self-test-viewdesigner")
+    {
+        using var view = new ViewDesignerForm(client);
+        view.StartPosition = FormStartPosition.Manual; view.Location = new(-30000, -30000); view.ShowInTaskbar = false;
+        view.LoadForTest(); view.Show(); Application.DoEvents();
+        using var bitmap = new Bitmap(view.Width, view.Height);
+        view.DrawToBitmap(bitmap, new Rectangle(Point.Empty, view.Size)); bitmap.Save(args[1], System.Drawing.Imaging.ImageFormat.Png);
+        view.Close(); return;
+    }
     if (args.Length == 2 && args[0] is "--self-test-watches" or "--self-test-watches-values")
     {
         using var watches = new WatchForm(client, null);
