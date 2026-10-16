@@ -43,6 +43,8 @@ public static class XmlProjects
         foreach (var routine in doc.Descendants("Routine"))
         {
             var type = (string?)routine.Attribute("Type");
+            // Native exports can omit the content container for a genuinely empty routine.
+            if (routine.Elements().All(e => e.Name == "Description")) continue;
             if (type is "RLL" && routine.Element("RLLContent") is null ||
                 type is "ST" && routine.Element("STContent") is null)
                 throw new OperationException("invalid_routine", "Routine content does not match its declared RLL/ST type.");

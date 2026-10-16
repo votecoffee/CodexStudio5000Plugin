@@ -145,6 +145,19 @@ public sealed class ProjectServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task NativeEmptyLadderRoutineWithoutContentContainerCanBeRegisteredAndEdited()
+    {
+        File.WriteAllText(input, "<RSLogix5000Content><Controller><Programs><Program Name='CodexTest'><Routines><Routine Name='main' Type='RLL'/></Routines></Program></Programs></Controller></RSLogix5000Content>");
+        var original = File.ReadAllBytes(input); var project = await service.RegisterAsync(input);
+        var preview = await service.PreviewAsync(project.Id, new(project.CurrentSha256, [new("replace_element", "//Routine[@Name='main']", "<Routine Name='main' Type='RLL'><RLLContent><Rung Number='0' Type='N'><Text>NOP();</Text></Rung></RLLContent></Routine>")]));
+        await service.ApplyAsync(project.Id, preview.Id, new(project.CurrentSha256));
+        Assert.Equal(original, File.ReadAllBytes(input));
+        Assert.Contains("NOP();", service.ReadElement(project.Id, "//Routine[@Name='main']").Xml);
+        var invalid = "<RSLogix5000Content><Controller><Programs><Program Name='P'><Routines><Routine Name='R' Type='RLL'><STContent/></Routine></Routines></Program></Programs></Controller></RSLogix5000Content>";
+        Assert.Equal("invalid_routine", Assert.Throws<OperationException>(() => XmlProjects.Parse(Encoding.UTF8.GetBytes(invalid))).Code);
+    }
+
+    [Fact]
     public async Task SavingArtifactsCannotOverwriteOrEscapeOutputRoots()
     {
         var p = await service.RegisterAsync(input);
