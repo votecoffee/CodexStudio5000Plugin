@@ -51,7 +51,7 @@ public sealed partial class ProjectService : IDisposable
         projectKinds = new[] { "logix", "ftview-me", "ftview-se" },
         factoryTalk = FactoryTalkStatus(),
         sdk = SdkCapabilities(),
-        validation = "XML checks and installed SDK operations have distinct evidence levels. Live controller operations require an enabled, configured target; live validation is pending."
+        validation = "XML checks and installed SDK operations have distinct evidence levels. Live controller operations require an enabled, configured target; validation is operation/version-specific."
     };
 
     public async Task<ProjectInfo> RegisterAsync(string source, CancellationToken ct = default)

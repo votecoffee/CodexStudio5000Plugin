@@ -21,8 +21,8 @@ public static partial class OnlineEdits
         standaloneTestEdits = false, standaloneUntestEdits = false, standaloneAssembleEdits = false,
         testWorkflow = "Accept with SDK; Test/Untest and Assemble through Studio's observed native UI.",
         controllerTestModeIsTestEdits = false,
-        finalization = "FinalizeEdits accepts/sends imported changes; the SDK documents assembly when the controller is in Run mode. It does not provide a test interval.",
-        skill = "logix-online-edits", liveValidation = "pending"
+        finalization = "Choose FinalizeEdits on the initial import for API-only finalization in Run mode, with no test interval. Existing accepted edits can block further imports and require native Studio completion; there is no standalone SDK finalize/assemble call.",
+        skill = "logix-online-edits", liveValidation = "Operation/version-specific; see docs/VALIDATION.md."
     };
     public static string ImportOption(string workflow) => workflow switch
     {
@@ -103,7 +103,7 @@ public sealed partial class ProjectService
             steps.Add("Validate the user's stated functional checks and monitored values. If checks fail, use the authorized Untest workflow and retain the result; do not assemble.");
             steps.Add($"After successful testing, assemble accepted edits for routine {request.RoutineName} where supported, or the explicitly authorized program scope. Observe removal of the edit/test state, then save and export the resulting project.");
         }
-        else steps.Add("This request finalizes during import with no test interval. Inspect controller mode and native edit status; SDK finalization assembles in Run mode. SDK call success alone does not prove observed assembly or functional validation.");
+        else steps.Add("This request finalizes during import with no test interval. Choose it on the initial import: existing accepted edits can block a subsequent import and require native Studio completion. Inspect controller mode and native edit status; SDK finalization assembles in Run mode. SDK call success alone does not prove observed assembly or functional validation.");
         var digest = Hash(JsonSerializer.SerializeToUtf8Bytes(new { run, request.Workflow, request.ProgramName, request.RoutineName }, Json));
         return new(digest, target, request.ProgramName, request.RoutineName, request.Workflow, option,
             options.EnableControllerOperations, native.Available, false, false, false, run, steps.ToArray(),

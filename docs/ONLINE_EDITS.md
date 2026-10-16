@@ -8,7 +8,7 @@ The installed SDK 2.1.974 supports online partial imports with three disposition
 | AcceptEdits | Accept and send imported changes | Native Test/Untest needed |
 | FinalizeEdits | Accept/send; also assemble when the controller is in Run mode | None provided |
 
-There is no standalone SDK Test Edits, Untest Edits or Assemble Edits API. `ChangeControllerModeAsync(Test)` changes controller mode and does not test accepted logic edits. A build does not test controller behavior either. The plugin exposes SDK import/accept/finalize and a separate native Studio workflow for Test/Untest/Assemble. Live validation remains pending; no controller was connected during this implementation.
+There is no standalone SDK Test Edits, Untest Edits or Assemble Edits API. `ChangeControllerModeAsync(Test)` changes controller mode and does not test accepted logic edits. A build does not test controller behavior either. The plugin exposes SDK import/accept/finalize and a separate native Studio workflow for Test/Untest/Assemble. A bounded version-35 online import and local-tag check is recorded in [VALIDATION.md](VALIDATION.md); it does not establish all-version or all-operation support.
 
 ## Shared planning operation
 
@@ -47,7 +47,9 @@ The desktop **SDK operations… → Online edit…** dialog uses the same servic
 
 `finalize_during_import` selects SDK `FinalizeEdits` and skips the separate test interval. It does not imply functional testing. Do not choose it to bypass a missing Test command or change controller mode to force assembly. The documented assembly condition is Run mode; SDK completion does not independently prove the resulting edit state.
 
-Use the bundled [logix-online-edits skill](../skills/logix-online-edits/SKILL.md) with available Windows Computer Use tools for the native phase. If those tools are unavailable or stopped, retain artifacts and report native work pending. The service implements neither terminal-driven UI input nor undocumented edit-lifecycle calls.
+Choose that option on the **initial import** when API-only finalization is intended. An existing accepted edit can block the next import with `XMLSrv_E_PIE_CONTROLLER_EDITS_EXIST_FOR_PROGRAM`. This occurred on a saved version-35 ACD copy while the SDK reported Offline; the proposed replacement was never submitted live. Do not reimport, append another rung or cancel accepted edits to work around it. Finish the authorized existing edits in Studio. The shared service adds a `native_action_required` event for this SDK diagnostic while retaining the original failure and attempted calls.
+
+Use the bundled [logix-online-edits skill](../skills/logix-online-edits/SKILL.md) for the native phase. The user can operate Studio and report its resulting states while the agent uses the API. Honor requests to leave the UI hands-off; label native user reports separately from API measurements. Use Windows Computer Use only within the user's current authorization. The service implements neither terminal-driven UI input nor undocumented edit-lifecycle calls.
 
 Report separately: plan prepared; SDK import returned; native Testing Edits observed; functional checks passed; native assembly observed; saved/re-exported result retained. File equality or job success cannot authenticate those native states. Interrupted/indeterminate work is not automatically retried; cancellation is not rollback.
 

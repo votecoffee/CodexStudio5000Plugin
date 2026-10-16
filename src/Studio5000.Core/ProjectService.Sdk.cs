@@ -31,7 +31,7 @@ public sealed partial class ProjectService
         managedMethods = SdkCatalog.ManagedMethods, controllerOperationsEnabled = options.EnableControllerOperations,
         controllerTargets = options.ControllerTargets,
         persistence = "New artifacts and a new managed result project; source files and source revisions are preserved.",
-        validation = "Compile-checked bindings for SDK 2.1.974. Native offline verification is operation-specific; live controller verification is pending."
+        validation = "Compile-checked bindings for SDK 2.1.974. Native and live verification are operation/version-specific; see docs/VALIDATION.md."
     };
     public Task<JsonElement> SdkCoverageAsync(CancellationToken ct = default) => native.CoverageAsync(ct);
     public async Task<object> InspectSdkSourceAsync(string path, CancellationToken ct = default)
@@ -185,7 +185,7 @@ public sealed partial class ProjectService
         Persist();
         try
         {
-            var result = await native.ExecuteSdkAsync(request, ct);
+            var result = SdkDiagnostics.Describe(await native.ExecuteSdkAsync(request, ct));
             job = job with { Status = result.Status, Steps = result.Steps, Events = result.Events, Error = result.Error };
             if (result.Status == "succeeded")
             {

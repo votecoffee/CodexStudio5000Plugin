@@ -98,5 +98,21 @@ public sealed class SdkTests : IDisposable
         Assert.Contains("restarted", service.SdkJob(id).Error!);
     }
 
+    [Fact]
+    public void ExistingAcceptedEditFailureExplainsNativeCompletionWithoutChangingTheOutcome()
+    {
+        var original = new SdkBridgeResult("failed", [new(0, "ReadConnectedStateAsync", "succeeded", JsonSerializer.SerializeToElement("Offline")),
+            new(1, "PartialImportWithTargetFromXmlFileAsync", "failed", null)], [new("status", "Import started")], SdkDiagnostics.AcceptedEditsExist + " - existing accepted edits");
+        var explained = SdkDiagnostics.Describe(original);
+        Assert.Equal(original.Status, explained.Status); Assert.Equal(original.Error, explained.Error); Assert.Equal(original.Steps, explained.Steps);
+        Assert.Equal("native_action_required", explained.Events[^1].Kind);
+        Assert.Contains("initial import", explained.Events[^1].Message);
+        Assert.Contains("do not retry", explained.Events[^1].Message);
+        var indeterminate = original with { Status = "indeterminate" };
+        Assert.Same(indeterminate, SdkDiagnostics.Describe(indeterminate));
+        var unrelated = original with { Error = "Some other SDK failure" };
+        Assert.Same(unrelated, SdkDiagnostics.Describe(unrelated));
+    }
+
     public void Dispose() { if (Directory.Exists(root)) Directory.Delete(root, true); }
 }
