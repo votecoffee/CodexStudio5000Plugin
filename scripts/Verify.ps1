@@ -8,9 +8,11 @@ try {
     dotnet run --project tests/Studio5000.Integration/Studio5000.Integration.csproj -c Release
     if ($LASTEXITCODE -ne 0) { throw 'REST/MCP integration failed. Start the shared service first.' }
     $gui = Join-Path $repo 'artifacts/app/Desktop/Studio5000.Desktop.exe'
-    $watchPng = Join-Path $repo 'artifacts/test-results/desktop-watches.png'
-    $watchProcess = Start-Process -FilePath $gui -ArgumentList @('--self-test-watches', ('"' + $watchPng + '"')) -WindowStyle Hidden -PassThru -Wait
-    if ($watchProcess.ExitCode -ne 0 -or !(Test-Path -LiteralPath $watchPng)) { throw 'Desktop watch-list render test failed.' }
+    foreach ($watchView in @('watches', 'watches-values')) {
+        $watchPng = Join-Path $repo ("artifacts/test-results/desktop-$watchView.png")
+        $watchProcess = Start-Process -FilePath $gui -ArgumentList @("--self-test-$watchView", ('"' + $watchPng + '"')) -WindowStyle Hidden -PassThru -Wait
+        if ($watchProcess.ExitCode -ne 0 -or !(Test-Path -LiteralPath $watchPng)) { throw 'Desktop watch-list render test failed.' }
+    }
     $png = Join-Path $repo 'artifacts/test-results/desktop.png'
     $process = Start-Process -FilePath $gui -ArgumentList @('--self-test', ('"' + $png + '"')) -WindowStyle Hidden -PassThru -Wait
     if ($process.ExitCode -ne 0 -or !(Test-Path -LiteralPath $png)) { throw 'Desktop render test failed.' }
