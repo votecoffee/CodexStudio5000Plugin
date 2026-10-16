@@ -29,11 +29,16 @@ public static class SdkCatalog
     public static void ValidateCalls(SdkCall[] calls)
     {
         if (calls is null || calls.Length is < 1 or > 100) throw new OperationException("sdk_calls_invalid", "Supply 1–100 SDK calls.");
+        var onlineRequested = false;
         for (var i = 0; i < calls.Length; i++)
         {
             var call = calls[i];
             if (call is null || call.Arguments is null) throw new OperationException("sdk_calls_invalid", "Each call requires a method and arguments object (empty is allowed).");
             var method = Find(call.Method);
+            if (call.Method == "GoOnlineAsync") onlineRequested = true;
+            if (call.Method == "GoOfflineAsync") onlineRequested = false;
+            if (onlineRequested && call.Method == "PartialImportFromXmlFileAsync")
+                throw new OperationException("sdk_offline_import_online", "PartialImportFromXmlFileAsync is an offline-only SDK API. Use the with-target or rungs import for an online session.");
             if (Factories.Contains(call.Method) && i != 0) throw new OperationException("sdk_factory_order", "A project factory must be the first call.");
             foreach (var arg in call.Arguments)
             {

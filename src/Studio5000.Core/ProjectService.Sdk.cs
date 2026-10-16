@@ -26,6 +26,7 @@ public sealed partial class ProjectService
         package = "RockwellAutomation.LogixDesigner.CSClient", version = "2.1.974", nativeBridgeConfigured = native.Available,
         publicSignatures = SdkCatalog.Surface.Methods.Length, operationCount = SdkCatalog.Methods.Length,
         methods = SdkCatalog.Describe(), enums = SdkCatalog.Surface.Enums,
+        onlineEdits = OnlineEdits.Capabilities(),
         managedMethods = SdkCatalog.ManagedMethods, controllerOperationsEnabled = options.EnableControllerOperations,
         controllerTargets = options.ControllerTargets.Select(t => new { t.Id, t.CommunicationsPath }),
         persistence = "New artifacts and a new managed result project; source files and source revisions are preserved.",

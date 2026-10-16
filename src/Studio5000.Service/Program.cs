@@ -77,6 +77,7 @@ app.MapGet("/api/audit", (ProjectService service, string? projectId) => service.
 app.MapGet("/api/sdk/capabilities", (ProjectService service) => service.SdkCapabilities());
 app.MapGet("/api/sdk/coverage", (ProjectService service, CancellationToken ct) => service.SdkCoverageAsync(ct));
 app.MapPost("/api/sdk/source", (ProjectService service, RegisterRequest request, CancellationToken ct) => service.InspectSdkSourceAsync(request.Path, ct));
+app.MapPost("/api/sdk/online-edits/plan", (ProjectService service, OnlineEditPlanRequest request, CancellationToken ct) => service.PrepareOnlineEditAsync(request, ct));
 app.MapGet("/api/sdk/jobs", (ProjectService service) => service.SdkJobList());
 app.MapPost("/api/sdk/jobs", (ProjectService service, SdkRunRequest request, CancellationToken ct) => service.StartSdkJobAsync(request, ct));
 app.MapGet("/api/sdk/jobs/{id}", (ProjectService service, string id) => service.SdkJob(id));
