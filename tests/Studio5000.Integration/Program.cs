@@ -1,0 +1,74 @@
+using System.Net;
+using System.Net.Http.Headers;
+using System.Text.Json;
+using ModelContextProtocol.Client;
+using ModelContextProtocol.Protocol;
+using Studio5000.Client;
+using Studio5000.Core;
+
+var root = ServiceClient.FindRoot();
+using var client = new ServiceClient(root);
+var checks = new List<string>();
+void Check(bool valid, string name) { if (!valid) throw new Exception("FAIL: " + name); checks.Add(name); Console.WriteLine("PASS: " + name); }
+using var connection = JsonDocument.Parse(File.ReadAllText(Path.Combine(root, ".local", "connection.json")));
+using var raw = new HttpClient { BaseAddress = new Uri(connection.RootElement.GetProperty("url").GetString()!) };
+Check((await raw.GetAsync("/api/projects")).StatusCode == HttpStatusCode.Unauthorized, "API rejects unauthenticated clients");
+raw.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", File.ReadAllText(connection.RootElement.GetProperty("tokenFile").GetString()!).Trim());
+raw.DefaultRequestHeaders.Add("Origin", "https://example.org");
+Check((await raw.GetAsync("/api/projects")).StatusCode == HttpStatusCode.Forbidden, "API rejects browser origins");
+raw.DefaultRequestHeaders.Remove("Origin");
+var source = Path.Combine(root, "examples", "Demo.L5X");
+var sourceHash = ProjectService.Hash(File.ReadAllBytes(source));
+var p = await client.PostAsync<ProjectInfo>("/api/projects", new RegisterRequest(source));
+var draft = await client.PostAsync<ChangePreview>($"/api/projects/{p.Id}/previews", new PreviewRequest(p.CurrentSha256,
+    [new Edit("set_text", "//Tag[@Name='CycleCount']/Description", "Shared REST edit — verified 零")]));
+Check((await client.GetAsync<ProjectInfo>($"/api/projects/{p.Id}")).Revision == 0, "REST preview leaves working revision unchanged");
+p = await client.PostAsync<ProjectInfo>($"/api/projects/{p.Id}/previews/{draft.Id}/apply", new ApplyRequest(draft.BaseSha256));
+Check(p.Revision == 1, "REST apply creates a revision");
+var artifact = await client.PostAsync<Artifact>($"/api/projects/{p.Id}/exports", new ExportRequest(p.CurrentSha256));
+Check(ProjectService.Hash(await client.DownloadAsync(artifact.Id)) == p.CurrentSha256, "REST download matches revision SHA-256");
+var destination = Path.Combine(root, "artifacts", "exports", Guid.NewGuid().ToString("N") + ".l5x");
+var saved = await client.PostAsync<SavedArtifact>($"/api/artifacts/{artifact.Id}/save", new SaveArtifactRequest(destination));
+Check(ProjectService.Hash(File.ReadAllBytes(saved.Path)) == artifact.Sha256, "Service saves a new artifact with matching hash");
+try { await client.PostAsync<SavedArtifact>($"/api/artifacts/{artifact.Id}/save", new SaveArtifactRequest(destination)); throw new Exception("Existing output was overwritten."); }
+catch (HttpRequestException e) when (e.StatusCode == HttpStatusCode.BadRequest) { checks.Add("Existing outputs are preserved"); }
+
+await using var mcp = await McpClient.CreateAsync(new StdioClientTransport(new StdioClientTransportOptions
+{
+    Command = "powershell.exe",
+    Arguments = ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", Path.Combine(root, "scripts", "Start-Mcp.ps1")],
+    EnvironmentVariables = new Dictionary<string, string?> { ["STUDIO5000_PLUGIN_ROOT"] = root },
+    Name = "Studio 5000 integration"
+}));
+var tools = await mcp.ListToolsAsync();
+Check(tools.Count == 11, "Official MCP client discovers all 11 tools");
+var inspected = await mcp.CallToolAsync("studio_inspect_project", new Dictionary<string, object?> { ["projectId"] = p.Id, ["kind"] = "Tag" });
+Check(inspected.IsError != true && inspected.Content.OfType<TextContentBlock>().Any(b => b.Text.Contains("CycleCount")), "MCP reads the project edited through REST");
+var previewResult = await mcp.CallToolAsync("studio_preview_changes", new Dictionary<string, object?>
+{
+    ["projectId"] = p.Id, ["expectedSha256"] = p.CurrentSha256,
+    ["edits"] = new[] { new Edit("set_text", "//Tag[@Name='CycleCount']/Description", "Shared MCP edit") }
+});
+Check(previewResult.IsError != true, "MCP creates an edit preview");
+var previewText = previewResult.Content.OfType<TextContentBlock>().First().Text;
+var mcpDraft = JsonSerializer.Deserialize<ChangePreview>(previewText, ProjectService.Json)!;
+var applied = await mcp.CallToolAsync("studio_apply_changes", new Dictionary<string, object?>
+{
+    ["projectId"] = p.Id, ["previewId"] = mcpDraft.Id, ["expectedSha256"] = p.CurrentSha256
+});
+Check(applied.IsError != true, "MCP applies a reviewed preview");
+var latest = await client.GetAsync<ProjectInfo>($"/api/projects/{p.Id}");
+Check(latest.Revision == 2 && latest.CurrentSha256 == mcpDraft.ResultSha256, "REST observes the MCP revision in the same service");
+Check(ProjectService.Hash(File.ReadAllBytes(source)) == sourceHash, "REST and MCP edits preserve original source bytes");
+try
+{
+    await client.PostAsync<ChangePreview>($"/api/projects/{p.Id}/previews", new PreviewRequest(p.CurrentSha256, [new("set_text", "//Description", "stale")]));
+    throw new Exception("Stale write accepted.");
+}
+catch (HttpRequestException e) when (e.StatusCode == HttpStatusCode.Conflict) { checks.Add("REST rejects stale writes after MCP edits"); }
+var history = await client.GetAsync<AuditEvent[]>("/api/audit?projectId=" + p.Id);
+Check(history.Count(e => e.Action == "apply") == 2, "Both clients produce shared audit evidence");
+Directory.CreateDirectory(Path.Combine(root, "artifacts", "test-results"));
+await File.WriteAllTextAsync(Path.Combine(root, "artifacts", "test-results", "integration.json"),
+    JsonSerializer.Serialize(new { passed = checks.Count, checks, projectId = p.Id, latest.CurrentSha256, sourceHash }, ProjectService.Json));
+Console.WriteLine($"{checks.Count} integration checks passed.");

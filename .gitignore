@@ -1,0 +1,9 @@
+**/bin/
+**/obj/
+.local/
+artifacts/
+service.local.json
+*.user
+.vs/
+work/
+examples/NativeFixture.acd

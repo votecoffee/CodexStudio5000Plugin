@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType><TargetFramework>net8.0-windows</TargetFramework>
+    <RestoreAdditionalProjectSources Condition="Exists('C:/Users/Public/Documents/Studio 5000/Logix Designer SDK/dotnet')">C:/Users/Public/Documents/Studio 5000/Logix Designer SDK/dotnet</RestoreAdditionalProjectSources>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="RockwellAutomation.LogixDesigner.CSClient" Version="2.1.974" GeneratePathProperty="true" />
+    <!-- The SDK's build target copies this helper to bin but omits it from publish. -->
+    <None Include="$(PkgRockwellAutomation_LogixDesigner_CSClient)/FtspAdapter/FtspAdapter.exe" Link="FtspAdapter.exe" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
+</Project>

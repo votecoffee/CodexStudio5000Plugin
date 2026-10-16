@@ -1,0 +1,7 @@
+{
+  "name": "studio5000-workspace",
+  "version": "0.1.0",
+  "description": "Inspect, preview, apply and export Logix Designer projects through the local shared service.",
+  "mcpServers": "./.mcp.json",
+  "requires_local_executor": true
+}

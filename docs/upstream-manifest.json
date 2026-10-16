@@ -1,0 +1,129 @@
+{
+  "sourceArchive": "C:\\~LocalWork\\Repos\\Programming\\PLCCodeGenerator\\Archive\\ra-logix-designer-vcs-custom-tools-main",
+  "sourceZipSha256": "ef2c0683ca31663c7017d3cb49e67f4b341dd03746b33029642d21e1bdfcbe3c",
+  "licenseSha256": "21cba811110c25c2bca1e4cef90bc5496c6a2dd6aa409a21bbd14c875be2a9b0",
+  "copiedFiles": 24,
+  "modifiedSourceFiles": [],
+  "files": [
+    {
+      "path": "Constants.cs",
+      "sourceSha256": "c1368d07f635b4a83fe72964a0c67496a1fc903c5e4b3480d388ecb7a99d21cf",
+      "copiedSha256": "c1368d07f635b4a83fe72964a0c67496a1fc903c5e4b3480d388ecb7a99d21cf"
+    },
+    {
+      "path": "Converters/XmlToOrderedDictionaryConverter.cs",
+      "sourceSha256": "ff8e50a248c843582ec9256fc9138fc8692b7a5d676998578b1a0e27ba4ae9fd",
+      "copiedSha256": "ff8e50a248c843582ec9256fc9138fc8692b7a5d676998578b1a0e27ba4ae9fd"
+    },
+    {
+      "path": "Enum/LsxSerializationFormat.cs",
+      "sourceSha256": "c6a21581ec61a48179934ef68a37789f5342b3278cc9a3b19ba3d3b7e7dee98c",
+      "copiedSha256": "c6a21581ec61a48179934ef68a37789f5342b3278cc9a3b19ba3d3b7e7dee98c"
+    },
+    {
+      "path": "Interfaces/ICustomSerializer.cs",
+      "sourceSha256": "90b0cb18c255dc1aee1d6a7aac34baf413c143d1e18fe637420a146ee2100ecc",
+      "copiedSha256": "90b0cb18c255dc1aee1d6a7aac34baf413c143d1e18fe637420a146ee2100ecc"
+    },
+    {
+      "path": "Interfaces/IPersistenceService.cs",
+      "sourceSha256": "2b30d20107500d3f7b15409759e189a6e7a562df4a7bf7738ce0d73722f94cbe",
+      "copiedSha256": "2b30d20107500d3f7b15409759e189a6e7a562df4a7bf7738ce0d73722f94cbe"
+    },
+    {
+      "path": "Interfaces/IXElementTransformer.cs",
+      "sourceSha256": "d16d7b7126cee2c17a0544d419fd5698be070e28b19cef548cbcf047cf6e8eb7",
+      "copiedSha256": "d16d7b7126cee2c17a0544d419fd5698be070e28b19cef548cbcf047cf6e8eb7"
+    },
+    {
+      "path": "L5xDefaultConfig.cs",
+      "sourceSha256": "7581c1b76d2b58d0ad2ccaadf2b7e19158f998e7a4fc374dfc6cd5968951195d",
+      "copiedSha256": "7581c1b76d2b58d0ad2ccaadf2b7e19158f998e7a4fc374dfc6cd5968951195d"
+    },
+    {
+      "path": "L5xExploder.cs",
+      "sourceSha256": "a602c989eacec783254d3a863cc20a46a20120c8b240709048e46afd90cdc59d",
+      "copiedSha256": "a602c989eacec783254d3a863cc20a46a20120c8b240709048e46afd90cdc59d"
+    },
+    {
+      "path": "L5xExploderConfig.cs",
+      "sourceSha256": "b1eddce62b27303d777679565c783911547f2aaddc81063c4972b92e49ba506a",
+      "copiedSha256": "b1eddce62b27303d777679565c783911547f2aaddc81063c4972b92e49ba506a"
+    },
+    {
+      "path": "L5xImploder.cs",
+      "sourceSha256": "24372308d35a22f832828164f67c7000b242a8813929e1098589ca1d5d7df28e",
+      "copiedSha256": "24372308d35a22f832828164f67c7000b242a8813929e1098589ca1d5d7df28e"
+    },
+    {
+      "path": "L5xploderLib.csproj",
+      "sourceSha256": "e1e54f0e39ce78a81c80dccd29fb7d6dd275a1717fb6b77ff3c86d77a174937f",
+      "copiedSha256": "e1e54f0e39ce78a81c80dccd29fb7d6dd275a1717fb6b77ff3c86d77a174937f"
+    },
+    {
+      "path": "L5xSerializationOptions.cs",
+      "sourceSha256": "ab5073afaca89d8b75b8a392b652e9b1b1d0cb9d827918f872f07c1a81b7218c",
+      "copiedSha256": "ab5073afaca89d8b75b8a392b652e9b1b1d0cb9d827918f872f07c1a81b7218c"
+    },
+    {
+      "path": "Models/CustomElementFile.cs",
+      "sourceSha256": "c1ed430f5e40afcaabdc0ce70da017712a8652950147b280cbade30a4bb25ba8",
+      "copiedSha256": "c1ed430f5e40afcaabdc0ce70da017712a8652950147b280cbade30a4bb25ba8"
+    },
+    {
+      "path": "Models/ElementFile.cs",
+      "sourceSha256": "02c922a8696a1f43459813caa7169680024d2bbb5dfc4c92f2958f38f5f2c884",
+      "copiedSha256": "02c922a8696a1f43459813caa7169680024d2bbb5dfc4c92f2958f38f5f2c884"
+    },
+    {
+      "path": "Models/L5xElementFile.cs",
+      "sourceSha256": "36717c98578ffa1ed36916db1157efeb5c14b15bed9749390cde055034136918",
+      "copiedSha256": "36717c98578ffa1ed36916db1157efeb5c14b15bed9749390cde055034136918"
+    },
+    {
+      "path": "Paths.cs",
+      "sourceSha256": "dc201ad19ca3b9e5780113886f663f5279deae356664a6b6f7028303db0a5cbb",
+      "copiedSha256": "dc201ad19ca3b9e5780113886f663f5279deae356664a6b6f7028303db0a5cbb"
+    },
+    {
+      "path": "RetryHandler.cs",
+      "sourceSha256": "d8b53072d7e409cbb872c1ede37718f318471f984e0d174391da9d6fd17f3b75",
+      "copiedSha256": "d8b53072d7e409cbb872c1ede37718f318471f984e0d174391da9d6fd17f3b75"
+    },
+    {
+      "path": "Serialization/StructuredTextSerializer.cs",
+      "sourceSha256": "3cb5c77dd047483f5d130d4325b891aec92e1a67f78fbf51e45486287329b54e",
+      "copiedSha256": "3cb5c77dd047483f5d130d4325b891aec92e1a67f78fbf51e45486287329b54e"
+    },
+    {
+      "path": "Services/FilePathRegistry.cs",
+      "sourceSha256": "39770469966e1882dc5e8224f4209615a531ac09a12feaeef742211d40c48059",
+      "copiedSha256": "39770469966e1882dc5e8224f4209615a531ac09a12feaeef742211d40c48059"
+    },
+    {
+      "path": "Services/PersistenceService.cs",
+      "sourceSha256": "23f3b7a105684916827a83c0f4be2323b9a0ee2c42de0778dfe2251616ed1bfc",
+      "copiedSha256": "23f3b7a105684916827a83c0f4be2323b9a0ee2c42de0778dfe2251616ed1bfc"
+    },
+    {
+      "path": "Services/PersistenceServiceFactory.cs",
+      "sourceSha256": "f7cb7b2a80b5de6f0e523653047a773ccd349565ed85c3a40caf22faf1a095e1",
+      "copiedSha256": "f7cb7b2a80b5de6f0e523653047a773ccd349565ed85c3a40caf22faf1a095e1"
+    },
+    {
+      "path": "Services/XmlPersistenceService.cs",
+      "sourceSha256": "dd3dff5d183abc741503e65be5f5649fca8eac0e54b6197a9cd9c58231fd6855",
+      "copiedSha256": "dd3dff5d183abc741503e65be5f5649fca8eac0e54b6197a9cd9c58231fd6855"
+    },
+    {
+      "path": "Transformation/LadderLogicLineNumberTransformer.cs",
+      "sourceSha256": "65530f3fbc5808f6ee616a9a570aa5bbd3422a8c6f6b276b50bca45f96ddb908",
+      "copiedSha256": "65530f3fbc5808f6ee616a9a570aa5bbd3422a8c6f6b276b50bca45f96ddb908"
+    },
+    {
+      "path": "Transformation/RootElementTransformer.cs",
+      "sourceSha256": "1eaedf241b90cc796fb305c18eed7687f3ecc1bed603b8d3b37d77da2ab12e5c",
+      "copiedSha256": "1eaedf241b90cc796fb305c18eed7687f3ecc1bed603b8d3b37d77da2ab12e5c"
+    }
+  ]
+}

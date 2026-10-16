@@ -1,0 +1,11 @@
+{
+  "ServiceUrl": "http://127.0.0.1:5487",
+  "Studio5000": {
+    "StateDirectory": ".local/state",
+    "AllowedRoots": ["examples"],
+    "OutputRoots": ["artifacts/exports"],
+    "NativeBridgePath": null,
+    "NativeTimeoutSeconds": 180
+  },
+  "Logging": { "LogLevel": { "Default": "Information", "Microsoft.AspNetCore": "Warning" } }
+}

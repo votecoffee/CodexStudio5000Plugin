@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "studio5000": {
+      "type": "stdio",
+      "command": "powershell.exe",
+      "args": ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "${PLUGIN_ROOT}/scripts/Start-Mcp.ps1"],
+      "cwd": "${PLUGIN_ROOT}"
+    }
+  }
+}

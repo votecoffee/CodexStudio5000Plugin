@@ -1,0 +1,3 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup><ProjectReference Include="../../third_party/L5xploderLib/L5xploderLib.csproj" /></ItemGroup>
+</Project>

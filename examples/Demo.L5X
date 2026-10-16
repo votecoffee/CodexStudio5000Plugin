@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<RSLogix5000Content SchemaRevision="1.0" SoftwareRevision="36.00" TargetName="Demo" TargetType="Controller" ContainsContext="false" Owner="" ExportDate="Fri Oct 16 08:00:00 2026" ExportOptions="References NoRawData L5KData DecoratedData Context Dependencies ForceProtectedEncoding AllProjDocTrans">
+  <Controller Use="Target" Name="Demo" ProcessorType="1756-L81E" MajorRev="36" MinorRev="11">
+    <DataTypes />
+    <Tags>
+      <Tag Name="CycleCount" TagType="Base" DataType="DINT" Radix="Decimal" Constant="false" ExternalAccess="Read/Write">
+        <Description><![CDATA[Completed cycles]]></Description>
+        <Data Format="Decorated"><DataValue DataType="DINT" Radix="Decimal" Value="0" /></Data>
+      </Tag>
+    </Tags>
+    <Programs><Program Name="MainProgram" MainRoutineName="MainRoutine" Disabled="false">
+      <Tags />
+      <Routines><Routine Name="MainRoutine" Type="RLL"><RLLContent>
+        <Rung Number="0" Type="N"><Comment><![CDATA[Demonstration routine; no controller connection]]></Comment><Text><![CDATA[NOP();]]></Text></Rung>
+      </RLLContent></Routine></Routines>
+    </Program></Programs>
+    <Tasks><Task Name="MainTask" Type="CONTINUOUS" Priority="10" Watchdog="500" DisableUpdateOutputs="false" InhibitTask="false"><ScheduledPrograms><ScheduledProgram Name="MainProgram" /></ScheduledPrograms></Task></Tasks>
+  </Controller>
+</RSLogix5000Content>

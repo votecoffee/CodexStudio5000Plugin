@@ -1,0 +1,30 @@
+{
+  "version": 1,
+  "dependencies": {
+    "net8.0-windows7.0": {
+      "YamlDotNet": {
+        "type": "Transitive",
+        "resolved": "16.3.0",
+        "contentHash": "SgMOdxbz8X65z8hraIs6hOEdnkH6hESTAIUa7viEngHOYaH+6q5XJmwr1+yb9vJpNQ19hCQY69xbFsLtXpobQA=="
+      },
+      "l5xploderlib": {
+        "type": "Project",
+        "dependencies": {
+          "YamlDotNet": "[16.3.0, )"
+        }
+      },
+      "studio5000.client": {
+        "type": "Project",
+        "dependencies": {
+          "Studio5000.Core": "[1.0.0, )"
+        }
+      },
+      "studio5000.core": {
+        "type": "Project",
+        "dependencies": {
+          "L5xploderLib": "[1.0.0, )"
+        }
+      }
+    }
+  }
+}
