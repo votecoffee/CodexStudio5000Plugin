@@ -10,7 +10,7 @@ $before = (Get-FileHash -LiteralPath $source -Algorithm SHA256).Hash.ToLowerInva
 $project = Post-Api '/api/projects' @{ path = $source }
 Write-Output 'PASS: Native source snapshot exported to L5X through the service.'
 $inspection = Get-Api "/api/projects/$($project.id)/elements?kind=Rung&limit=1"
-$marker = 'CodexStudio5000Plugin verification ' + [Guid]::NewGuid().ToString('N')
+$marker = 'RockwellMCPServer verification ' + [Guid]::NewGuid().ToString('N')
 if ($inspection.elements.Count -eq 0) {
     # A freshly created native project is empty. Add an unscheduled program to its working copy.
     $component = '<Program Name="CodexVerification" MainRoutineName="MainRoutine" Disabled="false" Class="Standard"><Tags/><Routines><Routine Name="MainRoutine" Type="RLL"><RLLContent><Rung Number="0" Type="N"><Comment><![CDATA[' + $marker + ']]></Comment><Text><![CDATA[NOP();]]></Text></Rung></RLLContent></Routine></Routines></Program>'

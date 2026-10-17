@@ -1,9 +1,9 @@
-param([switch]$WithSdk, [string]$ExtensionVersion = '0.8.0')
+param([switch]$WithSdk, [string]$ExtensionVersion = '0.8.1')
 $ErrorActionPreference = 'Stop'
 $repo = Split-Path -Parent $PSScriptRoot
 Push-Location -LiteralPath $repo
 try {
-    dotnet build CodexStudio5000.sln -c Release --nologo
+    dotnet build RockwellMCPServer.sln -c Release --nologo
     if ($LASTEXITCODE -ne 0) { throw 'Solution build failed.' }
     foreach ($name in @('Service','Mcp','Desktop','ExtensionWorker')) {
         dotnet publish "src/Studio5000.$name/Studio5000.$name.csproj" -c Release --no-restore -o "artifacts/app/$name" --nologo

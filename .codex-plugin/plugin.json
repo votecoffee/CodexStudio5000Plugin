@@ -1,6 +1,6 @@
 {
-  "name": "studio5000-workspace",
-  "version": "0.8.0",
+  "name": "rockwell-mcp-server",
+  "version": "0.8.1",
   "description": "Shared Rockwell workspace with tag/UDT browsing, persistent watch recordings, trends and CSV; reloadable extensions with MCP and GUI.",
   "skills": "./skills/",
   "mcpServers": "./.mcp.json",

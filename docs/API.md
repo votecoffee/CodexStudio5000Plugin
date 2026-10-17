@@ -44,7 +44,7 @@ SDK request/response examples, target configuration and evidence boundaries are 
 Register and edit using PowerShell:
 
 ```powershell
-$repo = 'C:\~LocalWork\Repos\Programming\~Github\CodexStudio5000Plugin'
+$repo = (Get-Location).Path # Run from the RockwellMCPServer checkout root.
 $connection = Get-Content -LiteralPath "$repo\.local\connection.json" -Raw | ConvertFrom-Json
 $headers = @{ Authorization = 'Bearer ' + (Get-Content -LiteralPath $connection.tokenFile -Raw).Trim() }
 $project = Invoke-RestMethod -Uri ($connection.url + '/api/projects') -Method Post -Headers $headers -ContentType 'application/json' -Body (@{ path = "$repo\examples\Demo.L5X" } | ConvertTo-Json)

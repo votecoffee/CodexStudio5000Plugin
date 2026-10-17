@@ -1,5 +1,5 @@
 <Project Sdk="Microsoft.NET.Sdk">
-  <PropertyGroup><OutputType>Exe</OutputType></PropertyGroup>
+  <PropertyGroup><OutputType>Exe</OutputType><Product>RockwellMCPServer</Product><Title>RockwellMCPServer MCP</Title></PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="../Studio5000.Client/Studio5000.Client.csproj" />
     <PackageReference Include="ModelContextProtocol" Version="2.2.0" />

@@ -12,8 +12,8 @@ $values = [ordered]@{
     Command = 'C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe'
     WorkingDirectory = $repo
     Arguments = '-NoProfile -ExecutionPolicy Bypass -File "' + (Join-Path $repo 'scripts/Start-Gui.ps1') + '" -ProjectPath "%project_path%"'
-    ToolName = 'Codex Studio 5000 Workspace'
-    StatusBarText = 'Open the saved project in the shared Codex operations service'
+    ToolName = 'RockwellMCPServer'
+    StatusBarText = 'Open the saved project in the shared RockwellMCPServer service'
 }
 foreach ($name in $values.Keys) { $element=$doc.CreateElement($name); $element.InnerText=$values[$name]; [void]$tool.AppendChild($element) }
 New-Item -ItemType Directory -Force -Path (Split-Path -Parent ([IO.Path]::GetFullPath($OutputPath))) | Out-Null

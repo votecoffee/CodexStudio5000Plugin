@@ -1,6 +1,8 @@
-# Codex Studio 5000 Workspace
+# RockwellMCPServer
 
 A Windows project-editing service with a Codex MCP plugin, REST API and desktop GUI for **Logix Designer, FactoryTalk View Studio ME/SE and Studio 5000 View Designer**. Operations live in `Studio5000.Core` and run in **one shared service process**. The MCP adapter and GUI use that service over authenticated loopback HTTP.
+
+Repository: [votecoffee/RockwellMCPServer](https://github.com/votecoffee/RockwellMCPServer). Version 0.8.1 adopts the RockwellMCPServer name, `rockwell-mcp-server` plugin/MCP entry and `RockwellMCPServer.sln`. Existing checkouts may keep their folder path; scripts resolve their repository root automatically. Internal `Studio5000.*` assemblies/namespaces, environment variables, tool names, settings and saved state remain compatible.
 
 Version 0.8 adds a **searchable tag/UDT browser and persistent trend recordings**. Expand controller/program tags, nested structures and paged arrays, then create a stopped watch list from selected values. Plot numeric/BOOL members, inspect communication/stale gaps, retain recordings across service restarts and export CSV. Domain operations remain in the shared service; six new operations are discovered through the reloadable `watches` catalog. See [browser and recording](docs/BROWSER_RECORDING.md).
 
@@ -46,10 +48,12 @@ The repository contains portable `plugin.json`/`mcp.json` and the compatibility 
 You can also register the MCP server directly in Codex using its documented CLI:
 
 ```powershell
-codex mcp add studio5000 -- powershell.exe -NoProfile -ExecutionPolicy Bypass -File 'C:\~LocalWork\Repos\Programming\~Github\CodexStudio5000Plugin\scripts\Start-Mcp.ps1'
+codex mcp add rockwell-mcp-server -- powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path (Get-Location) 'scripts\Start-Mcp.ps1')
 ```
 
 Start a new local chat after adding the server. Registration is a user setup step; this repository does not change the user's global Codex configuration automatically.
+
+Run the command from this checkout. Existing direct registrations named `studio5000` still work with the same launcher; the registration name is local to the client. The renamed package uses `rockwell-mcp-server`; avoid registering a duplicate connection when keeping an existing registration.
 
 Direct MCP registration exposes all 56 tools (46 existing tools plus ten stable extension tools). Load the plugin package to discover its bundled `factorytalk-studio` and `logix-online-edits` skills. A direct MCP-only setup can read those skills from this repository for the corresponding native workflow.
 

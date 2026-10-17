@@ -31,10 +31,10 @@ public sealed class MainForm : Form
     public MainForm(ServiceClient client)
     {
         this.client = client;
-        Text = "Rockwell Workspace — Logix + FactoryTalk + View Designer";
+        Text = WorkspaceIdentity.Name + " — Logix + FactoryTalk + View Designer";
         Size = new Size(1400, 920); MinimumSize = new Size(1000, 700);
         Font = new Font("Segoe UI", 10); BackColor = Color.FromArgb(244, 246, 249);
-        var header = new Label { Text = "ROCKWELL WORKSPACE  /  LOGIX + FACTORYTALK + VIEW DESIGNER", Dock = DockStyle.Top, Height = 54,
+        var header = new Label { Text = WorkspaceIdentity.Name + "  /  LOGIX + FACTORYTALK + VIEW DESIGNER", Dock = DockStyle.Top, Height = 54,
             Padding = new Padding(16), BackColor = Color.FromArgb(24, 40, 61), ForeColor = Color.White, Font = new Font("Segoe UI", 13, FontStyle.Bold) };
         var toolbar = new FlowLayoutPanel { Dock = DockStyle.Top, Height = 84, Padding = new Padding(8) };
         AddButton(toolbar, "Open project…", OpenAsync);

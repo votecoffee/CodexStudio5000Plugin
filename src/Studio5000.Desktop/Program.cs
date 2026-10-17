@@ -109,5 +109,5 @@ try
 catch (Exception ex)
 {
     if (args.Any(a => a.StartsWith("--self-test", StringComparison.Ordinal))) { Console.Error.WriteLine(ex); Environment.ExitCode = 1; }
-    else MessageBox.Show(ex.Message, "Studio 5000 service", MessageBoxButtons.OK, MessageBoxIcon.Error);
+    else MessageBox.Show(ex.Message, Studio5000.Core.WorkspaceIdentity.Name, MessageBoxButtons.OK, MessageBoxIcon.Error);
 }

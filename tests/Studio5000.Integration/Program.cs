@@ -44,12 +44,13 @@ await using var mcp = await McpClient.CreateAsync(new StdioClientTransport(new S
     Name = "Studio 5000 integration"
 }));
 var tools = await mcp.ListToolsAsync();
+Console.WriteLine($"MCP server: {mcp.ServerInfo.Name} {mcp.ServerInfo.Version}");
 Check(tools.Count == 56, "Official MCP client discovers 46 compatible tools plus 10 stable extension tools");
 if (args.Length == 1 && args[0] == "--browser-recording-only")
 {
     checks.AddRange(await BrowserRecordingIntegration.RunAsync(root, client, mcp));
     var report = Path.Combine(root, "artifacts", "test-results", "browser-recording-smoke.json"); Directory.CreateDirectory(Path.GetDirectoryName(report)!);
-    await File.WriteAllTextAsync(report, JsonSerializer.Serialize(new { passed = checks.Count, checks, controllerConnectionAttempted = false, nativeBridgeExecuted = false }, ProjectService.Json));
+    await File.WriteAllTextAsync(report, JsonSerializer.Serialize(new { passed = checks.Count, checks, serverInfo = mcp.ServerInfo, controllerConnectionAttempted = false, nativeBridgeExecuted = false }, ProjectService.Json));
     Console.WriteLine($"{checks.Count} browser/recording smoke checks passed; no native bridge or controller operation."); return;
 }
 var sdkCatalog = await mcp.CallToolAsync("studio_sdk_catalog", new Dictionary<string, object?>());
