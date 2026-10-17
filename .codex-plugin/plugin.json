@@ -1,7 +1,7 @@
 {
   "name": "rockwell-mcp-server",
   "version": "0.8.2",
-  "description": "Shared Rockwell workspace with tag/UDT browsing, persistent watch recordings, trends and CSV; reloadable extensions with MCP and GUI.",
+  "description": "Shared Rockwell engineering service with MCP, REST, a desktop GUI and reloadable extensions.",
   "skills": "./skills/",
   "mcpServers": "./.mcp.json",
   "requires_local_executor": true
