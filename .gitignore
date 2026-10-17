@@ -1,6 +1,9 @@
 **/bin/
 **/obj/
+# Private notes, customer projects, credentials, controller receipts and local state.
+# Keep personal documentation under .local/private-docs/; never force-add it.
 .local/
+# Generated binaries, exports and validation reports are local-only.
 artifacts/
 service.local.json
 *.user

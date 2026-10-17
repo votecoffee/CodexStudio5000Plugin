@@ -14,7 +14,7 @@ Screen Overview {
         ^Visible := true;
     }
     NumericDisplay ProcessValue {
-        Value := 0 -> "::LGX.CodexTest.CodexSdk_Result";
+        Value := 0 -> "::LGX.ExampleProgram.Example_Result";
         X := 20;
         Y := 70;
     }

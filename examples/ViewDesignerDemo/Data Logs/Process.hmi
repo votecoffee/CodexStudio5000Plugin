@@ -4,5 +4,5 @@ DataLog Process {
     SamplingRate := EnumSamplingRate._1000_ms;
     Duration := 1;
     DurationUnit := EnumDurationUnit.Days;
-    DataLogEntry Result { TagName := "::LGX.CodexTest.CodexSdk_Result"; }
+    DataLogEntry Result { TagName := "::LGX.ExampleProgram.Example_Result"; }
 }

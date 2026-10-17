@@ -1,16 +1,24 @@
-# Program-local online test
+# Program-local arithmetic example
 
-`CodexTest-main-rungs.L5X` is a prepared arithmetic test, not a controller-validated export. It adds one rung and three new base tags in `CodexTest`, with no controller tags, aliases, parameters, I/O mapping or external routine calls. `CodexSdk_Enable` starts false; while enabled, the rung calculates `CodexSdk_Result = CodexSdk_Input + 1`.
+[ExampleProgram-MainRoutine-rungs.L5X](ExampleProgram-MainRoutine-rungs.L5X) is a generated one-rung import fixture, not a native-validated export or an approved controller change. It uses the placeholder program `ExampleProgram`, routine `MainRoutine` and three program-local base tags. `Example_Enable` starts false; while enabled, the rung calculates `Example_Result = Example_Input + 1`. It has no controller tags, aliases, parameters, I/O mapping or external routine calls.
 
-Before dispatch, use a preserved, matching ACD and fresh export to verify that `CodexTest` is scheduled, `main` is its main routine, the routine is empty, these names are unused throughout the project, and no unrelated program edits exist. Do not overwrite an occupied routine or reuse existing tags. Bind the approved controller context and hashes, prepare a `rungs` / `accept_for_test` plan with insert position 0 and replace count 0, then submit through the shared service. Test on a copy through the native SDK before the live import; version 35 does not support this installation's BuildAsync.
+## Prepare a disposable test
 
-The user operates Studio during this validation. Ask for these observations at each stage; do not mark them observed from SDK success:
+Use a preserved offline project copy first. Confirm the program is scheduled, the named routine is its empty main routine, the tag names are unused and there are no unrelated program edits. Adapt the placeholder context to the authorized test fixture; do not import over an occupied routine or reuse existing tags.
 
-1. After import, verify one accepted rung in `CodexTest.main`, three new local base tags and no other program edits.
-2. The API sets Input to 41 and Enable true. Before Test Edits, Result should remain -1.
-3. Ask the user to Test Accepted Program Edits for `CodexTest`. Check Result becomes 42. Set Input to 99 and check Result becomes 100.
-4. For an Untest check, first disable the rung. Ask the user to Untest `CodexTest`. Set Result to -123, then Enable true; Result must remain -123. Ask the user to Test again; Result must become 100.
-5. Ask the user to assemble only `main`'s accepted edits after successful checks and confirm the edit state clears. Verify Input 123 produces Result 124 after assembly.
-6. Set Enable false, retain the final native ACD/export and hashes, and record the user's native observations separately from API value checks.
+Bind source/import hashes and exact program/routine scope through the [online-edit planner](../../docs/ONLINE_EDITS.md). An insert into an empty routine uses `rungs`, insert position 0 and replace count 0. Check the native exported rung count, logic and local tag definitions after an offline import. Build support depends on the installed Logix version.
 
-Keep all values small to avoid overflow. If a native state or numeric result differs, stop the dependent sequence and investigate. Do not download, change controller mode, force I/O or modify safety settings to make the test succeed.
+## Optional authorized live validation
+
+A live run requires a separately authorized target/action and functional criteria. Stop dependent steps if native state or numeric results differ. Record observations locally, including whether Studio is operated manually or through an authorized agent workflow.
+
+For an `accept_for_test` plan:
+
+1. After import, inspect one accepted rung, the three new local base tags and no unrelated program edits.
+2. Set Input to 41 and Enable true. Before native Test Edits, Result should remain its initial -1.
+3. Test the selected program's accepted edits in Studio. Check Result becomes 42, then set Input to 99 and check Result becomes 100.
+4. For an optional Untest check, disable the rung, untest the selected program, set Result to -123 and enable again. Result should remain -123 until testing resumes, then become 100.
+5. After successful functional checks, assemble only the authorized scope, confirm its edits clear and check Input 123 produces Result 124.
+6. Disable the test and retain a new native ACD/export plus the observed edit states.
+
+`finalize_during_import` is a separate initial-import workflow that provides no native test interval; do not report it as Test/Untest coverage. Keep values small to avoid overflow. Do not download, change mode, force I/O or modify safety settings to make a check pass. No live action is implied by this example.

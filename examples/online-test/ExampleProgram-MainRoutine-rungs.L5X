@@ -2,30 +2,30 @@
 <RSLogix5000Content SchemaRevision="1.0" SoftwareRevision="35.00" TargetType="Rung" TargetCount="1" ContainsContext="true" ExportOptions="References NoRawData L5KData DecoratedData Context Dependencies ForceProtectedEncoding AllProjDocTrans">
   <Controller Use="Context" Name="AuthorizedController">
     <Programs Use="Context">
-      <Program Use="Context" Name="CodexTest">
+      <Program Use="Context" Name="ExampleProgram">
         <Tags>
-          <Tag Name="CodexSdk_Enable" TagType="Base" DataType="BOOL" Radix="Decimal" Constant="false" ExternalAccess="Read/Write">
-            <Description><![CDATA[Enables the isolated Codex SDK arithmetic test. No I/O mapping.]]></Description>
+          <Tag Name="Example_Enable" TagType="Base" DataType="BOOL" Radix="Decimal" Constant="false" ExternalAccess="Read/Write">
+            <Description><![CDATA[Enables the isolated SDK arithmetic test. No I/O mapping.]]></Description>
             <Data Format="L5K"><![CDATA[0]]></Data>
             <Data Format="Decorated"><DataValue DataType="BOOL" Radix="Decimal" Value="0"/></Data>
           </Tag>
-          <Tag Name="CodexSdk_Input" TagType="Base" DataType="DINT" Radix="Decimal" Constant="false" ExternalAccess="Read/Write">
-            <Description><![CDATA[Input for the isolated Codex SDK arithmetic test.]]></Description>
+          <Tag Name="Example_Input" TagType="Base" DataType="DINT" Radix="Decimal" Constant="false" ExternalAccess="Read/Write">
+            <Description><![CDATA[Input for the isolated SDK arithmetic test.]]></Description>
             <Data Format="L5K"><![CDATA[0]]></Data>
             <Data Format="Decorated"><DataValue DataType="DINT" Radix="Decimal" Value="0"/></Data>
           </Tag>
-          <Tag Name="CodexSdk_Result" TagType="Base" DataType="DINT" Radix="Decimal" Constant="false" ExternalAccess="Read/Write">
-            <Description><![CDATA[Result for the isolated Codex SDK test: Input + 1 while enabled.]]></Description>
+          <Tag Name="Example_Result" TagType="Base" DataType="DINT" Radix="Decimal" Constant="false" ExternalAccess="Read/Write">
+            <Description><![CDATA[Result for the isolated SDK test: Input + 1 while enabled.]]></Description>
             <Data Format="L5K"><![CDATA[-1]]></Data>
             <Data Format="Decorated"><DataValue DataType="DINT" Radix="Decimal" Value="-1"/></Data>
           </Tag>
         </Tags>
         <Routines Use="Context">
-          <Routine Use="Context" Name="main">
+          <Routine Use="Context" Name="MainRoutine">
             <RLLContent Use="Context">
               <Rung Use="Target" Number="0" Type="N">
-                <Comment><![CDATA[Isolated SDK test. Only CodexTest local base tags are referenced. Enable false leaves Result unchanged.]]></Comment>
-                <Text><![CDATA[XIC(CodexSdk_Enable)ADD(CodexSdk_Input,1,CodexSdk_Result);]]></Text>
+                <Comment><![CDATA[Isolated SDK test. Only ExampleProgram local base tags are referenced. Enable false leaves Result unchanged.]]></Comment>
+                <Text><![CDATA[XIC(Example_Enable)ADD(Example_Input,1,Example_Result);]]></Text>
               </Rung>
             </RLLContent>
           </Routine>

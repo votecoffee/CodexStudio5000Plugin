@@ -87,24 +87,24 @@ A target can additionally define `Policy` to limit every submitted method, exact
   "CommunicationsPath": "EXACT_FACTORYTALK_LINX_PATH",
   "Policy": {
     "AllowedMethods": ["UploadToNewProjectAsync", "ReadConnectedStateAsync", "ReadControllerModeAsync", "GoOnlineAsync", "GetTagValueDINTAsync", "SetTagValueDINTAsync", "GetTagValueBOOLAsync", "SetTagValueBOOLAsync", "PartialImportRungsFromXmlFileAsync", "SaveAsync"],
-    "ProgramName": "CodexTest",
-    "RoutineName": "main"
+    "ProgramName": "ExampleProgram",
+    "RoutineName": "MainRoutine"
   }
 }
 ```
 
-Program policies accept exact base tag paths such as `Controller/Programs/Program[@Name='CodexTest']/Tags/Tag[@Name='SdkInput']`; controller tags, other programs, member/array selectors and XPath expressions are denied. Component operations require the exact configured ladder routine. Imports reject global definitions, other routines, aliases, program parameters and produced/consumed tags; the built-in scalar context type entries emitted by native exports are allowed. Program policies also reject download, mode changes, safety changes and SD-card operations even if accidentally placed in the method list. The bridge's internal open, path setup, disconnect and output saves remain infrastructure operations.
+Program policies accept exact base tag paths such as `Controller/Programs/Program[@Name='ExampleProgram']/Tags/Tag[@Name='Example_Input']`; controller tags, other programs, member/array selectors and XPath expressions are denied. Component operations require the exact configured ladder routine. Imports reject global definitions, other routines, aliases, program parameters and produced/consumed tags; the built-in scalar context type entries emitted by native exports are allowed. Program policies also reject download, mode changes, safety changes and SD-card operations even if accidentally placed in the method list. The bridge's internal open, path setup, disconnect and output saves remain infrastructure operations.
 
 These checks bound explicit addresses and imported definitions. They do not interpret ladder operands or prove that arbitrary code cannot reference existing global data, or that an existing local tag is not an alias. Review instruction operands and source tag definitions before dispatch; use newly created base local tags for an isolated test.
 
 The agent needs explicit user authorization for the actual target/action. Offline development tests do not authorize actions on a plant controller. The bridge does not automatically change mode, download, remove a signature or unlock safety to make another operation succeed.
 
-## Native evidence
+## Verification and support limits
 
 `scripts/Verify-Sdk.ps1` uses generated version-38 standard/GuardLogix fixtures for builds, typed/raw round trips, partial exports/imports, conversion and offline safety. Its isolated path fixture writes a TEST-NET address into a copy with controller operations disabled and never calls a connection API. Reports retain hashes, attempted calls and diagnostics.
 
-The original offline development run completed 48 distinct operation names; get-safety-signature returned the expected missing-signature diagnostic. Coverage confirmed 67 matching public signatures and all 59 operation names bound in compiled code. A later authorized version-35 run verified UploadToNewProject, GoOnline and ReadControllerMode, online BOOL/DINT reads and writes, and a program-local rung import with AcceptEdits. See [VALIDATION.md](VALIDATION.md) for the exact native/manual boundary. Other controller operations and argument/version combinations remain unverified.
+Use the coverage endpoint to compare all 67 frozen signatures and confirm the 59 operation bindings against the actual installed package. Binding coverage is distinct from executing every operation, argument combination or Logix version. See [VALIDATION.md](VALIDATION.md) for reproducible offline checks and the separate live/native validation boundaries. Keep installation-specific results and controller observations local.
 
-A fresh GuardLogix project has no signature: get-signature preserves `XMLSrv_E_NO_VALUE_TO_GET` as an expected negative case. The installed version-35 Logix build reports `BuildAsync` unsupported; version 38 passed. The archived sample also has a separate untouched-export reimport failure recorded in `VALIDATION.md`. Native call completion is distinct from physical I/O, safety and commissioning acceptance. API-only initial-import FinalizeEdits and standalone native Test/Untest have not been live-validated by this run.
+A fresh GuardLogix project has no signature: get-signature preserves `XMLSrv_E_NO_VALUE_TO_GET` as an expected negative case. Build support depends on the installed Logix version; the verifier defaults to version 38. An untouched native export/reimport control helps distinguish source compatibility failures from edit failures. Native call completion is distinct from native edit-state observation, functional behavior, physical I/O, safety and commissioning acceptance.
 
 Newer SDK content-protection APIs are outside this frozen installed surface. Add those after upgrading and reinventorying the actual package. See [Rockwell's SDK guide](https://literature.rockwellautomation.com/idc/groups/literature/documents/gr/ldsdk-gr001_-en-p.pdf); installed package documentation/examples define this version's signatures.

@@ -8,7 +8,7 @@ The installed SDK 2.1.974 supports online partial imports with three disposition
 | AcceptEdits | Accept and send imported changes | Native Test/Untest needed |
 | FinalizeEdits | Accept/send; also assemble when the controller is in Run mode | None provided |
 
-There is no standalone SDK Test Edits, Untest Edits or Assemble Edits API. `ChangeControllerModeAsync(Test)` changes controller mode and does not test accepted logic edits. A build does not test controller behavior either. The plugin exposes SDK import/accept/finalize and a separate native Studio workflow for Test/Untest/Assemble. A bounded version-35 online import and local-tag check is recorded in [VALIDATION.md](VALIDATION.md); it does not establish all-version or all-operation support.
+There is no standalone SDK Test Edits, Untest Edits or Assemble Edits API. `ChangeControllerModeAsync(Test)` changes controller mode and does not test accepted logic edits. A build does not test controller behavior either. The plugin exposes SDK import/accept/finalize and a separate native Studio workflow for Test/Untest/Assemble. See [VALIDATION.md](VALIDATION.md) for verification procedures and the separate native/controller boundaries.
 
 ## Shared planning operation
 
@@ -43,9 +43,9 @@ The desktop **SDK operations… → Online edit…** dialog uses the same servic
 
 ### Routine replacement targeting
 
-A version-35 offline probe found that supplying an existing routine XPath to PartialImportWithTarget **appends RLL content** instead of replacing the routine. The planner now uses the parent program XPath plus the exact routine target name for `routine` imports. Scoped policies require that parent, exact target name and a matching Routine-target XML payload; they reject the append-prone routine path. Rung imports and partial exports still address the exact routine XPath.
+Supplying an existing routine XPath to PartialImportWithTarget can append RLL content instead of replacing the routine. The planner uses the parent program XPath plus the exact routine target name for `routine` imports. Scoped policies require that parent, exact target name and a matching Routine-target XML payload; they reject the append-prone routine path. Rung imports and partial exports still address the exact routine XPath.
 
-The native offline probe confirmed one routine/one rung with the program-parent mapping. Explicit PartialImportRungs with insertPosition 0 and replaceCount 1 also retained one rung. Core and REST/MCP regressions cover the mapping and rejected broader targets. The SDK verification script checks the exported rung count and expected logic after partial imports; a successful import/build alone cannot detect an appended duplicate. Private validation receipts are retained under `.local/live-v35/initial-finalize/`.
+Core and REST/MCP regressions cover the mapping and rejected broader targets. The SDK verification script checks the exported rung count and expected logic after partial imports; a successful import/build alone cannot detect an appended duplicate. Verify these postconditions on a preserved offline copy before an authorized live import.
 
 `accept_for_test` selects SDK `AcceptEdits`. Save its final ACD artifact as a new file, open it in Studio, confirm the controller/path, reconnect within scope and inspect accepted edits. Use native Test, the user's functional checks and then Assemble. Testing can affect other edited routines in the same program, so inspect that scope first. Prefer routine-scoped assembly when supported and sufficient, otherwise use the authorized program scope.
 
@@ -53,7 +53,7 @@ The native offline probe confirmed one routine/one rung with the program-parent 
 
 `finalize_during_import` selects SDK `FinalizeEdits` and skips the separate test interval. It does not imply functional testing. Do not choose it to bypass a missing Test command or change controller mode to force assembly. The documented assembly condition is Run mode; SDK completion does not independently prove the resulting edit state.
 
-Choose that option on the **initial import** when API-only finalization is intended. An existing accepted edit can block the next import with `XMLSrv_E_PIE_CONTROLLER_EDITS_EXIST_FOR_PROGRAM`. This occurred on a saved version-35 ACD copy while the SDK reported Offline; the proposed replacement was never submitted live. Do not reimport, append another rung or cancel accepted edits to work around it. Finish the authorized existing edits in Studio. The shared service adds a `native_action_required` event for this SDK diagnostic while retaining the original failure and attempted calls.
+Choose that option on the **initial import** when API-only finalization is intended. An existing accepted edit in a saved ACD or controller can block the next import with `XMLSrv_E_PIE_CONTROLLER_EDITS_EXIST_FOR_PROGRAM`. Do not reimport, append another rung or cancel accepted edits to work around it. Finish the authorized existing edits in Studio. The shared service adds a `native_action_required` event for this SDK diagnostic while retaining the original failure and attempted calls.
 
 Use the bundled [logix-online-edits skill](../skills/logix-online-edits/SKILL.md) for the native phase. The user can operate Studio and report its resulting states while the agent uses the API. Honor requests to leave the UI hands-off; label native user reports separately from API measurements. Use Windows Computer Use only within the user's current authorization. The service implements neither terminal-driven UI input nor undocumented edit-lifecycle calls.
 
