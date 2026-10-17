@@ -2,7 +2,9 @@
 
 A Windows project-editing service with a Codex MCP plugin, REST API and desktop GUI for **Logix Designer, FactoryTalk View Studio ME/SE and Studio 5000 View Designer**. Operations live in `Studio5000.Core` and run in **one shared service process**. The MCP adapter and GUI use that service over authenticated loopback HTTP.
 
-Repository: [votecoffee/RockwellMCPServer](https://github.com/votecoffee/RockwellMCPServer). Version 0.8.1 adopts the RockwellMCPServer name, `rockwell-mcp-server` plugin/MCP entry and `RockwellMCPServer.sln`. Existing checkouts may keep their folder path; scripts resolve their repository root automatically. Internal `Studio5000.*` assemblies/namespaces, environment variables, tool names, settings and saved state remain compatible.
+Repository: [votecoffee/RockwellMCPServer](https://github.com/votecoffee/RockwellMCPServer). Version 0.8.1 adopts the RockwellMCPServer name, `rockwell-mcp-server` plugin/MCP entry and `RockwellMCPServer.sln`. The local checkout is `C:\~LocalWork\Repos\Programming\~Github\RockwellMCPServer`; scripts resolve their repository root automatically. Internal `Studio5000.*` assemblies/namespaces, environment variables and tool names remain compatible. Service configuration and saved source/import-plan paths were rebased when the folder was renamed; PLC payloads and historical evidence were preserved.
+
+Version 0.8.2 packages the relocated checkout. Its fresh package versions preserve the existing immutable releases, since moving the build root changes compiled-file hashes.
 
 Version 0.8 adds a **searchable tag/UDT browser and persistent trend recordings**. Expand controller/program tags, nested structures and paged arrays, then create a stopped watch list from selected values. Plot numeric/BOOL members, inspect communication/stale gaps, retain recordings across service restarts and export CSV. Domain operations remain in the shared service; six new operations are discovered through the reloadable `watches` catalog. See [browser and recording](docs/BROWSER_RECORDING.md).
 
