@@ -9,6 +9,8 @@ public sealed class LogixExtension : ProxyExtension
     {
         Get("studio_capabilities", "Shared service roots, formats, native SDK and evidence boundaries.", _ => "/api/capabilities");
         Get("studio_list_projects", "Managed Logix/FactoryTalk snapshots and hashes.", _ => "/api/projects");
+        Post<ProjectCompareRequest>("studio_compare_projects", "read", "Compare two hash-bound Logix snapshots structurally, aligning rung occurrences. No mutation, native semantic equivalence or controller connection.", _ => "/api/projects/compare");
+        Post<LadderPreviewRequest>("studio_ladder_preview", "read", "Read paged ladder structure, source text, diagnostics, drawing geometry and passive SVG for an exact RLL routine. No live power-flow, simulation or controller connection.", a => $"/api/projects/{E(a, "projectId")}/ladder-preview", F<string>("projectId"));
         Post<RegisterRequest>("studio_register_project", "apply", "Snapshot an allowed L5X/ACD/XML source; preserve original bytes.", _ => "/api/projects");
         Post<RegisterRequest>("studio_register_exploded", "apply", "Recompose an allowed exploded source into a preserved snapshot.", _ => "/api/projects/from-exploded");
         Get("studio_inspect_project", "Inspect exact project components with pagination.", a => Query(a, $"/api/projects/{E(a, "projectId")}/elements", "kind", "query", "offset", "limit"), F<string>("projectId"), F<string>("kind", true), F<string>("query", true), F<int>("offset", true), F<int>("limit", true));

@@ -27,6 +27,7 @@ RockwellMCPServer gives agents and engineers a shared workspace for project insp
 | Capability | Scope |
 |---|---|
 | Logix project editing | Inspect and preview/apply L5X component changes; export L5X or exploded ZIP. Optional SDK conversion supports ACD files. |
+| Project review | Compare two hash-bound Logix snapshots with aligned rung differences; preview ladder branches as drawing geometry and passive SVG. |
 | Logix SDK jobs | Ordered native calls for projects, builds, imports, typed/raw tags and other operations in the bound SDK version. Availability depends on the installed Logix version and project. |
 | FactoryTalk View ME/SE | Edit existing graphics XML properties using matching installed schemas; extract tag references with source selectors, prepare import packages and compare re-exports. |
 | View Designer | Edit existing properties in exported `.hmi` folders, preserve assets, prepare import ZIPs and compare re-exports. |
@@ -129,6 +130,7 @@ XML checks, file comparisons and successful SDK calls do not establish native HM
 |---|---|
 | [Architecture](docs/ARCHITECTURE.md) | Shared service, storage, authentication and process boundaries |
 | [Logix SDK](docs/SDK.md) | Bound catalog, native jobs and controller target policies |
+| [Project review](docs/PROJECT_REVIEW.md) | Structural comparison, rung alignment and read-only ladder previews |
 | [Online edits](docs/ONLINE_EDITS.md) | Planning, import dispositions and native lifecycle |
 | [FactoryTalk View](docs/FACTORYTALK.md) | ME/SE graphics editing and native import handoff |
 | [View Designer](docs/VIEW_DESIGNER.md) | Export syntax, property editing and native handoff |

@@ -64,6 +64,8 @@ app.Use(async (context, next) =>
 app.MapGet("/health", () => new { status = "ok", name = WorkspaceIdentity.Name, version = WorkspaceIdentity.Version });
 app.MapGet("/api/capabilities", (ProjectService service) => service.Capabilities());
 app.MapGet("/api/projects", (ProjectService service) => service.Projects());
+app.MapPost("/api/projects/compare", (ProjectService service, ProjectCompareRequest request) => service.CompareProjects(request));
+app.MapPost("/api/projects/{id}/ladder-preview", (ProjectService service, string id, LadderPreviewRequest request) => service.PreviewLadder(id, request));
 app.MapPost("/api/projects", (ProjectService service, RegisterRequest request, CancellationToken ct) => service.RegisterAsync(request.Path, ct));
 app.MapPost("/api/projects/from-exploded", (ProjectService service, RegisterRequest request, CancellationToken ct) => service.RegisterExplodedAsync(request.Path, ct));
 app.MapGet("/api/projects/{id}", (ProjectService service, string id) => service.Get(id));
