@@ -11,7 +11,7 @@ dotnet test tests/Studio5000.Tests/Studio5000.Tests.csproj -c Release
 .\scripts\Verify-Isolated.ps1
 ```
 
-The isolated script publishes a separate service, MCP adapter, desktop application and extension worker under `artifacts/isolated-validation/<run-id>/`. It selects its own loopback port and state, leaves the normal service configuration alone, unconfigures the native bridge and disables controller operations. It runs core tests, REST/MCP integration checks through an official MCP client, extension reload checks and 29 off-screen desktop checks/renders. It stops its temporary service when finished.
+The isolated script publishes a separate service, MCP adapter, desktop application and extension worker under `artifacts/isolated-validation/<run-id>/`. It selects its own loopback port and state, leaves the normal service configuration alone, unconfigures the native bridge and disables controller operations. It runs core tests, REST/MCP integration checks through an official MCP client, extension reload checks and 33 off-screen desktop checks/renders. It stops its temporary service when finished.
 
 Results are under that run's `artifacts/test-results/`, including `core.trx`, `integration.json`, `extensions.json` and desktop PNGs. FactoryTalk schema-dependent checks require the matching installed ME/SE schemas; inspect skipped checks rather than treating them as passes. Rendering a desktop view checks layout, not every button or native Studio workflow.
 
@@ -50,6 +50,8 @@ The ladder browser ignores duplicate selection notifications for its already loa
 `diagnostics-workflow` opens each of the 22 new operation editors from its workflow panel and checks the populated arguments against the live schema. `trend-views-workflow` creates/updates/loads a view, gathers a stopped recording, exports verified results and removes the view while preserving the stopped watch. Both use the isolated shared service and emit PNG/JSON evidence.
 
 `documentation-workflow` exercises staged language edits, preview/apply, Unicode readback, retained drafts after another client's edit, explicit discard/reload and hash-verified full text export. It uses the generated multilingual fixture and emits PNG/JSON evidence. These checks do not validate native Studio/SDK localization import; see [documentation boundaries](PROJECT_DOCUMENTATION.md).
+
+`settings-workflow` exercises the GUI broad-local preset, target policy clearing, saved-versus-running options and restoring the generated configuration. REST checks cover exact backups, competing saves, stale revisions and validation failures. The separate settings-staging fixture verifies that the administrative command opens no workspace or native session, then checks explicit empty roots on a temporary offline host. See [settings and access](SETTINGS.md).
 
 ## Optional offline Logix SDK checks
 

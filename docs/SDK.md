@@ -1,5 +1,7 @@
 # Logix Designer SDK operations
 
+Controller access, named target restrictions and explicit `path:` target policy are editable through **Settings…**; see [settings and local access](SETTINGS.md). Defaults remain restricted. Saving settings stages them for the next service start.
+
 All **59 operation names in RockwellAutomation.LogixDesigner.CSClient 2.1.974** are exposed through native jobs. This is version-specific: it excludes APIs added by newer packages, and each operation still depends on the installed Logix version and project/controller support.
 
 **Logix Designer v38 is supported** with the installed compatible engine; project creation/conversion explicitly accepts revision 38, and the desktop examples already default to it. See [version support, dependencies and the isolated offline verifier](LOGIX_VERSIONS.md). SDK package version 2.1.974 and Logix major revision 38 identify different components.
@@ -79,7 +81,7 @@ Controller APIs are implemented but disabled by default. Configure an authorized
 }
 ```
 
-The service injects this path, preventing request overrides. Any `mode=Online`, go-online, download/upload, controller mode, SD-card or generate/delete-signature call requires the enabled target. Setting a path on an offline copy requires a configured target but does not connect or require live operations enabled. Sessions end when the job disconnects/disposes.
+The service injects the selected target's path, preventing request overrides. When `AllowAnyControllerPath` is enabled, `controllerTargetId: "path:<exact SDK communications path>"` can also select an explicit route without a saved alias. Any `mode=Online`, go-online, download/upload, controller mode, SD-card or generate/delete-signature call requires controller operations enabled and an explicit target. Setting a path on an offline copy requires a named or allowed `path:` target but does not connect or require live operations enabled. Sessions end when the job disconnects/disposes.
 
 A target can additionally define `Policy` to limit every submitted method, exact program tag addresses and component definitions. This applies to REST, MCP and the desktop through the shared service, including offline calls submitted with that target. Omitted policies retain the existing unrestricted configured-target behavior; an empty `AllowedMethods` denies all calls.
 

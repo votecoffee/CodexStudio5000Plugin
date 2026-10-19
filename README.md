@@ -50,6 +50,7 @@ RockwellMCPServer gives agents and engineers a shared workspace for project insp
 | Project workflows | Three-source logic/value merging with explicit conflicts and separate native target-version conversion/readback jobs. |
 | Reloadable extensions | Discover operation schemas and reload compatible modules through MCP or the GUI while the host and chat remain running. |
 | Codex integration choices | Retain the standalone plugin or register with Universal Tools, including live capability discovery and shared versioned workflow guides. |
+| Service settings | GUI editing for controller/file access, target scopes, SDK/HMI paths and limits; broad local profile, backups and saved-versus-running configuration. |
 | Concurrent requests and transactions | Edit independent workspaces concurrently; stage/review/commit offline changes as one revision with conflict checks, abort and durable retry receipts. Bundled stateless extensions support parallel worker pools. |
 
 L5X explode/implode uses the MIT-licensed L5xploder library from `ra-logix-designer-vcs-custom-tools`. See [third-party provenance](THIRD_PARTY_NOTICES.md).
@@ -101,7 +102,9 @@ Use **Export saved template…** and **Import template…** in the watch window 
 
 Use **Rebind source…** to update the saved snapshot for an existing stopped list. Preview declaration changes, apply the reviewed binding and retain older recordings under their original revisions. See [watch source rebinding](docs/WATCH_REBIND.md).
 
-Local settings are in ignored `service.local.json`; use [service.example.json](service.example.json) as the portable reference. `AllowedRoots` controls source access, `OutputRoots` controls new saved exports, and the default output directory is `artifacts/exports`. Restart the service after configuration changes.
+Local settings are in ignored `service.local.json`; use [service.example.json](service.example.json) as the portable reference. By default, `AllowedRoots` controls source access, `OutputRoots` controls new saved exports, and the output directory is `artifacts/exports`. Restart the service after configuration changes.
+
+Open **Settings…** to edit these options, controller targets and runtime limits in the GUI. **Broad local access** prepares unrestricted file access and explicit SDK routes while clearing target method/scope restrictions. Save stages changes with a backup and leaves live polling/jobs unchanged; the GUI shows what needs a restart. Public defaults remain restricted. See [settings and access policies](docs/SETTINGS.md).
 
 ## Usage
 
@@ -184,6 +187,7 @@ XML checks, file comparisons and successful SDK calls do not establish native HM
 | Guide | Contents |
 |---|---|
 | [Architecture](docs/ARCHITECTURE.md) | Shared service, storage, authentication and process boundaries |
+| [Settings and access](docs/SETTINGS.md) | GUI configuration, broad local preset, target policies, backups and pending restart state |
 | [Codex integration](docs/CODEX_INTEGRATION.md) | Standalone plugin packaging, Universal Tools discovery, workflow guides and accepted route selection |
 | [Logix SDK](docs/SDK.md) | Bound catalog, native jobs and controller target policies |
 | [Diagnostics and trends](docs/DIAGNOSTICS.md) | Logic tracing, captured conditions, trigger windows, saved trend results, baseline merging and native compatibility |
