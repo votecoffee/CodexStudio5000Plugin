@@ -285,7 +285,8 @@ public sealed class ProjectCompareForm : WorkspaceForm
             original[4].AddBeforeSelf(new XElement("Rung", new XAttribute("Number", "4"), new XElement("Text", "NOP();"))); doc.Save(bPath);
             var a = await client.PostAsync<ProjectInfo>("/api/projects", new RegisterRequest(aPath)); var b = await client.PostAsync<ProjectInfo>("/api/projects", new RegisterRequest(bPath)); await RefreshAsync();
             left.SelectedItem = left.Items.Cast<ReviewProjectChoice>().Single(c => c.Project.Id == a.Id); right.SelectedItem = right.Items.Cast<ReviewProjectChoice>().Single(c => c.Project.Id == b.Id); await CompareAsync();
-            Check(report is { TotalChanges: 2 } && ladder.DisplayedReport is { Total: 21 }, "GUI loads the independent comparison and its aligned routine browser");
+            Check(report is { TotalChanges: 2 } && ladder.DisplayedReport is { Total: 21 },
+                $"GUI loads the independent comparison and its aligned routine browser (changes={report?.TotalChanges}, ladder rows={ladder.DisplayedReport?.Total}, status={ladder.LoadStatus})");
             async Task Open(string change)
             {
                 var row = changes.Rows.Cast<DataGridViewRow>().Single(r => r.DataBoundItem is ProjectDifference d && d.Change == change);

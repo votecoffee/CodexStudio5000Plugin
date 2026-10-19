@@ -17,6 +17,7 @@ public sealed class ComparisonLadderPanel : UserControl
     private ComparedRoutine? selected;
     private LadderComparisonReport? report;
     internal LadderComparisonReport? DisplayedReport => report;
+    internal string LoadStatus => status.Text;
     private int routineOffset, rungOffset;
     private bool suppress, restoring;
     private readonly SemaphoreSlim work = new(1, 1);
@@ -28,7 +29,13 @@ public sealed class ComparisonLadderPanel : UserControl
         Button(top, "Previous routines", () => RoutinePageAsync(-1)); Button(top, "Next routines", () => RoutinePageAsync(1)); top.Controls.Add(changed);
         Button(top, "Previous rung", () => RungPageAsync(-1)); Button(top, "Next rung", () => RungPageAsync(1));
         changed.CheckedChanged += async (_, _) => { if (!restoring) await Run(async () => { rungOffset = 0; await LoadRungAsync(); }); };
-        routines.AfterSelect += async (_, _) => { if (!suppress) await Run(async () => { selected = routines.SelectedNode?.Tag as ComparedRoutine; rungOffset = 0; await LoadRungAsync(); }); };
+        routines.AfterSelect += async (_, _) =>
+        {
+            var next = routines.SelectedNode?.Tag as ComparedRoutine;
+            // A hidden tree can raise its initial selection again when its native handle is created.
+            // The selected routine is already loaded; a second asynchronous reload would clear that report.
+            if (!suppress && next != selected) await Run(async () => { selected = next; rungOffset = 0; await LoadRungAsync(); });
+        };
         var navigation = new SplitContainer { Dock = DockStyle.Fill, FixedPanel = FixedPanel.Panel1, SplitterDistance = 230 };
         navigation.Panel1.Controls.Add(routines); var sides = new SplitContainer { Dock = DockStyle.Fill }; sides.Panel1.Controls.Add(Side("LEFT", left, leftText)); sides.Panel2.Controls.Add(Side("RIGHT", right, rightText)); navigation.Panel2.Controls.Add(sides);
         Controls.Add(navigation); Controls.Add(status); Controls.Add(top);
