@@ -2,6 +2,8 @@
 
 Default base URL: `http://127.0.0.1:5487`. Read `.local/connection.json` for the running URL and credential file path. Set `Authorization: Bearer <contents of service.key>` on requests. Keep credentials out of chat, source control and logs. `GET /health` is the only unauthenticated endpoint.
 
+Exploded import/export compatibility and stable rejection codes are documented in [EXPLODED_PROJECTS.md](EXPLODED_PROJECTS.md). The same checks apply through REST, fixed MCP tools, extension proxies and the desktop.
+
 [EXTENSIONS.md](EXTENSIONS.md) documents the stable `/api/extensions` catalog, describe/reload/invoke and pinned-job endpoints. These let installed extension features change while the MCP bridge stays connected, with separate read/preview/apply/control dispatch channels.
 
 | Method | Path | Purpose |

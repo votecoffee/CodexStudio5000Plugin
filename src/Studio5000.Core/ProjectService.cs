@@ -49,6 +49,8 @@ public sealed partial class ProjectService : IDisposable
         name = WorkspaceIdentity.Name, version = WorkspaceIdentity.Version, nativeBridgeConfigured = native.Available,
         operations = new[] { "register", "inspect", "read_element", "preview", "apply", "export_l5x", "explode", "register_exploded", "audit", "export_acd" },
         editOperations = new[] { "set_text", "set_attribute", "replace_element", "add_element", "remove_element" },
+        exploded = new { schemaVersion = ExplodedCompatibility.SchemaVersion, acceptsUnstampedLegacy = true,
+            protectedAois = false, structuredTextXmlMetadata = false, unsafeDependencyBypass = false },
         allowedRoots = roots,
         outputRoots,
         projectKinds = new[] { "logix", "ftview-me", "ftview-se" },
@@ -214,12 +216,14 @@ public sealed partial class ProjectService : IDisposable
             if (format == "explode")
             {
                 var doc = XmlProjects.Parse(await File.ReadAllBytesAsync(source, ct));
+                ExplodedCompatibility.ValidateXml(doc);
                 foreach (var name in doc.Descendants().Attributes("Name")) ValidateFileName(name.Value);
                 var tree = Path.Combine(dir, "tree");
                 Directory.CreateDirectory(tree);
                 var persistence = PersistenceServiceFactory.Create(new L5xSerializationOptions
                 { OmitExportDate = false }, tree);
                 using (var stream = File.OpenRead(source)) L5xExploder.Explode(stream, L5xDefaultConfig.DefaultConfig, persistence);
+                ExplodedCompatibility.Stamp(tree);
                 output = Path.Combine(dir, "project.zip");
                 ZipFile.CreateFromDirectory(tree, output);
             }
@@ -257,12 +261,12 @@ public sealed partial class ProjectService : IDisposable
             Directory.CreateDirectory(Path.GetDirectoryName(dest)!);
             File.Copy(file, dest);
         }
-        var opts = L5xSerializationOptions.LoadFromFile(L5xploderLib.Paths.GetOptionsFilePath(staging)) ?? L5xSerializationOptions.DefaultOptions;
+        var opts = ExplodedCompatibility.ReadOptions(staging);
         foreach (var file in Directory.GetFiles(staging, "*.xml", SearchOption.AllDirectories))
         {
             using var reader = System.Xml.XmlReader.Create(file, new System.Xml.XmlReaderSettings
             { DtdProcessing = System.Xml.DtdProcessing.Prohibit, XmlResolver = null, MaxCharactersInDocument = 64 * 1024 * 1024 });
-            while (reader.Read()) { }
+            ExplodedCompatibility.ValidateXml(System.Xml.Linq.XDocument.Load(reader, System.Xml.Linq.LoadOptions.PreserveWhitespace));
         }
         var output = Path.Combine(staging, "recomposed.l5x");
         L5xImploder.Implode(output, L5xDefaultConfig.DefaultConfig, PersistenceServiceFactory.Create(opts, staging));

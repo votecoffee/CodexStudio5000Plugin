@@ -36,6 +36,8 @@ RockwellMCPServer gives agents and engineers a shared workspace for project insp
 
 L5X explode/implode uses the MIT-licensed L5xploder library from `ra-logix-designer-vcs-custom-tools`. See [third-party provenance](THIRD_PARTY_NOTICES.md).
 
+Exploded ZIPs use legacy schema 1. Newer layouts, protected AOIs and structured-text metadata that this layout cannot preserve are rejected explicitly; L5X exports remain available. See [exploded-project compatibility](docs/EXPLODED_PROJECTS.md).
+
 ## Install
 
 ### Dependencies
@@ -131,6 +133,8 @@ XML checks, file comparisons and successful SDK calls do not establish native HM
 | [Watches and UDTs](docs/WATCHES.md) | Polling, value extraction and controller structure snapshots |
 | [Browser and recording](docs/BROWSER_RECORDING.md) | Search, watch creation, trends, retention and CSV |
 | [Extensions](docs/EXTENSIONS.md) | Contracts, packaging, live reload and rollback |
+| [Exploded projects](docs/EXPLODED_PROJECTS.md) | Format compatibility and loss-prevention checks |
+| [Community integrations](docs/COMMUNITY.md) | Candidate libraries, licenses and adoption priorities |
 | [Examples](examples/README.md) | Generated demonstration inputs and their limits |
 
 ## Validation
