@@ -71,7 +71,7 @@ public sealed class OnlineEditDialog : WorkspaceForm
                 var sourceInfo = await client.PostAsync<JsonElement>("/api/sdk/source", new RegisterRequest(source.Text));
                 var importInfo = await client.PostAsync<JsonElement>("/api/sdk/source", new RegisterRequest(import.Text));
                 Plan = await client.PostAsync<OnlineEditPlan>("/api/sdk/online-edits/plan", new OnlineEditPlanRequest(
-                    ((ControllerTarget)target.SelectedItem!).Id, program.Text, routine.Text,
+                    target.Text.Trim(), program.Text, routine.Text,
                     new(import.Text, importInfo.GetProperty("sha256").GetString()!), sourceInfo.GetProperty("sha256").GetString()!,
                     SourcePath: source.Text, Workflow: workflow.Text, ImportKind: kind.Text, InsertPosition: (uint)position.Value, ReplaceCount: (uint)count.Value));
                 DialogResult = DialogResult.OK; Close();
@@ -82,9 +82,10 @@ public sealed class OnlineEditDialog : WorkspaceForm
     }
     private void BindTargets(JsonElement caps)
     {
-        target.DataSource = caps.GetProperty("controllerTargets").Deserialize<ControllerTarget[]>(ProjectService.Json)!;
-        prepare.Enabled = target.Items.Count > 0;
-        if (!prepare.Enabled) status.Text = "No target configured. Add an explicitly chosen ControllerTarget in service.local.json and restart; leave controller operations disabled while preparing.";
+        var any = ControllerTargetChoices.Bind(target, caps, empty: false);
+        prepare.Enabled = any || target.Items.Count > 0;
+        if (any) status.Text = "Select a target or enter path: followed by its explicit SDK communications path. Planning never connects.";
+        if (!prepare.Enabled) status.Text = "No target configured. Add a target in Settings → Controller targets, or allow explicit path: targets, then restart when idle. Planning never connects.";
     }
     public void LoadForTest()
     {

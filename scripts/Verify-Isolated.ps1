@@ -17,6 +17,7 @@ try {
         dotnet publish "src/Studio5000.$name/Studio5000.$name.csproj" -c Release -o (Join-Path $fixtureRoot "artifacts/app/$name") --nologo
         if ($LASTEXITCODE -ne 0) { throw "$name publish failed." }
     }
+    & (Join-Path $PSScriptRoot 'Verify-SettingsStaging.ps1') -ServiceExe (Join-Path $fixtureRoot 'artifacts/app/Service/Studio5000.Service.exe') -ResultsDirectory (Join-Path $fixtureRoot 'artifacts/test-results/settings-staging')
     if ($WithCip) {
         $cipOutput = Join-Path $fixtureRoot 'artifacts/app/CipBridge'
         dotnet publish src/Studio5000.CipBridge/Studio5000.CipBridge.csproj -c Release -o $cipOutput --nologo
@@ -53,7 +54,7 @@ try {
     dotnet run --project (Join-Path $repo 'tests/Studio5000.Integration/Studio5000.Integration.csproj') -c Release
     if ($LASTEXITCODE -ne 0) { throw 'Isolated REST/MCP checks failed.' }
     $gui = Join-Path $fixtureRoot 'artifacts/app/Desktop/Studio5000.Desktop.exe'
-    foreach ($view in @('transactions-workflow', 'viewdesigner-languages-workflow', 'hmi-languages-workflow', 'documentation-workflow', 'diagnostics-workflow', 'trend-views-workflow', 'comparison-annotations', 'comparison-annotations-workflow', 'comparison-history', 'comparison-history-workflow', 'merge-mappings', 'merge-mappings-workflow', 'value-merge', 'value-merge-workflow', 'comparison-workflow', 'comparison-ladder', 'watch-rebind', 'watch-template', 'watch-preflight', 'tag-references', 'references', 'reference-parameters', 'comparison', 'ladder', 'browser', 'trends', 'extensions', 'viewdesigner', 'watches', 'watches-values', 'online-edit', 'main')) {
+    foreach ($view in @('settings-workflow', 'transactions-workflow', 'viewdesigner-languages-workflow', 'hmi-languages-workflow', 'documentation-workflow', 'diagnostics-workflow', 'trend-views-workflow', 'comparison-annotations', 'comparison-annotations-workflow', 'comparison-history', 'comparison-history-workflow', 'merge-mappings', 'merge-mappings-workflow', 'value-merge', 'value-merge-workflow', 'comparison-workflow', 'comparison-ladder', 'watch-rebind', 'watch-template', 'watch-preflight', 'tag-references', 'references', 'reference-parameters', 'comparison', 'ladder', 'browser', 'trends', 'extensions', 'viewdesigner', 'watches', 'watches-values', 'online-edit', 'main')) {
         $flag = if ($view -eq 'main') { '--self-test' } else { "--self-test-$view" }
         $png = Join-Path $fixtureRoot "artifacts/test-results/desktop-$view.png"
         $guiProcess = Start-Process -FilePath $gui -ArgumentList @($flag, ('"' + $png + '"')) -WindowStyle Hidden -PassThru -RedirectStandardError ($png + '.stderr.log')

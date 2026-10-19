@@ -39,6 +39,7 @@ public sealed class MainForm : WorkspaceForm
         var toolbar = new FlowLayoutPanel { Dock = DockStyle.Top, Height = 84, Padding = new Padding(8) };
         AddButton(toolbar, "Open project…", OpenAsync);
         AddButton(toolbar, "Refresh", () => RefreshAsync());
+        AddButton(toolbar, "Settings…", () => { using var settings = new SettingsForm(client); settings.ShowDialog(this); return Task.CompletedTask; });
         toolbar.Controls.Add(search);
         AddButton(toolbar, "Search", LoadElementsAsync);
         AddButton(toolbar, "Export L5X…", () => ExportAsync("l5x"));

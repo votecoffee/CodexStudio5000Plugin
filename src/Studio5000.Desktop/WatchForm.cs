@@ -83,7 +83,7 @@ public sealed class WatchForm : WorkspaceForm
     private async Task InitializeAsync()
     {
         var caps = await client.GetAsync<JsonElement>("/api/sdk/capabilities");
-        target.Items.Clear(); target.Items.Add(""); foreach (var item in caps.GetProperty("controllerTargets").EnumerateArray()) target.Items.Add(item.GetProperty("id").GetString()!);
+        ControllerTargetChoices.Bind(target, caps);
         target.SelectedIndex = target.Items.Count > 1 ? 1 : 0;
         status.Text = "Controller access enabled: " + caps.GetProperty("controllerOperationsEnabled") + ". Lists remain stopped until Start. Closing this window leaves shared polling running.";
         await RefreshAsync();
@@ -104,7 +104,7 @@ public sealed class WatchForm : WorkspaceForm
     private void LoadWatch(WatchStatus value)
     {
         selected = value; var r = value.Definition.Settings; name.Text = r.Name; interval.Value = r.IntervalMs; mode.SelectedItem = r.Mode; backend.SelectedItem = r.Backend;
-        target.SelectedItem = r.ControllerTargetId ?? ""; sourcePath = r.SourcePath; artifactId = r.SourceArtifactId; sourceHash = r.ExpectedSha256;
+        target.SelectedItem = r.ControllerTargetId ?? ""; if (target.DropDownStyle == ComboBoxStyle.DropDown) target.Text = r.ControllerTargetId ?? ""; sourcePath = r.SourcePath; artifactId = r.SourceArtifactId; sourceHash = r.ExpectedSha256;
         source.Text = sourcePath ?? "artifact:" + artifactId; tags.Rows.Clear();
         foreach (var t in r.Tags) tags.Rows.Add(t.Key, t.TagName, t.ProgramName ?? "", t.MemberPath ?? ""); Render(value);
     }

@@ -85,7 +85,7 @@ public sealed class TagBrowserForm : WorkspaceForm
     private async Task InitializeAsync()
     {
         var caps = await client.GetAsync<JsonElement>("/api/sdk/capabilities");
-        target.Items.Add(""); foreach (var t in caps.GetProperty("controllerTargets").EnumerateArray()) target.Items.Add(t.GetProperty("id").GetString()!); target.SelectedIndex = 0;
+        ControllerTargetChoices.Bind(target, caps);
         await RefreshProjectsAsync(initial?.Id);
     }
     private async Task RefreshProjectsAsync(string? id)

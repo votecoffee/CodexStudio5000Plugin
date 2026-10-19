@@ -102,7 +102,7 @@ public sealed class TagValueMergeForm : WorkspaceForm
         source.SelectedItem = choices.FirstOrDefault(c => c.Project.Id == from) ?? choices.FirstOrDefault(c => c.Project.Id != to) ?? choices.FirstOrDefault();
         destination.SelectedItem = choices.FirstOrDefault(c => c.Project.Id == to) ?? choices.LastOrDefault(); suppress = false;
         await ScopesAsync(source, sourceScope); await ScopesAsync(destination, destinationScope);
-        var caps = await client.GetAsync<JsonElement>("/api/sdk/capabilities"); target.DataSource = caps.GetProperty("controllerTargets").EnumerateArray().Select(t => t.GetProperty("id").GetString()!).ToArray();
+        var caps = await client.GetAsync<JsonElement>("/api/sdk/capabilities"); ControllerTargetChoices.Bind(target, caps, empty: false);
     }
     private async Task ScopesAsync(ComboBox choice, ComboBox scopes)
     {
@@ -197,7 +197,7 @@ public sealed class TagValueMergeForm : WorkspaceForm
     private async Task CaptureAsync()
     {
         if (captureJob is not null) throw new ArgumentException("Wait for the current upload job; it is never retried automatically.");
-        if (target.SelectedItem is not string id) throw new ArgumentException("Select an enabled configured controller target first.");
+        var id = target.Text.Trim(); if (id.Length == 0) throw new ArgumentException("Select a controller target or enter an allowed explicit path: target first.");
         var job = await client.PostAsync<SdkJob>("/api/value-merge/capture", new StructurePullRequest(id)); captureJob = job.Id; jobId.Text = job.Id; jobId.ReadOnly = true; timer.Start(); status.Text = "Online source upload queued: " + job.Id;
     }
     private async Task CancelCaptureAsync() { if (captureJob is not null) { await client.PostAsync<SdkJob>($"/api/sdk/jobs/{captureJob}/cancel", new { }); status.Text = "Cancellation requested; waiting for the terminal job status."; } }

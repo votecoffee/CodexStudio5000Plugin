@@ -7,6 +7,15 @@ try
 {
     var root = ServiceClient.FindRoot();
     using var client = new ServiceClient(root);
+    if (args.Length == 2 && args[0] == "--self-test-settings-workflow")
+    {
+        SettingsForm? settingsView = null; string[] checks = [];
+        WorkflowValidation.Run(async () => { settingsView = new SettingsForm(client); checks = await settingsView.ExerciseOfflineWorkflowForTestAsync(); });
+        using var view = settingsView ?? throw new InvalidOperationException("Missing settings view.");
+        view.StartPosition = FormStartPosition.Manual; view.Location = new(-30000, -30000); view.ShowInTaskbar = false; view.Show(); Application.DoEvents();
+        File.WriteAllText(args[1] + ".json", System.Text.Json.JsonSerializer.Serialize(new { checks, controllerConnectionAttempted = false, nativeBridgeExecuted = false }, ProjectService.Json));
+        using var bitmap = new Bitmap(view.Width, view.Height); view.DrawToBitmap(bitmap, new Rectangle(Point.Empty, view.Size)); bitmap.Save(args[1], System.Drawing.Imaging.ImageFormat.Png); view.Close(); return;
+    }
     if (args.Length == 2 && args[0] == "--self-test-transactions-workflow")
     {
         TransactionForm? transactionView = null; string[] checks = [];
