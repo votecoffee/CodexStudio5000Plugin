@@ -18,10 +18,10 @@ public interface IWorkspaceExtension
     Task<JsonElement> InvokeAsync(string operation, JsonElement arguments, ExtensionContext context, CancellationToken ct);
 }
 public sealed record ExtensionPackage(string Id, string Version, int ContractVersion, string EntryAssembly,
-    string EntryType, Dictionary<string, string> Files);
+    string EntryType, Dictionary<string, string> Files, int ParallelWorkers = 1);
 public sealed record ExtensionPointer(string Version);
 public sealed record ExtensionSummary(string Id, string Version, string Generation, string PackageSha256,
-    ExtensionOperation[] Operations, int ActiveCalls, string State);
+    ExtensionOperation[] Operations, int ActiveCalls, string State, int ParallelWorkers = 1);
 public sealed record ExtensionCatalog(int ProtocolVersion, ExtensionSummary[] Extensions, string[] LoadErrors);
 public sealed record ExtensionReloadRequest(string ExtensionId, string? Version = null, string? ExpectedGeneration = null);
 public sealed record ExtensionCall(string ExtensionId, string Operation, string Generation, JsonElement Arguments);

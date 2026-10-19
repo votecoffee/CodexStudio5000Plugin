@@ -97,7 +97,7 @@ public sealed class ExtensionHost : IDisposable
             var package = JsonSerializer.Deserialize<ExtensionPackage>(bytes, ExtensionProtocol.Json) ?? throw Error("invalid_extension", "Missing extension manifest.");
             var hash = ProjectService.Hash(bytes);
             if (package.Id != id || package.Version != version || package.ContractVersion != ExtensionProtocol.Version ||
-                string.IsNullOrWhiteSpace(package.EntryType) || package.Files is null || package.Files.Count is < 1 or > 256)
+                string.IsNullOrWhiteSpace(package.EntryType) || package.Files is null || package.Files.Count is < 1 or > 256 || package.ParallelWorkers is < 1 or > 4)
                 throw Error("invalid_extension", "Manifest identity/contract/files are invalid.");
             var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase); long total = 0;
             var snapshot = Path.Combine(state, "cache", Guid.NewGuid().ToString("N")); Directory.CreateDirectory(snapshot); ProjectService.RejectLinks(snapshot);
@@ -115,7 +115,8 @@ public sealed class ExtensionHost : IDisposable
             var ledger = Path.Combine(state, id + "-" + version + ".sha256");
             if (File.Exists(ledger) && File.ReadAllText(ledger) != hash) throw Error("invalid_extension", "Version was previously loaded with different bytes; publish a new version.");
             File.WriteAllBytes(Path.Combine(snapshot, "manifest.json"), bytes);
-            worker = createWorker(SafePath(snapshot, package.EntryAssembly.Split('/')), package.EntryType);
+            var assemblyPath = SafePath(snapshot, package.EntryAssembly.Split('/'));
+            worker = package.ParallelWorkers == 1 ? createWorker(assemblyPath, package.EntryType) : new ExtensionWorkerPool(package.ParallelWorkers, () => createWorker(assemblyPath, package.EntryType));
             using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct); timeout.CancelAfter(TimeSpan.FromSeconds(30));
             var operations = await worker.DescribeAsync(timeout.Token);
             if (operations is null || operations.Length is < 1 or > 128 || operations.Select(o => o.Name).Distinct(StringComparer.Ordinal).Count() != operations.Length)
@@ -128,7 +129,7 @@ public sealed class ExtensionHost : IDisposable
                 ExtensionSchema.CheckDefinition(operation.InputSchema);
                 if (!operation.InputSchema.TryGetProperty("type", out var kind) || kind.GetString() != "object") throw Error("invalid_extension", "Operation input must be an object schema.");
             }
-            var summary = new ExtensionSummary(id, version, Guid.NewGuid().ToString("N"), hash, operations, 0, "active");
+            var summary = new ExtensionSummary(id, version, Guid.NewGuid().ToString("N"), hash, operations, 0, "active", package.ParallelWorkers);
             // Persist activation only after validation/health. Failure leaves the old generation selected.
             AtomicText(ledger, hash); Save(SafePath(root, id, "active.json"), new ExtensionPointer(version));
             lock (sync)
