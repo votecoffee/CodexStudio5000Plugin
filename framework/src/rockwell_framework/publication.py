@@ -55,14 +55,23 @@ def digest(value):
 def inventory(directory):
     directory = ordinary(directory)
     result = []
+    total = 0
     for path in sorted(directory.rglob("*")):
         ordinary(path)
         if path.is_file():
+            size = path.stat().st_size
+            total += size
+            if len(result) >= 2048 or total > 256 * 1024 * 1024:
+                raise ValueError("Use a deployment of at most 2048 files / 256 MiB")
+            checksum = hashlib.sha256()
+            with path.open("rb") as stream:
+                for chunk in iter(lambda: stream.read(65536), b""):
+                    checksum.update(chunk)
             result.append(
                 {
                     "path": path.relative_to(directory).as_posix(),
-                    "bytes": path.stat().st_size,
-                    "sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
+                    "bytes": size,
+                    "sha256": checksum.hexdigest(),
                 }
             )
     if not result or len(result) > 2048 or sum(p["bytes"] for p in result) > 256 * 1024 * 1024:
@@ -113,7 +122,14 @@ def verify(state):
 
 
 def publish(app_root, state, *, backend_root=None, port=None, allowed_write_tools=()):
+    check_versions()
     state = ordinary(state)
+    if (
+        state.exists()
+        and not (state / "rockwell-profile.json").exists()
+        and any(p.name != "publication.lock" for p in state.iterdir())
+    ):
+        raise ValueError("Use a new dedicated state, never universal broker or workspace state")
     state.mkdir(parents=True, exist_ok=True)
     ordinary(state / "publication.lock")
     with InstanceLock(state / "publication.lock"):

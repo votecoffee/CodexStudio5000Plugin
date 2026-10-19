@@ -72,6 +72,7 @@ def test_state_cannot_adopt_another_workspace_or_universal_registrations(app, tm
     (broker / "settings.json").write_text("{}")
     with pytest.raises(ValueError, match="dedicated state"):
         publish(root, broker)
+    assert sorted(p.name for p in broker.iterdir()) == ["settings.json"]
 
 
 def test_incomplete_or_invalid_policy_preserves_existing_publication(app):
@@ -134,3 +135,13 @@ def test_dependency_versions_are_checked_without_downgrading(app, monkeypatch):
     with pytest.raises(ValueError, match="mcp==2.3.0"):
         publish(root, state)
     assert not (state / "application.json").exists()
+
+
+@pytest.mark.skipif(__import__("os").name != "nt", reason="Native Windows launch boundary")
+def test_deployment_path_limit_fails_before_copying(app, tmp_path):
+    root, _, _ = app
+    state = tmp_path / ("generated-long-state-" + "x" * 60)
+    with pytest.raises(ValueError, match="shorter framework state"):
+        publish(root, state)
+    assert not (state / "application.json").exists()
+    assert not (state / "deployments").exists()
