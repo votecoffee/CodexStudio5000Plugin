@@ -2,6 +2,8 @@
 
 All **59 operation names in RockwellAutomation.LogixDesigner.CSClient 2.1.974** are exposed through native jobs. This is version-specific: it excludes APIs added by newer packages, and each operation still depends on the installed Logix version and project/controller support.
 
+**Logix Designer v38 is supported** with the installed compatible engine; project creation/conversion explicitly accepts revision 38, and the desktop examples already default to it. See [version support, dependencies and the isolated offline verifier](LOGIX_VERSIONS.md). SDK package version 2.1.974 and Logix major revision 38 identify different components.
+
 The frozen API has **67 public signatures, 63 unique method names**: 59 domain operations, four internally managed event/disposal methods, and four alternative enumerable-logger overloads. Generated direct C# calls compile against the vendor package. `/api/sdk/coverage` compares actual signatures and inspects compiled IL, reporting both `matchesFrozenSurface` and `allOperationsBound`. Runtime dispatch uses an explicit switch; requests cannot invoke arbitrary methods or upload executable callbacks. The alternate logger overloads use the bridge's event collector. `RequestedUploadMergeMode` is an enum without a public method parameter in this version; the catalog preserves it without inventing an API.
 
 | Family | Operations |

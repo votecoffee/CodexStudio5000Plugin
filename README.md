@@ -49,6 +49,8 @@ Exploded ZIPs use legacy schema 1. Newer layouts, protected AOIs and structured-
 - For FactoryTalk XML mutation/import preparation: the matching installed ME/SE graphics schemas. Native import requires FactoryTalk View Studio.
 - For native View Designer import/build: Studio 5000 View Designer. Export-folder editing itself needs no native executable.
 
+**Logix Designer v38 is supported** through the existing XML, SDK, REST/MCP and GUI paths. Native v38 operations require the installed compatible v38 engine; see [version support and offline verification](docs/LOGIX_VERSIONS.md).
+
 Proprietary SDK binaries, schemas and activation files are not distributed in this repository.
 
 ### Build and configure

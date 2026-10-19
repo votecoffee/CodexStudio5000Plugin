@@ -27,7 +27,9 @@ The checks cover:
 
 ## Optional offline Logix SDK checks
 
-These require a licensed installed SDK, compatible Logix Designer versions and a configured running service. Compile the native bridge with `scripts/Build.ps1 -WithSdk`; compilation establishes bindings, not native acceptance.
+For a focused **v38** check that publishes a separate native bridge and uses an isolated shared-service instance with no controller targets, run `scripts/Verify-LogixVersion.ps1 -Revision 38`. It checks generated native creation/build/save, edited L5X-to-ACD conversion, local DINT/LREAL/ULINT values and reopening. It does not use or restart the normal service. See [version support and detailed boundaries](LOGIX_VERSIONS.md).
+
+The broader checks below require a licensed installed SDK, compatible Logix Designer versions and a configured running service. Compile the native bridge with `scripts/Build.ps1 -WithSdk`; compilation establishes bindings, not native acceptance.
 
 ```powershell
 .\scripts\Verify-Sdk.ps1
