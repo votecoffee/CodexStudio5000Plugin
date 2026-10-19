@@ -1,20 +1,16 @@
 param([switch]$WithSdk, [switch]$WithCip, [switch]$SkipBuild, [switch]$NoShortcut)
 $ErrorActionPreference = 'Stop'
 $repo = Split-Path -Parent $PSScriptRoot
-$appRoot = [IO.Path]::GetFullPath((Join-Path $repo 'artifacts/app')) + [IO.Path]::DirectorySeparatorChar
 $configPath = Join-Path $repo 'service.local.json'
 
 if (!$SkipBuild -or $WithSdk -or $WithCip) {
-    $running = @(Get-Process | Where-Object { $_.Path -and $_.Path.StartsWith($appRoot, [StringComparison]::OrdinalIgnoreCase) })
-    if ($running.Count -gt 0) {
-        throw 'Applications from this checkout are running. Finish jobs, stop watch polling, close its clients and run scripts/Stop-Service.ps1 before installing updates.'
-    }
+    & (Join-Path $PSScriptRoot 'Assert-ApplicationsStopped.ps1')
 }
 if (!$SkipBuild) {
     if (!(Get-Command dotnet -ErrorAction SilentlyContinue)) { throw 'Install the .NET 8 SDK, then run Install.cmd again.' }
     $sdks = @(dotnet --list-sdks)
     if ($LASTEXITCODE -ne 0 -or !($sdks -match '^8\.')) { throw 'Install the .NET 8 SDK, then run Install.cmd again.' }
-    & (Join-Path $PSScriptRoot 'Build.ps1') -WithSdk:$WithSdk -WithCip:$WithCip
+    & (Join-Path $PSScriptRoot 'Build.ps1') -WithSdk:$WithSdk -WithCip:$WithCip -InstallExtensions
 }
 foreach ($name in @('Service', 'Mcp', 'Desktop', 'ExtensionWorker')) {
     if (!(Test-Path -LiteralPath (Join-Path $repo "artifacts/app/$name/Studio5000.$name.exe") -PathType Leaf)) {

@@ -36,6 +36,10 @@ The v0.17/v0.18 value merge, paged discovery and integrated ladder comparison/na
 
 ## Update and reload
 
+For a complete stopped-host installation/update, use root `Install.cmd`. It passes `-InstallExtensions` to `Build.ps1`, which uses a SHA-256-derived suffix such as `0.18.0-build.<20 hex characters>` for the four bundled packages and selects them for the next startup after publishing the requested applications. Identical package content reuses its version; changed DLLs, PDBs or Git revision metadata produce a different version. Old versions are retained. The running-application guard applies before publishing and before selecting versions. The host still validates hashes, contracts and worker catalogs before loading a selected package. `-SkipBuild` leaves version selections unchanged.
+
+For extension-only development, `Build-Extensions.ps1 -ContentVersion` creates the same content-qualified packages without switching existing selections. Use the printed version with `Reload-Extension.ps1` or the GUI. Omit `-ContentVersion` when publishing an explicit release version; changed bytes still require a new explicit version. `-SelectOnStartup` selects the bundled packages only when this checkout's applications are stopped. Other extension IDs are left alone.
+
 Build changed extension code into a **new publish directory**, then install a new version. For the bundled modules:
 
 ```powershell
@@ -43,7 +47,7 @@ Build changed extension code into a **new publish directory**, then install a ne
 .\scripts\Reload-Extension.ps1 -Id viewdesigner -Version 0.7.1
 ```
 
-`Build-Extensions.ps1` builds/packages extension DLLs without republishing the running service, MCP executable, GUI or worker. It installs all four bundled module versions; reload each module you intend to activate. It never overwrites an installed version or automatically switches an already selected module. `Reload-Extension.ps1` calls the authenticated shared service. Supply `-ExpectedGeneration` from the catalog when coordinating concurrent updates.
+`Build-Extensions.ps1` builds/packages extension DLLs without republishing the running service, MCP executable, GUI or worker. It installs all four bundled module versions; reload each module you intend to activate. It never overwrites an installed version; its default mode preserves existing startup selections. `Reload-Extension.ps1` calls the authenticated shared service. Supply `-ExpectedGeneration` from the catalog when coordinating concurrent updates.
 
 From Codex, ask:
 
@@ -145,3 +149,5 @@ The package layout is `extensions/<id>/versions/<version>/manifest.json` plus al
 State is under `.local/state/extensions/`: private package snapshots, immutable-version hash receipts, `job-*.json` and `audit.jsonl`. These use the same protected state directory as the shared service.
 
 `scripts/Verify-Isolated.ps1` builds two different fixture DLLs, starts an isolated service with controller execution disabled, and uses one MCP client connection to reload v1→v2, discover/run a newly compiled operation, retain an in-flight job on v1, reject a bad reload and roll back. It also checks the bundled HMI summary and wrong-effect rejection. This demonstrates worker/MCP reload behavior; native HMI validation and controller runtime behavior remain separate. The desktop render is a generated display fixture, not native Studio automation.
+
+`scripts/Verify-InstallerPackages.ps1` exercises the packaging scripts in an isolated checkout using generated file payloads. It checks identical/changed rebuilds, selection only after all packages pass, preserved rollback bytes and explicit-version rejection. It starts no worker or service and can run while the real workspace is in use. These file-level checks complement the compiled-worker tests above.
