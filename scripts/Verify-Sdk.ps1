@@ -105,7 +105,7 @@ try {
     $success = $true
 } finally {
     $methods=@($reports.steps|Where-Object status -eq 'succeeded'|Select-Object -ExpandProperty method -Unique|Sort-Object)
-    @{status=$(if ($success) {'passed'} else {'failed'});reports=$reports;successfulOperationNames=$methods;successfulOperationCount=$methods.Count;
+    @{status=$(if ($success) {'passed'} else {'failed'});logixMajorRevision=$Revision;reports=$reports;successfulOperationNames=$methods;successfulOperationCount=$methods.Count;
       controllerValidation='Not performed. Only generated offline fixtures were used.';evidenceDirectory=$evidence}|
       ConvertTo-Json -Depth 60|Set-Content -LiteralPath (Join-Path $evidence 'summary.json') -Encoding utf8
     Write-Output "SDK evidence: $evidence"

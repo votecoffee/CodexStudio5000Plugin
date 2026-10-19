@@ -8,6 +8,7 @@ using Studio5000.Client;
 using Studio5000.Core;
 
 var root = ServiceClient.FindRoot();
+if (args.Length == 3 && args[0] == "--sdk-version-smoke") { await LogixVersionSmoke.RunAsync(root, int.Parse(args[1]), Path.GetFullPath(args[2])); return; }
 if (args.Length == 2 && args[0] == "--sdk-offline-path") { await SdkOfflinePath.RunAsync(root, Path.GetFullPath(args[1])); return; }
 if (args.Length == 1 && args[0] == "--online-plan-only") { await OnlineEditPlanIntegration.RunAsync(root); return; }
 using var client = new ServiceClient(root);
