@@ -46,6 +46,7 @@ RockwellMCPServer gives agents and engineers a shared workspace for project insp
 | Trending and recording | Save/edit named views, graph values and gaps, gather paged statistics, export exact JSON results/CSV and retain history across restarts. |
 | Diagnostic workflows | Trace readers/writers and AOI dependencies, explain captured rung conditions and record bounded pre/post trigger windows tied to a project revision. |
 | Multilingual documentation | Extract/search tag and rung comments, component/UDT/AOI descriptions and existing extended text; preview explicit language edits while preserving other translations. |
+| HMI languages | Browse/review/edit FactoryTalk ME/SE and View Designer workbook/Unicode exports, add language columns, preserve native keys and compare supplied re-exports. |
 | Project workflows | Three-source logic/value merging with explicit conflicts and separate native target-version conversion/readback jobs. |
 | Reloadable extensions | Discover operation schemas and reload compatible modules through MCP or the GUI while the host and chat remain running. |
 
@@ -158,6 +159,8 @@ Use **PLC where used…**, **Where used…** in the tag browser, or **Where used
 
 **Documentation…** searches multilingual project text, stages language-specific tag/member/rung comments and component descriptions, previews before/after translations and applies a reviewed managed revision. Plain text keeps an explicit unlocalized identity; adding translations requires naming its original language. Export all matching text as JSON or hand off a separate L5X/ACD. See [multilingual documentation](docs/PROJECT_DOCUMENTATION.md).
 
+**HMI languages…** edits language exports from FactoryTalk View ME/SE and View Designer. Search native string identities and translations, stage explicit text/new language columns, preview/apply a managed revision and export a separate native language file. OpenXML `.xls`/`.xlsx` and Unicode `.txt` are supported; legacy binary Excel is rejected explicitly. Original files, keys and other languages are preserved. Native Studio import and layout/runtime validation remain separate. See [HMI multilingual text](docs/HMI_LANGUAGES.md).
+
 To generate a Studio 5000 Custom Tools entry, run `.\scripts\New-CustomToolsMenu.ps1`. It writes `artifacts/CustomToolsMenu.xml` for manual merging into Studio's installed menu and passes the saved project path to the GUI. The generator does not change the Studio installation.
 
 ### Native workflow boundaries
@@ -176,6 +179,7 @@ XML checks, file comparisons and successful SDK calls do not establish native HM
 | [Logix SDK](docs/SDK.md) | Bound catalog, native jobs and controller target policies |
 | [Diagnostics and trends](docs/DIAGNOSTICS.md) | Logic tracing, captured conditions, trigger windows, saved trend results, baseline merging and native compatibility |
 | [Multilingual documentation](docs/PROJECT_DOCUMENTATION.md) | Explicit languages, tag/rung/component comments, reviewed updates and text extraction |
+| [HMI multilingual text](docs/HMI_LANGUAGES.md) | FactoryTalk ME/SE and View Designer language workspaces, native-file export and re-export comparison |
 | [Project review](docs/PROJECT_REVIEW.md) | Structural comparison, rung alignment and read-only ladder previews |
 | [Tag value merge](docs/VALUE_MERGE.md) | Offline value transfer, online source capture, layout checks and new L5X/ACD exports |
 | [Saved reviews](docs/SAVED_REVIEWS.md) | Persistent comparison sessions and reusable merge mappings, revision checks and fresh binding previews |
