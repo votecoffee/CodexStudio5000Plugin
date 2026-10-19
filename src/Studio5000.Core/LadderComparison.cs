@@ -122,11 +122,13 @@ public sealed partial class ProjectService
         {
             if (xpath is null) return (null, null);
             if (string.IsNullOrWhiteSpace(xpath) || xpath.Length > 8192) throw new OperationException("comparison_navigation_target", "Use exact component selectors up to 8192 characters.");
-            var component = XmlProjects.Select(document, xpath);
+            XElement component;
+            try { component = XmlProjects.Select(document, xpath); }
+            catch (System.Xml.XPath.XPathException) { throw new OperationException("comparison_navigation_target", "Invalid component XPath."); }
             if (component.Name.LocalName is not ("Routine" or "RLLContent" or "Rung")) throw new OperationException("comparison_navigation_target", "Select an RLL routine, content header or rung.");
             var routine = component.AncestorsAndSelf("Routine").SingleOrDefault();
             if (routine is null || (string?)routine.Attribute("Type") != "RLL") throw new OperationException("not_ladder", "The selected component must belong to an RLL routine.");
-            if (component.Name == "Rung" && component.Parent?.Parent != routine || component.Name == "RLLContent" && component.Parent != routine)
+            if (component.Name == "Rung" && (component.Parent?.Name != "RLLContent" || component.Parent.Parent != routine) || component.Name == "RLLContent" && component.Parent != routine)
                 throw new OperationException("comparison_navigation_target", "Select direct saved RLL content.");
             return (routine, component.Name == "Rung" ? component.ElementsBeforeSelf("Rung").Count() : null);
         }

@@ -126,7 +126,7 @@ public sealed class LadderComparisonTests : IDisposable
         var a = await Project(); var b = await Project(d => d.Descendants("Routines").Single().Add(new XElement("Routine", new XAttribute("Name", "Other"), new XAttribute("Type", "RLL"))));
         var request = Request(a, b);
         Assert.Equal("stale_revision", Assert.Throws<OperationException>(() => service.LocateComparedLadder(new(request with { RightSha256 = "old" }, "//Routine", null))).Code);
-        foreach (var xpath in new[] { "//Controller", "//Routine", "//Routine[@Name='Text']", "//Routine[@Name='Main']/RLLContent/Rung/Text" })
+        foreach (var xpath in new[] { "//Controller", "//Routine", "//Routine[@Name='Text']", "//Routine[@Name='Main']/RLLContent/Rung/Text", "//*[" })
             Assert.Throws<OperationException>(() => service.LocateComparedLadder(new(request, xpath, null)));
         Assert.Equal("comparison_navigation_target", Assert.Throws<OperationException>(() => service.LocateComparedLadder(new(request, "//Routine[@Name='Main']", "//Routine[@Name='Other']"))).Code);
         Assert.Throws<OperationException>(() => service.LocateComparedLadder(new(request, null, null)));
@@ -137,6 +137,12 @@ public sealed class LadderComparisonTests : IDisposable
         var a = await Project(); var b = await Project(); var request = Request(a, b);
         Assert.Equal("comparison_navigation_target", Assert.Throws<OperationException>(() => service.LocateComparedLadder(new(request, "//Rung[1]", "//Rung[2]"))).Code);
         Assert.Equal("comparison_navigation_target", Assert.Throws<OperationException>(() => service.LocateComparedLadder(new(request, "//Rung[1]", "//Rung[1]", true))).Code);
+    }
+    [Fact]
+    public async Task LocateDoesNotTreatARungOutsideRllContentAsARealSourceOccurrence()
+    {
+        var a = await Project(d => d.Descendants("Routine").First().Add(new XElement("Opaque", new XElement("Rung", new XElement("Text", "NOP();"))))); var b = await Project();
+        Assert.Equal("comparison_navigation_target", Assert.Throws<OperationException>(() => service.LocateComparedLadder(new(Request(a, b), "//Opaque/Rung", null))).Code);
     }
     public void Dispose() { service.Dispose(); Directory.Delete(root, true); }
 }
