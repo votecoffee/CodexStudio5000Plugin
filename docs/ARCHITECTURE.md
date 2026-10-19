@@ -59,6 +59,10 @@ The optional [CIP reader](CIP_READS.md) is a separate process with its own pinne
 
 `ProjectService.Structures` extracts definitions/values from managed hash-checked revisions. A fresh live pull reuses the configured, gated SDK upload-to-new-project operation; extraction of that successful job is labeled an uploaded snapshot. The service does not describe ordinary saved data as live or assume a watch's saved schema updates after controller edits. Limits and API contracts are in [WATCHES.md](WATCHES.md).
 
+## Diagnostic workflows
+
+Core owns saved trend revisions/results, trigger buffers/episodes, captured values, dependency graphs, rung explanations, common-baseline merges and version-compatibility runs. REST and extension catalogs expose the same operations; the desktop uses those endpoints and schema-generated editors. Metadata uses separate `trend-views/`, `diagnostic-triggers/`, `diagnostic-captures/` and `version-compatibility/` folders in ignored state; immutable value/result/episode payloads use existing artifacts. Triggers consume existing samples under the watch lock and never own a second reader. Captures retain exact historical project revisions. Conversion/readback runs use the existing offline SDK job queue and artifact/source hash validation. See [DIAGNOSTICS.md](DIAGNOSTICS.md).
+
 ## FactoryTalk ME/SE
 
 `ProjectInfo.kind` distinguishes `logix`, `ftview-me` and `ftview-se`. Its default preserves older manifests. Graphics revisions use XML filenames while retaining the same project IDs, source snapshots, preview/apply locking, immutable artifacts and audit service. `FactoryTalkGraphics` handles local schema identity, XSD validation, existing-property edits, stable named selectors and changed-property comparison. FactoryTalk operations do not instantiate another service or own separate editing state.

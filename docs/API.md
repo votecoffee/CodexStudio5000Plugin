@@ -91,6 +91,29 @@ Export body: `{"expectedSha256":"...","format":"acd"}`. Save body: `{"path":"C:\
 
 Failures include `401 unauthorized`, `403 origin_denied`, `404 not_found`, `409 stale_revision`/state mismatch, and `400` for invalid edits, paths, native failures or unavailable native support. On stale revision, read the latest project and create a new preview. Native failures include diagnostics but never return a successful artifact. HTTP requests are limited to 2 MiB; imported project files to 64 MiB; returned components to 1 MiB. Inspection pages contain at most 1,000 elements.
 
+## Diagnostic and trend workflows
+
+The v0.23 shared service adds these REST families, also exposed by 22 reloadable extension operations. See [diagnostics and trends](DIAGNOSTICS.md) for request fields, instruction coverage, limits and step ordering.
+
+| Method | Path | Purpose |
+|---|---|---|
+| POST | `/api/projects/{id}/logic/trace` | Hash-bound reader/writer and dependency graph |
+| GET / POST | `/api/diagnostics/captures` | List or create immutable captured values |
+| POST | `/api/diagnostics/evaluate` | Explain a captured program RLL rung |
+| GET / POST | `/api/diagnostics/triggers` | Trigger inventory or revision-checked definition save |
+| POST | `/api/diagnostics/triggers/{id}/arm`, `.../{id}/delete` | Local arm/disarm or definition removal |
+| GET | `/api/diagnostics/triggers/{id}/episodes/{episodeId}` | Immutable pre/post episode with source revision |
+| POST | `/api/diagnostics/triggers/{id}/episodes/{episodeId}/capture` | Freeze a sampled frame for explanation |
+| GET / POST | `/api/trends` | List summaries or save a named view |
+| GET | `/api/trends/{id}` | Read exact saved trend definition |
+| POST | `/api/trends/{id}/delete`, `/api/trends/analyze`, `/api/trends/export` | Remove view, gather result page or export exact result |
+| POST | `/api/logic-value-merge/preview`, `/api/logic-value-merge/apply` | Reviewed common-baseline merge into a new project |
+| POST | `/api/version-compatibility/preview`, `/api/version-compatibility/start` | Plan or start separate offline native target-version copy |
+| GET | `/api/version-compatibility/{id}` | Conversion/readback state and configuration report |
+| POST | `/api/version-compatibility/{id}/readback` | Reopen successful converted ACD in a separate native job |
+
+Creating/editing views, capturing existing values, arming triggers and gathering results never start polling. Native compatibility start/readback use the extension control channel; read-only dispatch cannot create artifacts or projects. Result and merge apply requests require their exact review hashes.
+
 ## FactoryTalk ME/SE endpoints
 
 FactoryTalk uses the same registration, inspection, preview/apply, XML export and artifact-save endpoints. Register a `.xml` file rooted at `gfx`; `kind` identifies `ftview-me` or `ftview-se`. `set_attribute`, `set_text` and shape-preserving `replace_element` edit existing properties. Export with `format="xml"`.

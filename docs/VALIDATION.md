@@ -11,7 +11,7 @@ dotnet test tests/Studio5000.Tests/Studio5000.Tests.csproj -c Release
 .\scripts\Verify-Isolated.ps1
 ```
 
-The isolated script publishes a separate service, MCP adapter, desktop application and extension worker under `artifacts/isolated-validation/<run-id>/`. It selects its own loopback port and state, leaves the normal service configuration alone, unconfigures the native bridge and disables controller operations. It runs core tests, REST/MCP integration checks through an official MCP client, extension reload checks and twenty off-screen desktop checks/renders. It stops its temporary service when finished.
+The isolated script publishes a separate service, MCP adapter, desktop application and extension worker under `artifacts/isolated-validation/<run-id>/`. It selects its own loopback port and state, leaves the normal service configuration alone, unconfigures the native bridge and disables controller operations. It runs core tests, REST/MCP integration checks through an official MCP client, extension reload checks and 28 off-screen desktop checks/renders. It stops its temporary service when finished.
 
 Results are under that run's `artifacts/test-results/`, including `core.trx`, `integration.json`, `extensions.json` and desktop PNGs. FactoryTalk schema-dependent checks require the matching installed ME/SE schemas; inspect skipped checks rather than treating them as passes. Rendering a desktop view checks layout, not every button or native Studio workflow.
 
@@ -23,6 +23,9 @@ The checks cover:
 - FactoryTalk existing-property edits, installed-schema validation and simulated re-export mismatches; explicit shortcut/scoped-parameter resolution, saved UDT/array/bit checks, missing context, cycles, hash rejection and response budgets.
 - View Designer nested properties, bindings, encoding preservation, unchanged assets and import packages using generated fixtures.
 - Tag/UDT browsing, paged arrays, watch scheduling/decoding, journal recovery/retention, CSV quality rows and graph gaps.
+- Alias/AOI parameter dependency tracing across routines, conservative ST assignments, captured rung true/false/unknown explanations and immutable historical revision binding.
+- Triggered pre/post windows using generated watch readers, communication-fault/stop interruption, observed timeouts, restart disarming, saved trend edits, bounded result pages and verified exports. No real reader/controller is opened.
+- Common-baseline logic/value merges, conflicting independent value edits, explicit resolutions and separate-copy/source preservation. Version compatibility checks cover native plans, unavailable/downgrade rejection and generated readback/configuration diagnostics; end-to-end native conversion/readback validation is separate.
 - Read-only watch preflight for drafts, saved definitions and managed browser snapshots: per-row diagnostics, stale hashes, configuration gates, deferred ACD/templates and combined CIP budgets. Generated GUI rendering covers the preflight viewer.
 - Portable watch templates: strict schema/field limits, omission of runtime/source/target fields, exact scope mappings, review/source hash rejection, settings preservation and independent stopped imports. REST/MCP exercise export/preview/import and JSON artifact save; a generated GUI fixture renders the mapping/review window.
 - Watch source rebinding: saved-declaration fingerprints, explicit unavailable/partial baselines, stopped/revision/review guards and same-list updates with immutable source artifacts. Generated reads verify retained samples/definitions/settings across restart; paused recordings retain a forced cutover event. REST/MCP and generated GUI checks use no controller.
@@ -42,6 +45,8 @@ The comparison workflow also exports a JSON review with XML/drawings and reopens
 The ladder browser ignores duplicate selection notifications for its already loaded routine, including delayed notifications when the hidden tree's native handle is created. Comparison workflow failures report the change count, displayed rung count and ladder diagnostic to distinguish a load failure from a layout/timing issue.
 
 `comparison-annotations-workflow` retains drafts across pages, saves progress, searches notes by state/text, rejects an old edit revision even after refreshing, preserves the conflicting draft, explicitly discards/reloads it and exports a verified notes snapshot. Its render fixture checks the pending-state editor layout. These workflows use generated projects and the isolated shared service with controller access disabled.
+
+`diagnostics-workflow` opens each of the 22 new operation editors from its workflow panel and checks the populated arguments against the live schema. `trend-views-workflow` creates/updates/loads a view, gathers a stopped recording, exports verified results and removes the view while preserving the stopped watch. Both use the isolated shared service and emit PNG/JSON evidence.
 
 ## Optional offline Logix SDK checks
 

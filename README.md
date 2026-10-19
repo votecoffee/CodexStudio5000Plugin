@@ -43,7 +43,9 @@ RockwellMCPServer gives agents and engineers a shared workspace for project insp
 | Comparison review notes | Mark recorded changes reviewed or needing attention, retain searchable notes/progress and export a separate notes snapshot with revision checks. |
 | Reusable merge mappings | Import/export portable JSON name pairs, bind to explicit snapshots/program scopes and generate a fresh value preview. |
 | Optional CIP reader | Read bounded scalar/UDT/array symbols through an isolated libplctag worker; plan reads offline and share watch recording/trends. Live validation pending. |
-| Trending and recording | Persist history across restarts, graph numeric/BOOL values, show quality/stale gaps and export CSV. |
+| Trending and recording | Save/edit named views, graph values and gaps, gather paged statistics, export exact JSON results/CSV and retain history across restarts. |
+| Diagnostic workflows | Trace readers/writers and AOI dependencies, explain captured rung conditions and record bounded pre/post trigger windows tied to a project revision. |
+| Project workflows | Three-source logic/value merging with explicit conflicts and separate native target-version conversion/readback jobs. |
 | Reloadable extensions | Discover operation schemas and reload compatible modules through MCP or the GUI while the host and chat remain running. |
 
 L5X explode/implode uses the MIT-licensed L5xploder library from `ra-logix-designer-vcs-custom-tools`. See [third-party provenance](THIRD_PARTY_NOTICES.md).
@@ -151,6 +153,8 @@ Use **PLC where used…**, **Where used…** in the tag browser, or **Where used
 
 **Extensions…** exposes the live catalog, operation forms, reload and jobs. Compatible extension updates can be reloaded without restarting Codex. Shared host, SDK binding or contract changes can require a service restart; see [extension updating and rollback](docs/EXTENSIONS.md).
 
+**Diagnostics & workflows…** groups logic tracing, captured rung explanation, triggered recording, common-baseline logic/value merging and native version compatibility. Choose saved snapshots and watch context, then open a populated operation editor. **Trends & recording…** also saves/loads/updates trend views, gathers bounded statistics and exports hash-bound results. These workflows preserve source revisions and leave polling stopped unless it is started separately. See [diagnostic and trend workflows](docs/DIAGNOSTICS.md) for supported conditions, conflicts and native validation limits.
+
 To generate a Studio 5000 Custom Tools entry, run `.\scripts\New-CustomToolsMenu.ps1`. It writes `artifacts/CustomToolsMenu.xml` for manual merging into Studio's installed menu and passes the saved project path to the GUI. The generator does not change the Studio installation.
 
 ### Native workflow boundaries
@@ -167,6 +171,7 @@ XML checks, file comparisons and successful SDK calls do not establish native HM
 |---|---|
 | [Architecture](docs/ARCHITECTURE.md) | Shared service, storage, authentication and process boundaries |
 | [Logix SDK](docs/SDK.md) | Bound catalog, native jobs and controller target policies |
+| [Diagnostics and trends](docs/DIAGNOSTICS.md) | Logic tracing, captured conditions, trigger windows, saved trend results, baseline merging and native compatibility |
 | [Project review](docs/PROJECT_REVIEW.md) | Structural comparison, rung alignment and read-only ladder previews |
 | [Tag value merge](docs/VALUE_MERGE.md) | Offline value transfer, online source capture, layout checks and new L5X/ACD exports |
 | [Saved reviews](docs/SAVED_REVIEWS.md) | Persistent comparison sessions and reusable merge mappings, revision checks and fresh binding previews |
