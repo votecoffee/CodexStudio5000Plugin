@@ -19,6 +19,7 @@ void Check(bool valid, string name) { if (!valid) throw new Exception("FAIL: " +
 using var connection = JsonDocument.Parse(File.ReadAllText(Path.Combine(root, ".local", "connection.json")));
 using var raw = new HttpClient { BaseAddress = new Uri(connection.RootElement.GetProperty("url").GetString()!) };
 Check((await raw.GetAsync("/api/projects")).StatusCode == HttpStatusCode.Unauthorized, "API rejects unauthenticated clients");
+Check((await raw.GetAsync("/api/settings")).StatusCode == HttpStatusCode.Unauthorized, "Settings API requires the same bearer authentication as engineering operations");
 raw.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", File.ReadAllText(connection.RootElement.GetProperty("tokenFile").GetString()!).Trim());
 raw.DefaultRequestHeaders.Add("Origin", "https://example.org");
 Check((await raw.GetAsync("/api/projects")).StatusCode == HttpStatusCode.Forbidden, "API rejects browser origins");
@@ -50,6 +51,7 @@ var tools = await mcp.ListToolsAsync();
 Console.WriteLine($"MCP server: {mcp.ServerInfo.Name} {mcp.ServerInfo.Version}");
 Check(tools.Count == 59, "Official MCP client discovers 46 compatible tools, 10 stable extension tools and 3 broker metadata readers");
 checks.AddRange(await BrokerIntegration.RunAsync(client, mcp));
+checks.AddRange(await SettingsIntegration.RunAsync(client));
 if (args.Length == 1 && args[0] == "--browser-recording-only")
 {
     checks.AddRange(await BrowserRecordingIntegration.RunAsync(root, client, mcp));

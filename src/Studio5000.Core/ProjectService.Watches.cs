@@ -83,8 +83,7 @@ public sealed partial class ProjectService
         return Status(runtime);
     }
 
-    private ControllerTarget? WatchTarget(WatchListRequest request) => request.ControllerTargetId is null ? null :
-        options.ControllerTargets.SingleOrDefault(t => t.Id == request.ControllerTargetId) ?? throw new OperationException("sdk_target_unknown", "Select a configured controller target.");
+    private ControllerTarget? WatchTarget(WatchListRequest request) => ControllerAccess.Resolve(options, request.ControllerTargetId);
     private static void ValidateWatchPolicy(WatchListRequest request, ControllerTarget? target)
     {
         var calls = request.Tags.Select(t => new SdkCall("GetTagValueAsync", new()
@@ -118,7 +117,7 @@ public sealed partial class ProjectService
             if (watch.Task is { IsCompleted: false }) return Task.FromResult(Status(watch));
             var target = WatchTarget(request); ValidateWatchPolicy(request, target);
             if (request.Mode == "Online" && (!options.EnableControllerOperations || target is null))
-                throw new OperationException("sdk_controller_disabled", "Online watch polling requires enabled controller access and a configured target.");
+                throw new OperationException("sdk_controller_disabled", "Online watch polling requires enabled controller access and an explicit target.");
             ValidateCipWatch(request, target, WatchSource(request));
             if (watches.Values.Count(w => w.Task is { IsCompleted: false }) >= 4) throw new OperationException("watch_limit", "Maximum four active watch lists.");
             watch.Cancel?.Dispose(); watch.Cancel = new(); watch.State = "starting"; watch.Error = null;

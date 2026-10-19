@@ -24,6 +24,15 @@ public sealed class OnlineEditTests : IDisposable
     private OnlineEditPlanRequest Request() => new("lab", "Main", "Logic", new(import, importHash), sourceHash, SourcePath: source, ReplaceCount: 1);
 
     [Fact]
+    public async Task ExplicitPathPlanningRemainsOfflineAndHonorsTheGlobalSwitch()
+    {
+        using var broad = new ProjectService(new() { StateDirectory = Path.Combine(root, "path-state"), AllowedRoots = [root], AllowAnyControllerPath = true });
+        var plan = await broad.PrepareOnlineEditAsync(Request() with { ControllerTargetId = @"path:AB_ETH-1\192.0.2.10\Backplane\0" });
+        Assert.Equal(@"AB_ETH-1\192.0.2.10\Backplane\0", plan.Target.CommunicationsPath); Assert.Null(plan.Target.Policy);
+        Assert.False(plan.ControllerOperationsEnabled); Assert.Empty(broad.SdkJobList()); Assert.False(plan.FinalizationObserved);
+    }
+
+    [Fact]
     public async Task DefaultPlanAcceptsForNativeTestingWithoutConnectingOrEnablingController()
     {
         var plan = await service.PrepareOnlineEditAsync(Request());

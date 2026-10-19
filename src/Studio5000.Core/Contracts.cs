@@ -5,10 +5,13 @@ public sealed class ServiceOptions
     public string StateDirectory { get; set; } = ".local/state";
     public string[] AllowedRoots { get; set; } = ["examples"];
     public string[] OutputRoots { get; set; } = ["artifacts/exports"];
+    public bool AllowAnySourcePath { get; set; }
+    public bool AllowAnyOutputPath { get; set; }
     public string? NativeBridgePath { get; set; }
     public string? CipBridgePath { get; set; }
     public int NativeTimeoutSeconds { get; set; } = 180;
     public bool EnableControllerOperations { get; set; }
+    public bool AllowAnyControllerPath { get; set; }
     public ControllerTarget[] ControllerTargets { get; set; } = [];
     public string FactoryTalkSchemaDirectory { get; set; } = @"C:\Program Files (x86)\Rockwell Software\RSView Enterprise\Schemas";
     public string FactoryTalkStudioPath { get; set; } = @"C:\Program Files (x86)\Rockwell Software\RSView Enterprise\Launcher.exe";

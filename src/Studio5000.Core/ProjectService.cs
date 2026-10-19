@@ -41,7 +41,7 @@ public sealed partial class ProjectService : IDisposable
         state = Path.GetFullPath(options.StateDirectory);
         roots = options.AllowedRoots.Select(Path.GetFullPath).ToArray();
         outputRoots = options.OutputRoots.Select(Path.GetFullPath).ToArray();
-        if (roots.Length == 0) throw new InvalidOperationException("At least one AllowedRoots entry is required.");
+        if (roots.Length == 0 && !options.AllowAnySourcePath) throw new InvalidOperationException("At least one AllowedRoots entry is required when source access is restricted.");
         Directory.CreateDirectory(state);
         RejectLinks(state);
         instanceLock = new FileStream(Path.Combine(state, "service.lock"), FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
@@ -63,6 +63,7 @@ public sealed partial class ProjectService : IDisposable
             protectedAois = false, structuredTextXmlMetadata = false, unsafeDependencyBypass = false },
         allowedRoots = roots,
         outputRoots,
+        access = new { options.AllowAnySourcePath, options.AllowAnyOutputPath, options.EnableControllerOperations, options.AllowAnyControllerPath },
         concurrency = new { status = "/api/concurrency", maximumActiveMutations = options.MaximumConcurrentMutations, maximumQueuedMutations = options.MaximumQueuedMutations,
             independentWorkspaceWriters = true, sameWorkspaceWritersSerialized = true, snapshotReads = true, legacyCompoundBarrier = true, nativeSdkOrderingChanged = false },
         transactions = new { path = "/api/transactions", workspaceTypes = new[] { "project", "hmi-languages", "view-designer" }, maximumStages = 50, maximumEdits = 1000,
@@ -334,7 +335,7 @@ public sealed partial class ProjectService : IDisposable
     {
         if (!Path.IsPathFullyQualified(path)) throw new OperationException("path_denied", "An absolute output path is required.");
         path = Path.GetFullPath(path);
-        if (!outputRoots.Any(root => path.StartsWith(Path.TrimEndingDirectorySeparator(root) + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase)))
+        if (!options.AllowAnyOutputPath && !outputRoots.Any(root => path.StartsWith(Path.TrimEndingDirectorySeparator(root) + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase)))
             throw new OperationException("path_denied", "Output is outside configured OutputRoots.");
         RejectLinks(path);
         await gate.WaitAsync(ct);
@@ -374,7 +375,7 @@ public sealed partial class ProjectService : IDisposable
     {
         if (!Path.IsPathFullyQualified(path)) throw new OperationException("path_denied", "An absolute source path is required.");
         path = Path.GetFullPath(path);
-        if (!roots.Any(root => path.Equals(root, StringComparison.OrdinalIgnoreCase) || path.StartsWith(Path.TrimEndingDirectorySeparator(root) + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase)))
+        if (!options.AllowAnySourcePath && !roots.Any(root => path.Equals(root, StringComparison.OrdinalIgnoreCase) || path.StartsWith(Path.TrimEndingDirectorySeparator(root) + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase)))
             throw new OperationException("path_denied", "Path is outside configured AllowedRoots. Add its directory in service.local.json and restart the service.");
         RejectLinks(path);
         if (directory ? !Directory.Exists(path) : !File.Exists(path)) throw new OperationException("not_found", "Source does not exist.");

@@ -53,7 +53,7 @@ public sealed partial class ProjectService
         try { target = WatchTarget(request); checks.Add(new("target", "passed")); }
         catch (OperationException ex) { targetKnown = false; Block("target", ex.Code, ex.Message); }
         if (request.Mode == "Online" && (!options.EnableControllerOperations || target is null))
-            Block("controller_access", "sdk_controller_disabled", "Online polling requires enabled controller access and a configured target. This report does not authorize access.");
+            Block("controller_access", "sdk_controller_disabled", "Online polling requires enabled controller access and an explicit target. This report does not authorize access.");
         else checks.Add(new("controller_access", "passed"));
         var workerExists = request.Backend == "Sdk" ? native.Available : File.Exists(options.CipBridgePath);
         if (workerExists) checks.Add(new("reader_configuration", "passed"));

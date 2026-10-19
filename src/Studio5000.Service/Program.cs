@@ -5,6 +5,15 @@ using Studio5000.Core;
 using Studio5000.Extensibility;
 
 var root = Path.GetFullPath(Environment.GetEnvironmentVariable("STUDIO5000_PLUGIN_ROOT") ?? Directory.GetCurrentDirectory());
+if (args.Length == 1 && args[0] == "--stage-broad-local-settings")
+{
+    var settings = ServiceSettingsStore.OpenOffline(root); var current = settings.Read();
+    var result = settings.Save(new(current.Revision, settings.BroadLocalPreview(current.Saved)));
+    Console.WriteLine(System.Text.Json.JsonSerializer.Serialize(new { saved = true, restartRequired = true,
+        configurationPath = result.Settings.ConfigurationPath, backupPath = result.BackupPath,
+        nativeConnectionAttempted = false, runningServiceChanged = false }));
+    return;
+}
 var builder = WebApplication.CreateBuilder(new WebApplicationOptions { Args = args, ContentRootPath = root });
 builder.Services.ConfigureHttpJsonOptions(o => o.SerializerOptions.MaxDepth = 128);
 builder.Configuration.AddJsonFile(Path.Combine(root, "service.local.json"), optional: true, reloadOnChange: false);
@@ -15,16 +24,13 @@ if (!Uri.TryCreate(url, UriKind.Absolute, out var address) || address.Scheme != 
 builder.WebHost.UseUrls(url);
 builder.WebHost.ConfigureKestrel(k => k.Limits.MaxRequestBodySize = 2 * 1024 * 1024);
 builder.Configuration["AllowedHosts"] = "127.0.0.1;localhost;[::1]";
-var options = builder.Configuration.GetSection("Studio5000").Get<ServiceOptions>() ?? new();
-options.StateDirectory = Path.GetFullPath(options.StateDirectory, root);
-options.AllowedRoots = options.AllowedRoots.Select(p => Path.GetFullPath(p, root)).ToArray();
-options.OutputRoots = options.OutputRoots.Select(p => Path.GetFullPath(p, root)).ToArray();
-if (options.NativeBridgePath != null) options.NativeBridgePath = Path.GetFullPath(options.NativeBridgePath, root);
-options.FactoryTalkSchemaDirectory = Path.GetFullPath(options.FactoryTalkSchemaDirectory, root);
-options.FactoryTalkStudioPath = Path.GetFullPath(options.FactoryTalkStudioPath, root);
-options.ViewDesignerPath = Path.GetFullPath(options.ViewDesignerPath, root);
-options.ExtensionsDirectory = Path.GetFullPath(options.ExtensionsDirectory, root);
-options.ExtensionWorkerPath = Path.GetFullPath(options.ExtensionWorkerPath, root);
+var settingsSection = builder.Configuration.GetSection("Studio5000");
+var options = new ServiceOptions();
+// Bind configured arrays onto empty arrays rather than appending their defaults.
+if (settingsSection.GetSection(nameof(ServiceOptions.AllowedRoots)).Exists()) options.AllowedRoots = [];
+if (settingsSection.GetSection(nameof(ServiceOptions.OutputRoots)).Exists()) options.OutputRoots = [];
+settingsSection.Bind(options);
+ServiceSettingsStore.ResolveAndValidate(options, root);
 var local = Path.Combine(root, ".local");
 Directory.CreateDirectory(local);
 ProjectService.RejectLinks(local);
@@ -33,6 +39,7 @@ if (!File.Exists(tokenPath)) File.WriteAllText(tokenPath, Convert.ToHexString(Ra
 var token = File.ReadAllText(tokenPath).Trim();
 if (token.Length < 32) throw new InvalidOperationException("service.key is too short.");
 builder.Services.AddSingleton(options);
+builder.Services.AddSingleton(new ServiceSettingsStore(root, url, options));
 builder.Services.AddSingleton<ProjectService>();
 builder.Services.AddSingleton(_ => new ExtensionHost(options, root));
 var app = builder.Build();
@@ -55,7 +62,7 @@ app.Use(async (context, next) =>
     }
     catch (OperationException ex)
     {
-        context.Response.StatusCode = ex.Code == "not_found" ? 404 : ex.Code == "request_queue_full" ? 429 : ex.Code is "stale_revision" or "state_tampered" or "draft_tampered" or "transaction_conflict" or "transaction_closed" or "transaction_recovery_required" ? 409 : 400;
+        context.Response.StatusCode = ex.Code == "not_found" ? 404 : ex.Code == "request_queue_full" ? 429 : ex.Code is "settings_conflict" or "stale_revision" or "state_tampered" or "draft_tampered" or "transaction_conflict" or "transaction_closed" or "transaction_recovery_required" ? 409 : 400;
         await context.Response.WriteAsJsonAsync(new { code = ex.Code, message = ex.Message });
     }
     catch (Exception ex) when (ex is System.Xml.XmlException or System.Xml.Schema.XmlSchemaException or System.Xml.XPath.XPathException or ArgumentException or System.Text.Json.JsonException)
@@ -63,6 +70,9 @@ app.Use(async (context, next) =>
 });
 app.MapGet("/health", () => new { status = "ok", name = WorkspaceIdentity.Name, version = WorkspaceIdentity.Version });
 app.MapGet("/api/capabilities", (ProjectService service) => service.Capabilities());
+app.MapGet("/api/settings", (ServiceSettingsStore settings) => settings.Read());
+app.MapPost("/api/settings/broad-local-preview", (ServiceSettingsStore settings, System.Text.Json.JsonElement configuration) => settings.BroadLocalPreview(configuration));
+app.MapPost("/api/settings", (ServiceSettingsStore settings, ServiceSettingsSaveRequest request) => settings.Save(request));
 app.MapGet("/api/concurrency", (ProjectService service) => service.Concurrency());
 app.MapGet("/api/transactions", (ProjectService service, string? status, int? offset, int? limit) => service.Transactions(status, offset ?? 0, limit ?? 50));
 app.MapPost("/api/transactions", (ProjectService service, WorkspaceTransactionBeginRequest request, CancellationToken ct) => service.BeginTransactionAsync(request, ct));

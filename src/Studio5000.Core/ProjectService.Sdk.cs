@@ -30,6 +30,7 @@ public sealed partial class ProjectService
         onlineEdits = OnlineEdits.Capabilities(),
         managedMethods = SdkCatalog.ManagedMethods, controllerOperationsEnabled = options.EnableControllerOperations,
         controllerTargets = options.ControllerTargets,
+        allowAnyControllerPath = options.AllowAnyControllerPath,
         persistence = "New artifacts and a new managed result project; source files and source revisions are preserved.",
         validation = "Compile-checked bindings for SDK 2.1.974. Native and live verification are operation/version-specific; see docs/VALIDATION.md."
     };
@@ -58,10 +59,9 @@ public sealed partial class ProjectService
         if (!native.Available) throw new OperationException("native_unavailable", "Build and configure NativeBridgePath before submitting SDK jobs.");
         var calls = request.Calls.Select(c => new SdkCall(c.Method, new(c.Arguments))).ToArray();
         var controller = SdkCatalog.NeedsController(calls);
-        var target = request.ControllerTargetId is null ? null : options.ControllerTargets.SingleOrDefault(t => t.Id == request.ControllerTargetId)
-            ?? throw new OperationException("sdk_target_unknown", "Select a configured ControllerTargetId.");
+        var target = ControllerAccess.Resolve(options, request.ControllerTargetId);
         if (controller && (!options.EnableControllerOperations || target is null))
-            throw new OperationException("sdk_controller_disabled", "Controller operations require EnableControllerOperations and a configured ControllerTargetId.");
+            throw new OperationException("sdk_controller_disabled", "Controller operations require EnableControllerOperations and an explicit controller target.");
         if (calls.Any(c => c.Method == "SetCommunicationsPathAsync") && target is null)
             throw new OperationException("sdk_target_required", "SetCommunicationsPathAsync requires a configured ControllerTargetId.");
         SdkTargetPolicies.ValidateCalls(target, calls);

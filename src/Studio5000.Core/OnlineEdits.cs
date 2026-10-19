@@ -55,8 +55,8 @@ public sealed partial class ProjectService
         if (request.ImportKind is not ("rungs" or "routine")) throw new OperationException("online_edit_kind", "Use rungs or routine.");
         if (request.ImportKind == "routine" && (request.InsertPosition != 0 || request.ReplaceCount != 0))
             throw new OperationException("online_edit_range", "Rung positions apply only to a rungs import.");
-        var target = options.ControllerTargets.SingleOrDefault(t => t.Id == request.ControllerTargetId)
-            ?? throw new OperationException("sdk_target_unknown", "Select a configured ControllerTargetId. Planning never enables or connects it.");
+        var target = ControllerAccess.Resolve(options, request.ControllerTargetId)
+            ?? throw new OperationException("sdk_target_unknown", "Select an explicit controller target. Planning never enables or connects it.");
         if ((request.SourcePath is null) == (request.SourceArtifactId is null))
             throw new OperationException("online_edit_source", "Choose exactly one saved ACD sourcePath or sourceArtifactId, with its exact SHA-256.");
         var source = request.SourceArtifactId is not null ? Download(request.SourceArtifactId).Path : AllowedSource(request.SourcePath!);
