@@ -21,6 +21,20 @@ public static partial class GraphicsReferences
     {
         if (request.Offset < 0 || request.Offset > 100000 || request.Limit is < 1 or > 200 || request.Query?.Length > 256)
             throw new OperationException("invalid_reference_query", "Use offset 0..100000, limit 1..200 and a query up to 256 characters.");
+        var scan = Scan(document);
+        var filtered = scan.References.Where(r => string.IsNullOrEmpty(request.Query) ||
+            r.Reference.Contains(request.Query, StringComparison.OrdinalIgnoreCase) ||
+            r.ObjectName?.Contains(request.Query, StringComparison.OrdinalIgnoreCase) == true).ToArray();
+        var report = new GraphicsReferenceReport(project, filtered.Length, request.Offset, request.Limit,
+            filtered.Skip(request.Offset).Take(request.Limit).ToArray(), scan.Diagnostics, scan.Truncated,
+            "Conservative expression/parameter-value scan: braced references and simple standalone names. No shortcut/parameter resolution, full expression compiler, VBA/command analysis, PLC existence check or native/runtime validation.");
+        if (JsonSerializer.SerializeToUtf8Bytes(report, ProjectService.Json).Length > 4 * 1024 * 1024)
+            throw new OperationException("reference_page_too_large", "Reference page exceeds 4 MiB. Request a smaller limit.");
+        return report;
+    }
+
+    internal static (GraphicsTagReference[] References, string[] Diagnostics, bool Truncated) Scan(XDocument document)
+    {
         var references = new List<GraphicsTagReference>();
         var diagnostics = new List<string>();
         var diagnosticCount = 0;
@@ -96,14 +110,6 @@ public static partial class GraphicsReferences
             if (!trimmed.Contains('{') && !trimmed.StartsWith('"') && trimmed.Any(char.IsLetter))
                 Diagnose(xpath, "complex_unbraced_expression_not_resolved");
         }
-        var filtered = references.Where(r => string.IsNullOrEmpty(request.Query) ||
-            r.Reference.Contains(request.Query, StringComparison.OrdinalIgnoreCase) ||
-            r.ObjectName?.Contains(request.Query, StringComparison.OrdinalIgnoreCase) == true).ToArray();
-        var report = new GraphicsReferenceReport(project, filtered.Length, request.Offset, request.Limit,
-            filtered.Skip(request.Offset).Take(request.Limit).ToArray(), diagnostics.ToArray(), diagnosticCount > diagnostics.Count,
-            "Conservative expression/parameter-value scan: braced references and simple standalone names. No shortcut/parameter resolution, full expression compiler, VBA/command analysis, PLC existence check or native/runtime validation.");
-        if (JsonSerializer.SerializeToUtf8Bytes(report, ProjectService.Json).Length > 4 * 1024 * 1024)
-            throw new OperationException("reference_page_too_large", "Reference page exceeds 4 MiB. Request a smaller limit.");
-        return report;
+        return (references.ToArray(), diagnostics.ToArray(), diagnosticCount > diagnostics.Count);
     }
 }

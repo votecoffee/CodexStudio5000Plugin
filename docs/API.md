@@ -8,6 +8,8 @@ Exploded import/export compatibility and stable rejection codes are documented i
 
 `POST /api/projects/{id}/graphics-references` performs hash-bound read-only FactoryTalk reference extraction. Body: `{ "expectedSha256": "...", "query": "optional substring", "offset": 0, "limit": 200 }`. The `factorytalk` extension exposes it as `ftview_tag_references` through `studio_extensions_read`; it is not a new fixed MCP tool. See [FactoryTalk reference coverage and limits](FACTORYTALK.md#tag-references).
 
+`POST /api/projects/{id}/graphics-reference-resolution` checks references against hash-bound saved Logix snapshots with explicit shortcut mappings and scoped parameter values. The extension operation is `ftview_resolve_references` (read). See [context contracts, statuses and limits](FACTORYTALK.md#plchmi-reference-resolution).
+
 [EXTENSIONS.md](EXTENSIONS.md) documents the stable `/api/extensions` catalog, describe/reload/invoke and pinned-job endpoints. These let installed extension features change while the MCP bridge stays connected, with separate read/preview/apply/control dispatch channels.
 
 | Method | Path | Purpose |

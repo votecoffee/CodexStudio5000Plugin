@@ -29,6 +29,33 @@ Resolution labels describe missing context, not missing tags: direct references 
 
 Limits: 200 rows per page, 256 query characters, 16 KiB per expression, 10000 reference occurrences per display, 8192 characters per selector, 50 diagnostic entries and a 4 MiB encoded response. Oversized pages return `reference_page_too_large`; use a smaller limit. Invalid paging returns `invalid_reference_query`; scan limits return `reference_limit`.
 
+## PLC/HMI reference resolution
+
+`POST /api/projects/{id}/graphics-reference-resolution` and the `factorytalk` read operation `ftview_resolve_references` use explicit context to check extracted references against registered Logix snapshots. The shared service preserves the original occurrence and expression, expanded reference, parameter trace, target project/hash, resolved program/tag, selected type and remaining array dimensions. These reads preserve source files and managed revisions and never connect to a controller.
+
+```json
+{
+  "expectedSha256": "CURRENT_DISPLAY_SHA256",
+  "shortcuts": [
+    { "shortcut": "PLC", "projectId": "LOGIX_PROJECT_ID", "expectedSha256": "CURRENT_LOGIX_SHA256" }
+  ],
+  "parameters": [
+    { "scopeXPath": "/gfx[1]/group[@name='Mixer']", "parameter": "#1", "value": "{[PLC]Program:Example.Record}" }
+  ],
+  "query": null,
+  "offset": 0,
+  "limit": 100
+}
+```
+
+Both display and mapped PLC hashes are required. Scope selectors must be exact canonical object/group selectors returned by extraction or the resolution report's `parameterScopes`; `/gfx[1]` explicitly applies a display-wide binding. The nearest supplied ancestor binding wins. Two groups can bind `#1` differently. Parameter values are literal fragments, optionally wrapped in braces, and may reference other supplied parameters. Exported `parameter/@value` attributes are inventoried but never silently assumed to be the reference instance's parameter context. This is an explicit context evaluator, not a model of every native parameter-file/global-object rule. Rockwell documents [global parameter values per reference object](https://www.rockwellautomation.com/en-us/docs/factorytalk-view/16-00-00/me-help-ditamap/global-objects-and-object-displays/global-object-parameters.html).
+
+Tag, program, member and shortcut names compare case-insensitively. Supported paths include controller tags, `Program:Name.Tag`, declared UDT members, constant one-to-three-dimensional array indices such as `[1,2]`, and integer bit selectors such as `.31`. Whole arrays retain their declared dimensions. The scanner's coverage and diagnostics above still apply.
+
+`matched_in_snapshot` means the selected address exists in saved metadata; it does not establish runtime connectivity, external access or expression validity. `tag_absent_in_snapshot`, `program_absent_in_snapshot` and `member_absent_in_snapshot` mean absence only in the selected file, which may be a partial export. Missing shortcut/parameter/HMI database context, missing built-in/AOI/module templates, aliases and dynamic addresses remain explicit unresolved statuses. Array rank, bounds and integer bit failures have separate statuses. No native Studio acceptance is implied.
+
+`query` filters original/expanded references, owning object names or status; `total` counts matching occurrences before paging. `parameterScopes` lists exact available ancestors for the returned page. Limits: 64 unique shortcuts, 256 unique scope/parameter pairs, 1024 characters per parameter value, 16 recursive levels, 64 expansions per occurrence, 4096 expanded characters, 200 rows and 4 MiB per response. Extraction limits also apply. Context errors return `invalid_resolution_context` or `parameter_scope_missing`; stale hashes return `stale_revision`. Cycles and expansion bounds are per-occurrence statuses.
+
 ## Native application interaction
 
 `ftview_status` reports the configured launcher, installed schemas and Studio windows. `ftview_launch_studio` opens the installed launcher. Select the correct ME or SE application type through the UI; for SE, identify the intended topology and HMI server. This release does not guess application launch switches or use an undocumented Studio COM editing API.

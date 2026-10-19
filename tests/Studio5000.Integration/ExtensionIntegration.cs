@@ -26,7 +26,7 @@ internal static class ExtensionIntegration
         { ["extensionId"] = view.Id, ["operation"] = "viewdesigner_screen_summary", ["generation"] = view.Generation });
         Check(view.Operations.All(o => o.InputSchema.ValueKind == JsonValueKind.Undefined) && descriptor.InputSchema.GetProperty("properties").TryGetProperty("file", out _),
             "Compact live catalog omits schemas and describe returns the selected exact schema");
-        Check(catalog.Extensions.Where(x => x.Id != "fixture").Sum(x => x.Operations.Length) == 56, "Live catalog exposes FactoryTalk references, project comparison and ladder previews");
+        Check(catalog.Extensions.Where(x => x.Id != "fixture").Sum(x => x.Operations.Length) == 57, "Live catalog exposes FactoryTalk reference resolution, project comparison and ladder previews");
         var graphics = await client.PostAsync<ProjectInfo>("/api/projects", new RegisterRequest(Path.Combine(root, "examples", "DemoME.xml")));
         var factoryTalk = catalog.Extensions.Single(x => x.Id == "factorytalk" && x.State == "active");
         var referenceCall = new ExtensionCall(factoryTalk.Id, "ftview_tag_references", factoryTalk.Generation,
@@ -37,6 +37,26 @@ internal static class ExtensionIntegration
         var restReferences = await client.PostAsync<GraphicsReferenceReport>($"/api/projects/{graphics.Id}/graphics-references", new GraphicsReferenceRequest(graphics.CurrentSha256, "missing"));
         Check(restReferences.Total == 0 && restReferences.Project.CurrentSha256 == graphics.CurrentSha256,
             "REST reference filtering preserves snapshot identity without connecting to a controller");
+        var resolutionPath = Path.Combine(root, "artifacts", "ReferenceFixture.xml");
+        var resolutionDocument = System.Xml.Linq.XDocument.Load(Path.Combine(root, "examples", "DemoME.xml"));
+        resolutionDocument.Descendants("connection").Single().SetAttributeValue("expression", "{#1.Inner.Count} + {[PLC]Program:WatchProgram.Records[1].Samples[2]} + {[Other]Tag}");
+        resolutionDocument.Save(resolutionPath);
+        var resolutionDisplay = await client.PostAsync<ProjectInfo>("/api/projects", new RegisterRequest(resolutionPath));
+        var resolutionPlc = await client.PostAsync<ProjectInfo>("/api/projects", new RegisterRequest(Path.Combine(root, "examples", "WatchDemo.L5X")));
+        var resolutionRequest = new GraphicsResolveRequest(resolutionDisplay.CurrentSha256, [new("PLC", resolutionPlc.Id, resolutionPlc.CurrentSha256)],
+            [new("/gfx[1]", "#1", "{[PLC]Program:WatchProgram.Record}")]);
+        var resolutionCall = new ExtensionCall(factoryTalk.Id, "ftview_resolve_references", factoryTalk.Generation,
+            JsonSerializer.SerializeToElement(new { projectId = resolutionDisplay.Id, request = resolutionRequest }, ProjectService.Json));
+        var resolved = await Tool<GraphicsResolutionReport>("studio_extensions_read", new() { ["call"] = resolutionCall });
+        Check(resolved.Total == 3 && resolved.References[0].DataType == "DINT" && resolved.References[1].DataType == "INT" && resolved.References[2].Status == "requires_shortcut_mapping",
+            "Stable MCP read bridge resolves explicit parameter/shortcut context against saved PLC UDT and array metadata");
+        var resolvedPage = await client.PostAsync<GraphicsResolutionReport>($"/api/projects/{resolutionDisplay.Id}/graphics-reference-resolution", resolutionRequest with { Query = "matched_in_snapshot", Offset = 1, Limit = 1 });
+        Check(resolvedPage.Total == 2 && resolvedPage.References.Length == 1 && resolvedPage.References[0].ProjectSha256 == resolutionPlc.CurrentSha256 && resolvedPage.ParameterScopes.Contains("/gfx[1]"),
+            "REST resolution filters statuses, pages occurrences and returns exact parameter scopes with bound snapshot hashes");
+        var staleResolution = resolutionCall with { Arguments = JsonSerializer.SerializeToElement(new { projectId = resolutionDisplay.Id,
+            request = resolutionRequest with { Shortcuts = [new("PLC", resolutionPlc.Id, "stale")] } }, ProjectService.Json) };
+        Check((await mcp.CallToolAsync("studio_extensions_read", new Dictionary<string, object?> { ["call"] = staleResolution })).IsError == true,
+            "Reference resolution rejects a stale PLC mapping through the MCP worker and shared service");
         var reviewSource = Path.Combine(root, "examples", "ReviewDemo.L5X");
         var sourceHash = ProjectService.Hash(File.ReadAllBytes(reviewSource));
         var baseline = await client.PostAsync<ProjectInfo>("/api/projects", new RegisterRequest(reviewSource));
