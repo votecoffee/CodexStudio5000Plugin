@@ -38,6 +38,8 @@ Exploded import/export compatibility and stable rejection codes are documented i
 | POST | `/api/sdk/jobs/{id}/cancel` | Request cancellation; poll completion; no rollback |
 | GET/POST | `/api/watches` | List saved watch lists / create a stopped list |
 | POST | `/api/projects/{id}/cip-watch-plan` | Hash-bound offline symbolic read plan; never connects |
+| POST | `/api/watches/preflight` | Read-only draft/saved/browser preflight; exactly one settings/watchId/browser |
+| GET | `/api/watches/{id}/preflight` | Inspect a saved definition and source without starting polling |
 | GET/POST | `/api/watches/{id}` | Read status/latest/types / update stopped settings with expectedRevision |
 | POST | `/api/watches/{id}/start` | Start interval reads; online access requires an enabled allowed target |
 | POST | `/api/watches/{id}/stop` | Stop polling and retain stale cached values |
@@ -51,6 +53,8 @@ Exploded import/export compatibility and stable rejection codes are documented i
 SDK request/response examples, target configuration and evidence boundaries are in [SDK.md](SDK.md). These endpoints use the same shared service as XML editing and FactoryTalk.
 
 [WATCHES.md](WATCHES.md) covers watch request/response shapes, intervals, UDT extraction, scope policy and native decoding. Reading cached watches never connects; starting online polling or pulling structures requires controller authorization/access.
+
+[WATCH_PREFLIGHT.md](WATCH_PREFLIGHT.md) covers local declaration diagnostics, stale sources, reader configuration and partial/combined CIP budgets. Preflight never saves, starts polling or launches a reader.
 
 Register and edit using PowerShell:
 

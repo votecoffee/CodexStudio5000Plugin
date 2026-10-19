@@ -64,6 +64,7 @@ public sealed partial class ProjectService : IDisposable
         sdk = SdkCapabilities(),
         watches = new { minimumIntervalMs = 100, maximumTags = 64, maximumActiveLists = 4, autoStartAfterRestart = false, structures = "SDK-native decorated XML; no inferred memory offsets",
             backends = new[] { "Sdk", "LibPlcTag" }, cipBridgeConfigured = File.Exists(options.CipBridgePath), cipPlan = "/api/projects/{id}/cip-watch-plan",
+            preflight = "/api/watches/preflight",
             browser = "/api/tags/browse", recording = "Durable segmented journal, default 7 days/64 MiB per list; explicit gaps, revision/time queries and CSV" },
         validation = "XML checks and installed SDK operations have distinct evidence levels. Live controller operations require an enabled, configured target; validation is operation/version-specific."
     };

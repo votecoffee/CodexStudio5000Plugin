@@ -4,6 +4,8 @@ Watch lists are shared service resources. REST, Codex MCP tools and **Watch list
 
 Definitions default to `backend: "Sdk"`. The optional `backend: "LibPlcTag"` shares these resources with a symbolic scalar reader and saved-declaration UDT reconstruction. It requires Online mode, an L5X source and an explicit configured CIP route. See [CIP reader coverage and setup](CIP_READS.md); the whole-tag SDK decoding details below apply to the default backend.
 
+Use [watch preflight](WATCH_PREFLIGHT.md) to inspect a draft, saved definition or browser selection without opening a reader. It reports all selection problems, observed source hashes, configuration gates and CIP budgets; it does not save or start the list.
+
 ## Create and poll
 
 `POST /api/watches` or `studio_watch_save` creates a stopped list. Example online definition:

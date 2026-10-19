@@ -26,7 +26,7 @@ internal static class ExtensionIntegration
         { ["extensionId"] = view.Id, ["operation"] = "viewdesigner_screen_summary", ["generation"] = view.Generation });
         Check(view.Operations.All(o => o.InputSchema.ValueKind == JsonValueKind.Undefined) && descriptor.InputSchema.GetProperty("properties").TryGetProperty("file", out _),
             "Compact live catalog omits schemas and describe returns the selected exact schema");
-        Check(catalog.Extensions.Where(x => x.Id != "fixture").Sum(x => x.Operations.Length) == 59, "Live catalog exposes PLC where-used, FactoryTalk reference resolution, project comparison and ladder previews");
+        Check(catalog.Extensions.Where(x => x.Id != "fixture").Sum(x => x.Operations.Length) == 60, "Live catalog exposes watch preflight, PLC where-used, FactoryTalk reference resolution, project comparison and ladder previews");
         var graphics = await client.PostAsync<ProjectInfo>("/api/projects", new RegisterRequest(Path.Combine(root, "examples", "DemoME.xml")));
         var factoryTalk = catalog.Extensions.Single(x => x.Id == "factorytalk" && x.State == "active");
         var referenceCall = new ExtensionCall(factoryTalk.Id, "ftview_tag_references", factoryTalk.Generation,
@@ -53,6 +53,33 @@ internal static class ExtensionIntegration
         var staleCipCall = cipCall with { Arguments = JsonSerializer.SerializeToElement(new { projectId = resolutionPlc.Id, request = cipRequest with { ExpectedSha256 = "stale" } }, ProjectService.Json) };
         Check((await mcp.CallToolAsync("studio_extensions_read", new Dictionary<string, object?> { ["call"] = staleCipCall })).IsError == true,
             "Symbolic read planning rejects stale source hashes through the extension worker");
+        var preflightSource = Path.Combine(root, "examples", "WatchDemo.L5X");
+        var preflightHash = ProjectService.Hash(await File.ReadAllBytesAsync(preflightSource));
+        var preflightDraft = new WatchListRequest("Preflight integration", [new("ok", "Record", "WatchProgram"), new("bad", "Message", "WatchProgram")],
+            preflightHash, SourcePath: preflightSource, ControllerTargetId: "unconfigured", Backend: "LibPlcTag");
+        var preflightCall = new ExtensionCall(watches.Id, "studio_watch_preflight", watches.Generation,
+            JsonSerializer.SerializeToElement(new { request = new WatchPreflightRequest(Settings: preflightDraft) }, ProjectService.Json));
+        var beforeWatches = await client.GetAsync<WatchStatus[]>("/api/watches");
+        var preflight = await Tool<WatchPreflightReport>("studio_extensions_read", new() { ["call"] = preflightCall });
+        Check(preflight.Status == "blocked" && preflight.Checks.Any(c => c.Issue?.Code == "sdk_target_unknown") &&
+            preflight.Selections[0].Status == "supported" && preflight.Selections[1].Issues[0].Code == "cip_type_unsupported" && preflight.Budget is { Complete: false, UniqueSupportedLeafReads: 6 },
+            "MCP preflight reports all selection diagnostics and an explicitly partial budget with controller access disabled");
+        var restPreflight = await client.PostAsync<WatchPreflightReport>("/api/watches/preflight", new WatchPreflightRequest(Settings: preflightDraft));
+        Check(JsonSerializer.Serialize(restPreflight) == JsonSerializer.Serialize(preflight), "REST and MCP return the same read-only watch preflight");
+        var browserPreflight = await client.PostAsync<WatchPreflightReport>("/api/watches/preflight", new WatchPreflightRequest(Browser:
+            new(resolutionPlc.Id, resolutionPlc.CurrentSha256, "Browser preflight", [new("count", "Record", "WatchProgram", "Inner.Count")])));
+        Check(browserPreflight.SourceHashMatches && browserPreflight.Selections.Single() is { Status: "supported", DataType: "DINT" } &&
+            (await client.GetAsync<WatchStatus[]>("/api/watches")).Length == beforeWatches.Length && ProjectService.Hash(await File.ReadAllBytesAsync(preflightSource)) == preflightHash,
+            "Browser preflight inspects a managed snapshot without creating a list or modifying the source");
+        var preflightSaved = await client.PostAsync<WatchStatus>("/api/watches", preflightDraft with { Backend = "Sdk", Mode = "Offline", ControllerTargetId = null });
+        try
+        {
+            var savedPreflight = await client.GetAsync<WatchPreflightReport>($"/api/watches/{preflightSaved.Definition.Id}/preflight");
+            Check(savedPreflight.WatchId == preflightSaved.Definition.Id && savedPreflight.WatchRevision == 0 && savedPreflight.Selections.All(s => s.Status == "supported") &&
+                (await client.GetAsync<WatchStatus>($"/api/watches/{preflightSaved.Definition.Id}")).State == "stopped",
+                "Saved watch preflight includes the exact definition revision and leaves polling stopped");
+        }
+        finally { await client.PostAsync<JsonElement>($"/api/watches/{preflightSaved.Definition.Id}/delete", new { }); }
         var resolutionRequest = new GraphicsResolveRequest(resolutionDisplay.CurrentSha256, [new("PLC", resolutionPlc.Id, resolutionPlc.CurrentSha256)],
             [new("/gfx[1]", "#1", "{[PLC]Program:WatchProgram.Record}")]);
         var resolutionCall = new ExtensionCall(factoryTalk.Id, "ftview_resolve_references", factoryTalk.Generation,

@@ -30,11 +30,13 @@ public static class CipWatchPlanning
             throw new OperationException("cip_target", "CIP reads require a canonical unicast IPv4 gateway, 2..16 comma-separated route bytes in port/link pairs, and timeout 100..30000 ms.");
     }
     public static CipWatchPlanReport Build(XDocument document, string sha256, WatchTag[] tags)
+        => Build(document, sha256, tags, LogixStructures.Types(document).ToDictionary(t => t.Name, StringComparer.Ordinal));
+
+    internal static CipWatchPlanReport Build(XDocument document, string sha256, WatchTag[] tags, IReadOnlyDictionary<string, StructureType> types)
     {
         if (tags is null || tags.Length is < 1 or > 64 || tags.Any(t => t is null || string.IsNullOrWhiteSpace(t.Key) || t.Key.Length > 100) ||
             tags.Select(t => t.Key).Distinct(StringComparer.Ordinal).Count() != tags.Length)
             throw new OperationException("cip_plan", "Provide 1..64 tags with distinct keys up to 100 characters.");
-        var types = LogixStructures.Types(document).ToDictionary(t => t.Name, StringComparer.Ordinal);
         var leaves = new Dictionary<string, string>(StringComparer.Ordinal); var nodes = 0;
         CipReadNode Build(string name, string type, int[] dimensions, string symbol, int[] indices, HashSet<string> active, int depth)
         {

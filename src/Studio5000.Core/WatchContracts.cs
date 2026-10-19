@@ -44,6 +44,15 @@ public static class WatchValidation
     }
     public static void Validate(WatchListRequest request)
     {
+        ValidateSettings(request);
+        foreach (var tag in request.Tags)
+        {
+            _ = TagPath(tag);
+            MemberPath(tag.MemberPath);
+        }
+    }
+    public static void ValidateSettings(WatchListRequest request)
+    {
         if (request.Backend is not ("Sdk" or "LibPlcTag") || request.Backend == "LibPlcTag" && request.Mode != "Online")
             throw new OperationException("watch_backend", "Use Sdk (Online/Offline) or LibPlcTag (Online only).");
         if (string.IsNullOrWhiteSpace(request.Name) || request.Name.Length > 100 || request.Tags is null || request.Tags.Length is < 1 or > 64 ||
@@ -55,10 +64,5 @@ public static class WatchValidation
             throw new OperationException("watch_source", "Choose exactly one sourcePath/sourceArtifactId and its exact SHA-256.");
         if (request.Mode == "Online" && string.IsNullOrWhiteSpace(request.ControllerTargetId))
             throw new OperationException("watch_target", "An online list requires a configured controller target.");
-        foreach (var tag in request.Tags)
-        {
-            _ = TagPath(tag);
-            MemberPath(tag.MemberPath);
-        }
     }
 }
