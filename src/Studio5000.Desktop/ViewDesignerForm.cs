@@ -39,6 +39,7 @@ public sealed class ViewDesignerForm : WorkspaceForm
         var bar = new FlowLayoutPanel { Dock = DockStyle.Top, Height = 46, Padding = new(6) };
         Button(bar, "Open export folder…", OpenAsync); bar.Controls.Add(projects); Button(bar, "Refresh", RefreshAsync);
         Button(bar, "Installation / support", async () => ShowJson(await client.GetAsync<JsonElement>("/api/viewdesigner/status")));
+        Button(bar, "Languages…", () => { using var languages = new HmiLanguageForm(client, "view-designer"); languages.ShowDialog(this); return Task.CompletedTask; });
         var context = new FlowLayoutPanel { Dock = DockStyle.Top, Height = 48, Padding = new(6) };
         Labelled(context, "Native target project", target); Labelled(context, "Panel", panel); Labelled(context, "Language", language);
         Button(context, "Prepare import ZIP", PrepareAsync); Button(context, "Save ZIP…", SavePackageAsync);
