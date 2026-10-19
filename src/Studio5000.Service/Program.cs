@@ -68,6 +68,10 @@ app.MapPost("/api/projects/compare", (ProjectService service, ProjectCompareRequ
 app.MapPost("/api/projects/compare/routines", (ProjectService service, ProjectCompareRequest request) => service.CompareRoutines(request));
 app.MapPost("/api/projects/compare/ladder", (ProjectService service, LadderCompareRequest request) => service.CompareLadder(request));
 app.MapPost("/api/projects/compare/locate", (ProjectService service, LadderLocateRequest request) => service.LocateComparedLadder(request));
+app.MapPost("/api/projects/{id}/logic/trace", (ProjectService service, string id, LogicTraceRequest request) => service.TraceLogic(id, request));
+app.MapGet("/api/diagnostics/captures", (ProjectService service) => service.DiagnosticCaptures());
+app.MapPost("/api/diagnostics/captures", (ProjectService service, DiagnosticCaptureRequest request, CancellationToken ct) => service.CaptureDiagnosticValuesAsync(request, ct));
+app.MapPost("/api/diagnostics/evaluate", (ProjectService service, RungEvaluationRequest request) => service.EvaluateCapturedRung(request));
 app.MapPost("/api/comparison-reviews/export", (ProjectService service, ComparisonReviewExportRequest request, CancellationToken ct) => service.ExportComparisonReviewAsync(request, ct));
 app.MapGet("/api/comparison-reviews", (ProjectService service, string? query, int? offset, int? limit, CancellationToken ct) => service.ComparisonReviewsAsync(query, offset ?? 0, limit ?? 50, ct));
 app.MapGet("/api/comparison-reviews/{id}", (ProjectService service, string id, CancellationToken ct) => service.ComparisonReviewAsync(id, ct));

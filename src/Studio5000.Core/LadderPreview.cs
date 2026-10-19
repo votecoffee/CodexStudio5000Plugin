@@ -14,7 +14,8 @@ public sealed record LadderPreviewReport(ProjectInfo Project, string RoutineXPat
 
 public static class LadderPreview
 {
-    private sealed record Part(string Instruction, string[] Operands, List<List<Part>>? Legs = null);
+    internal sealed record Part(string Instruction, string[] Operands, List<List<Part>>? Legs = null);
+    internal static List<Part> ParseLogic(string text) => new Parser(text).Parse();
     private sealed class Parser(string text)
     {
         private int position, nodes;
