@@ -91,6 +91,10 @@ Export body: `{"expectedSha256":"...","format":"acd"}`. Save body: `{"path":"C:\
 
 Failures include `401 unauthorized`, `403 origin_denied`, `404 not_found`, `409 stale_revision`/state mismatch, and `400` for invalid edits, paths, native failures or unavailable native support. On stale revision, read the latest project and create a new preview. Native failures include diagnostics but never return a successful artifact. HTTP requests are limited to 2 MiB; imported project files to 64 MiB; returned components to 1 MiB. Inspection pages contain at most 1,000 elements.
 
+## Multilingual documentation
+
+`POST /api/projects/{id}/documentation/browse`, `/preview`, `/apply` and `/export` share language-aware extraction and reviewed updates. Corresponding `studio_documentation_*` extension operations use read for browse/preview and apply for revision/artifact creation. They preserve other translations, executable content and values. See [documentation fields, language identity, request examples and limits](PROJECT_DOCUMENTATION.md).
+
 ## Diagnostic and trend workflows
 
 The v0.23 shared service adds these REST families, also exposed by 22 reloadable extension operations. See [diagnostics and trends](DIAGNOSTICS.md) for request fields, instruction coverage, limits and step ordering.

@@ -11,7 +11,7 @@ dotnet test tests/Studio5000.Tests/Studio5000.Tests.csproj -c Release
 .\scripts\Verify-Isolated.ps1
 ```
 
-The isolated script publishes a separate service, MCP adapter, desktop application and extension worker under `artifacts/isolated-validation/<run-id>/`. It selects its own loopback port and state, leaves the normal service configuration alone, unconfigures the native bridge and disables controller operations. It runs core tests, REST/MCP integration checks through an official MCP client, extension reload checks and 28 off-screen desktop checks/renders. It stops its temporary service when finished.
+The isolated script publishes a separate service, MCP adapter, desktop application and extension worker under `artifacts/isolated-validation/<run-id>/`. It selects its own loopback port and state, leaves the normal service configuration alone, unconfigures the native bridge and disables controller operations. It runs core tests, REST/MCP integration checks through an official MCP client, extension reload checks and 29 off-screen desktop checks/renders. It stops its temporary service when finished.
 
 Results are under that run's `artifacts/test-results/`, including `core.trx`, `integration.json`, `extensions.json` and desktop PNGs. FactoryTalk schema-dependent checks require the matching installed ME/SE schemas; inspect skipped checks rather than treating them as passes. Rendering a desktop view checks layout, not every button or native Studio workflow.
 
@@ -24,6 +24,7 @@ The checks cover:
 - View Designer nested properties, bindings, encoding preservation, unchanged assets and import packages using generated fixtures.
 - Tag/UDT browsing, paged arrays, watch scheduling/decoding, journal recovery/retention, CSV quality rows and graph gaps.
 - Alias/AOI parameter dependency tracing across routines, conservative ST assignments, captured rung true/false/unknown explanations and immutable historical revision binding.
+- Multilingual documentation: explicit languages versus plain text, tag/member/rung and component scopes, consistent legacy promotion, unknown/duplicate shape rejection, Unicode/XML-like text, atomic failures and preserved original/code/value/language metadata. REST/MCP share all extraction/preview/apply/export operations.
 - Triggered pre/post windows using generated watch readers, communication-fault/stop interruption, observed timeouts, restart disarming, saved trend edits, bounded result pages and verified exports. No real reader/controller is opened.
 - Common-baseline logic/value merges, conflicting independent value edits, explicit resolutions and separate-copy/source preservation. Version compatibility checks cover native plans, unavailable/downgrade rejection and generated readback/configuration diagnostics; end-to-end native conversion/readback validation is separate.
 - Read-only watch preflight for drafts, saved definitions and managed browser snapshots: per-row diagnostics, stale hashes, configuration gates, deferred ACD/templates and combined CIP budgets. Generated GUI rendering covers the preflight viewer.
@@ -47,6 +48,8 @@ The ladder browser ignores duplicate selection notifications for its already loa
 `comparison-annotations-workflow` retains drafts across pages, saves progress, searches notes by state/text, rejects an old edit revision even after refreshing, preserves the conflicting draft, explicitly discards/reloads it and exports a verified notes snapshot. Its render fixture checks the pending-state editor layout. These workflows use generated projects and the isolated shared service with controller access disabled.
 
 `diagnostics-workflow` opens each of the 22 new operation editors from its workflow panel and checks the populated arguments against the live schema. `trend-views-workflow` creates/updates/loads a view, gathers a stopped recording, exports verified results and removes the view while preserving the stopped watch. Both use the isolated shared service and emit PNG/JSON evidence.
+
+`documentation-workflow` exercises staged language edits, preview/apply, Unicode readback, retained drafts after another client's edit, explicit discard/reload and hash-verified full text export. It uses the generated multilingual fixture and emits PNG/JSON evidence. These checks do not validate native Studio/SDK localization import; see [documentation boundaries](PROJECT_DOCUMENTATION.md).
 
 ## Optional offline Logix SDK checks
 
