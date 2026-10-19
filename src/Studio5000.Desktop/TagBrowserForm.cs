@@ -17,6 +17,7 @@ public sealed class TagBrowserForm : Form
     private readonly TextBox name = new() { Width = 180, Text = "Browser watch list" };
     private readonly NumericUpDown interval = new() { Width = 90, Minimum = 100, Maximum = 86400000, Value = 1000, Increment = 100 };
     private readonly ComboBox mode = new() { Width = 90, DropDownStyle = ComboBoxStyle.DropDownList };
+    private readonly ComboBox backend = new() { Width = 130, DropDownStyle = ComboBoxStyle.DropDownList };
     private readonly ComboBox target = new() { Width = 160, DropDownStyle = ComboBoxStyle.DropDownList };
     private readonly Label status = new() { Dock = DockStyle.Bottom, Height = 54, Padding = new(8) };
     private readonly Dictionary<string, WatchTag> selected = new(StringComparer.Ordinal);
@@ -52,10 +53,12 @@ public sealed class TagBrowserForm : Form
         right.Panel1.Controls.Add(detail); right.Panel2.Controls.Add(basket);
         right.Panel2.Controls.Add(new Label { Text = "SELECTED VALUES  •  select an item and press Delete to remove", Dock = DockStyle.Top, Height = 32, Padding = new(5) });
         split.Panel2.Controls.Add(right);
-        var bottom = new FlowLayoutPanel { Dock = DockStyle.Bottom, Height = 84, Padding = new(8) };
+        var bottom = new FlowLayoutPanel { Dock = DockStyle.Bottom, Height = 110, Padding = new(8) };
         bottom.Controls.Add(new Label { Text = "Watch name", AutoSize = true }); bottom.Controls.Add(name);
         bottom.Controls.Add(new Label { Text = "Interval ms", AutoSize = true }); bottom.Controls.Add(interval);
         mode.Items.AddRange(["Offline", "Online"]); mode.SelectedIndex = 0; bottom.Controls.Add(mode); bottom.Controls.Add(target);
+        backend.Items.AddRange(["Sdk", "LibPlcTag"]); backend.SelectedIndex = 0; bottom.Controls.Add(backend);
+        bottom.SetFlowBreak(backend, true); Button(bottom, "Plan CIP reads (offline)", PlanAsync);
         Button(bottom, "Create watch list", CreateAsync); Button(bottom, "Clear selection", () => { selected.Clear(); UpdateBasket(); Uncheck(tree.Nodes); return Task.CompletedTask; });
         Controls.Add(split); Controls.Add(bottom); Controls.Add(status); Controls.Add(top); Controls.Add(title);
         tree.BeforeExpand += async (_, e) =>
@@ -175,13 +178,22 @@ public sealed class TagBrowserForm : Form
     private void UpdateBasket() { basket.DataSource = selected.Keys.ToArray(); }
     private void Uncheck(TreeNodeCollection nodes)
     { suppress = true; foreach (TreeNode node in nodes) { node.Checked = metadata.TryGetValue(node, out var data) && selected.ContainsKey(Key(data)); Uncheck(node.Nodes); } suppress = false; }
+    private WatchTag[] SelectedTags()
+    {
+        var tags = selected.Values.ToArray();
+        if (tags.Length == 0 && tree.SelectedNode is { } node && metadata.TryGetValue(node, out var data) && data.Watchable) tags = [new("value1", data.TagName!, data.ProgramName, data.MemberPath)];
+        return tags.Select((t, i) => t with { Key = "value" + (i + 1) }).ToArray();
+    }
+    private async Task PlanAsync()
+    {
+        if (page is null) throw new ArgumentException("Open a Logix snapshot first.");
+        var plan = await client.PostAsync<CipWatchPlanReport>($"/api/projects/{page.ProjectId}/cip-watch-plan", new CipWatchPlanRequest(page.SourceSha256, SelectedTags()));
+        detail.Text = JsonSerializer.Serialize(plan, ProjectService.Json); status.Text = $"Offline plan: {plan.UniqueLeafReads} unique scalar reads. No connection. Sequential reads are not an atomic UDT snapshot.";
+    }
     private async Task CreateAsync()
     {
         if (project is null || page is null) throw new ArgumentException("Open a Logix snapshot first.");
-        var tags = selected.Values.ToArray();
-        if (tags.Length == 0 && tree.SelectedNode is { } node && metadata.TryGetValue(node, out var data) && data.Watchable) tags = [new("value1", data.TagName!, data.ProgramName, data.MemberPath)];
-        tags = tags.Select((t, i) => t with { Key = "value" + (i + 1) }).ToArray();
-        CreatedWatch = await client.PostAsync<WatchStatus>("/api/tags/watch", new BrowserWatchRequest(project.Id, page.SourceSha256, name.Text.Trim(), tags, mode.Text, string.IsNullOrWhiteSpace(target.Text) ? null : target.Text, (int)interval.Value));
+        CreatedWatch = await client.PostAsync<WatchStatus>("/api/tags/watch", new BrowserWatchRequest(project.Id, page.SourceSha256, name.Text.Trim(), SelectedTags(), mode.Text, string.IsNullOrWhiteSpace(target.Text) ? null : target.Text, (int)interval.Value, backend.Text));
         DialogResult = DialogResult.OK; Close();
     }
     public void LoadForTest(TagBrowserPage value)

@@ -2,6 +2,8 @@
 
 Version 0.8 provides a shared snapshot browser and durable watch recordings. REST, the desktop and the reloadable `watches` extension use the same service state. Browsing, watch creation, recording configuration, history queries and CSV export never initiate controller access. Polling and controller-upload operations keep their existing explicit authorization, source hash, target scope and controller gates.
 
+Version 0.13 adds a reader choice to browser watch creation and watch settings. `Sdk` remains the default. **Plan CIP reads (offline)** shows bounded symbolic reads for selected saved tags/UDT members without connecting. `LibPlcTag` watches require Online mode, an L5X source and a configured CIP route; see [CIP reader setup and limitations](CIP_READS.md).
+
 ## Desktop workflow
 
 1. Open **Tag / UDT browser…** from the main workspace or watch window. Choose a registered Logix project, open an ACD/L5X, or enter a completed SDK upload job ID. ACD conversion needs the installed native bridge; L5X browsing does not. Loading an upload result reads its saved metadata; it does not perform another upload.

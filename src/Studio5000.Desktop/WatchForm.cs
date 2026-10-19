@@ -13,6 +13,7 @@ public sealed class WatchForm : Form
     private readonly TextBox name = new() { Width = 200, Text = "New watch list" };
     private readonly NumericUpDown interval = new() { Minimum = 100, Maximum = 86400000, Value = 1000, Increment = 100, Width = 100 };
     private readonly ComboBox mode = new() { Width = 100, DropDownStyle = ComboBoxStyle.DropDownList };
+    private readonly ComboBox backend = new() { Width = 130, DropDownStyle = ComboBoxStyle.DropDownList };
     private readonly ComboBox target = new() { Width = 200, DropDownStyle = ComboBoxStyle.DropDownList };
     private readonly TextBox source = new() { Width = 620, ReadOnly = true, PlaceholderText = "Choose a matching saved ACD or L5X" };
     private readonly DataGridView tags = new() { Dock = DockStyle.Fill, AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill, RowHeadersVisible = false };
@@ -47,14 +48,16 @@ public sealed class WatchForm : Form
         var split = new SplitContainer { Dock = DockStyle.Fill, FixedPanel = FixedPanel.Panel1 };
         split.Panel1.Controls.Add(lists);
         var settings = new TabPage("List settings");
-        var fields = new FlowLayoutPanel { Dock = DockStyle.Top, Height = 95, Padding = new(6), WrapContents = true };
+        var fields = new FlowLayoutPanel { Dock = DockStyle.Top, Height = 140, Padding = new(6), WrapContents = true };
         fields.Controls.Add(new Label { Text = "Name", AutoSize = true, Padding = new(0, 7, 0, 0) }); fields.Controls.Add(name);
         fields.Controls.Add(new Label { Text = "Interval ms", AutoSize = true, Padding = new(0, 7, 0, 0) }); fields.Controls.Add(interval);
-        mode.Items.AddRange(["Online", "Offline"]); mode.SelectedIndex = 0; fields.Controls.Add(mode); fields.Controls.Add(target);
+        mode.Items.AddRange(["Online", "Offline"]); mode.SelectedIndex = 0; fields.Controls.Add(mode); fields.SetFlowBreak(mode, true);
+        fields.Controls.Add(new Label { Text = "Reader", AutoSize = true, Padding = new(0, 7, 0, 0) });
+        backend.Items.AddRange(["Sdk", "LibPlcTag"]); backend.SelectedIndex = 0; fields.Controls.Add(backend); fields.Controls.Add(target);
         fields.SetFlowBreak(target, true); fields.Controls.Add(source); Button(fields, "Choose source…", ChooseSourceAsync);
         foreach (var field in new[] { "Key", "Tag", "Program", "Member" }) tags.Columns.Add(field, field == "Member" ? "Member (optional)" : field);
         settings.Controls.Add(tags); settings.Controls.Add(fields);
-        settings.Controls.Add(new Label { Dock = DockStyle.Bottom, Height = 48, Padding = new(6), Text = "Use base tag names; leave Program empty for controller scope when permitted. Member examples: Inner.Count or Samples[1]. Saving does not connect." });
+        settings.Controls.Add(new Label { Dock = DockStyle.Bottom, Height = 68, Padding = new(6), Text = "Use exact base tags and optional members (Inner.Count or Samples[1]). LibPlcTag requires Online + L5X + configured CIP target. Use the browser to plan reads. Saving does not connect." });
         var live = new TabPage("Latest values"); var liveSplit = new SplitContainer { Dock = DockStyle.Fill, Orientation = Orientation.Horizontal };
         liveSplit.Panel1.Controls.Add(values); liveSplit.Panel2.Controls.Add(tree); live.Controls.Add(liveSplit);
         var schema = new TabPage("Extracted structures"); schema.Controls.Add(structures);
@@ -87,6 +90,7 @@ public sealed class WatchForm : Form
     {
         tabs.SelectedIndex = 0;
         selected = null; sourcePath = artifactId = sourceHash = null; source.Text = ""; name.Text = "New watch list";
+        backend.SelectedItem = "Sdk";
         tags.Rows.Clear(); tags.Rows.Add("value", "", "", ""); values.DataSource = null; tree.Nodes.Clear();
     }
     private async Task RefreshAsync()
@@ -97,7 +101,7 @@ public sealed class WatchForm : Form
     }
     private void LoadWatch(WatchStatus value)
     {
-        selected = value; var r = value.Definition.Settings; name.Text = r.Name; interval.Value = r.IntervalMs; mode.SelectedItem = r.Mode;
+        selected = value; var r = value.Definition.Settings; name.Text = r.Name; interval.Value = r.IntervalMs; mode.SelectedItem = r.Mode; backend.SelectedItem = r.Backend;
         target.SelectedItem = r.ControllerTargetId ?? ""; sourcePath = r.SourcePath; artifactId = r.SourceArtifactId; sourceHash = r.ExpectedSha256;
         source.Text = sourcePath ?? "artifact:" + artifactId; tags.Rows.Clear();
         foreach (var t in r.Tags) tags.Rows.Add(t.Key, t.TagName, t.ProgramName ?? "", t.MemberPath ?? ""); Render(value);
@@ -114,7 +118,7 @@ public sealed class WatchForm : Form
         string Cell(DataGridViewRow row, string column) => Convert.ToString(row.Cells[column].Value)?.Trim() ?? "";
         string? Optional(string value) => value.Length == 0 ? null : value;
         var items = tags.Rows.Cast<DataGridViewRow>().Where(r => !r.IsNewRow).Select(r => new WatchTag(Cell(r, "Key"), Cell(r, "Tag"), Optional(Cell(r, "Program")), Optional(Cell(r, "Member")))).ToArray();
-        var request = new WatchListRequest(name.Text.Trim(), items, sourceHash ?? "", sourcePath, artifactId, Optional(target.Text), mode.Text, (int)interval.Value);
+        var request = new WatchListRequest(name.Text.Trim(), items, sourceHash ?? "", sourcePath, artifactId, Optional(target.Text), mode.Text, (int)interval.Value, Backend: backend.Text);
         var result = selected is null ? await client.PostAsync<WatchStatus>("/api/watches", request) :
             await client.PostAsync<WatchStatus>("/api/watches/" + selected.Definition.Id, new WatchUpdateRequest(request, selected.Definition.Revision));
         LoadWatch(result); await RefreshAsync();
@@ -143,7 +147,7 @@ public sealed class WatchForm : Form
         displayed = watch.Latest?.Values ?? [];
         values.DataSource = displayed.Select(v => new { v.Key, v.TagName, v.ProgramName, v.DataType, Value = v.Value?.ToJsonString(), v.Quality, v.Error }).ToArray();
         structures.Text = JsonSerializer.Serialize(watch.Types, ProjectService.Json);
-        status.Text = $"{watch.State} · {(watch.Stale ? "STALE" : "current")} · {watch.Definition.Settings.Mode} · sample {watch.Latest?.Sequence} · {watch.Latest?.CompletedAt.ToLocalTime():T} · {watch.Error}";
+        status.Text = $"{watch.State} · {(watch.Stale ? "STALE" : "current")} · {watch.Definition.Settings.Mode}/{watch.Definition.Settings.Backend} · sample {watch.Latest?.Sequence} · {watch.Latest?.CompletedAt.ToLocalTime():T} · {watch.Error}";
         RenderTree();
     }
     private void RenderTree()
