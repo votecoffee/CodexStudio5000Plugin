@@ -118,6 +118,14 @@ function Assert-RockwellBrokerRegistration([object]$Existing, [object]$Desired) 
         throw 'The broker registration differs or is disabled. Review it with the broker administrator; the installer will not replace it.'
     }
 }
+function Test-RockwellOwnedStandalone([object]$Plugin, [string]$Root) {
+    if ($Plugin.pluginId -cne 'rockwell-mcp-server@rockwell-mcp-server-local' -or $Plugin.source.source -cne 'local' -or
+        !$Plugin.source.path -or !$Plugin.marketplaceSource.source) { return $false }
+    $marketplace = [IO.Path]::GetFullPath((Join-Path $Root '.local/codex-marketplace')).TrimEnd('\', '/')
+    $marketplaceSource = [IO.Path]::GetFullPath(($Plugin.marketplaceSource.source -replace '^\\\\\?\\', '')).TrimEnd('\', '/')
+    $packageSource = [IO.Path]::GetFullPath(($Plugin.source.path -replace '^\\\\\?\\', ''))
+    return $marketplaceSource -ieq $marketplace -and $packageSource.StartsWith(($marketplace + '\packages\'), [StringComparison]::OrdinalIgnoreCase)
+}
 function Set-RockwellCodexIntegration {
     param([string]$Root, [ValidateSet('Auto','Standalone','Broker','None')][string]$Route = 'Auto',
         [string]$BrokerRoot, [switch]$AcceptBrokerRoute, [switch]$PlanOnly)
@@ -190,14 +198,24 @@ function Set-RockwellCodexIntegration {
         return [pscustomobject]@{ route = 'Broker'; ready = $true; reason = 'Use Universal Tools; standalone package retained. Existing plugins and broker write policy preserved. Start the app service, then refresh_services.' }
     }
     if ($prior -and $prior.route -eq 'Broker' -and !$AcceptBrokerRoute) { throw 'Route changes require -AcceptBrokerRoute as acknowledgment that broker work and uncertain outcomes have been reconciled.' }
+    $ownedStandalone = $standalone.Count -eq 1 -and (Test-RockwellOwnedStandalone $standalone[0] $Root)
+    $refreshRequired = $ownedStandalone -and $standalone[0].enabled -ne $true
     if (!$PlanOnly) {
-        if (!$prior -or $prior.route -ne 'Standalone') { & (Join-Path $Root 'scripts/Assert-ApplicationsStopped.ps1') }
-        if (!$standalone.Count) {
+        if (!$prior -or $prior.route -ne 'Standalone' -or ($ownedStandalone -and !$refreshRequired)) { & (Join-Path $Root 'scripts/Assert-ApplicationsStopped.ps1') }
+        if (!$standalone.Count -or $ownedStandalone) {
             $bundle = New-RockwellStandalonePackage $Root
-            Invoke-RockwellCodex @('plugin','marketplace','add',$bundle.marketplace,'--json') | Out-Null
-            Invoke-RockwellCodex @('plugin','add','rockwell-mcp-server@rockwell-mcp-server-local','--json') | Out-Null
+            if (!$standalone.Count) { Invoke-RockwellCodex @('plugin','marketplace','add',$bundle.marketplace,'--json') | Out-Null }
+            # Codex plugin add enables its target. Refresh only an already enabled,
+            # app-owned installation; publish disabled updates for host refresh.
+            if (!$refreshRequired) { Invoke-RockwellCodex @('plugin','add','rockwell-mcp-server@rockwell-mcp-server-local','--json') | Out-Null }
         }
         Write-RockwellIntegrationJson $receiptPath @{ schemaVersion = 1; root = $Root; profile = $codexHome; route = 'Standalone' }
     }
-    return [pscustomobject]@{ route = 'Standalone'; ready = $true; reason = $reason + ' Standalone skills and direct MCP remain available. Start a new chat after plugin installation.' }
+    if ($refreshRequired) {
+        if ($PlanOnly) { $reason += ' An updated package would be staged while the plugin stays disabled; no files have changed.' }
+        else { $reason += ' Updated package staged; plugin remains disabled. Refresh it through Codex when needed.' }
+    }
+    elseif ($standalone.Count -and !$ownedStandalone) { $reason += ' Existing plugin belongs to another installation; its package was retained.' }
+    return [pscustomobject]@{ route = 'Standalone'; ready = $true; pluginRefreshRequired = $refreshRequired;
+        reason = $reason + ' Standalone skills and direct MCP remain available. Start a new chat after plugin installation.' }
 }

@@ -68,6 +68,26 @@ try {
     $files = @(Get-ChildItem -LiteralPath $bundle.package -Recurse -File)
     Check ($files.Count -eq 12 -and !($files | Where-Object { $_.FullName.Substring($bundle.package.Length) -match '[\\/](artifacts|\.local)[\\/]' })) 'Standalone package contains only manifests, MIT license, three guides, two references and a runtime launcher/pointer'
     Check ((New-RockwellStandalonePackage $caseRoot).package -eq $bundle.package) 'Identical standalone content reuses its immutable package'
+    $originalGuide = Join-Path $bundle.package 'skills/rockwell-engineering/SKILL.md'
+    $originalHash = (Get-FileHash -LiteralPath $originalGuide).Hash
+    $script:inventory = @([pscustomobject]@{ pluginId = 'rockwell-mcp-server@rockwell-mcp-server-local'; name = 'rockwell-mcp-server'; installed = $true; enabled = $true;
+        source = [pscustomobject]@{ source = 'local'; path = $bundle.package }; marketplaceSource = [pscustomobject]@{ source = $bundle.marketplace } })
+    Add-Content -LiteralPath (Join-Path $caseRoot 'skills/rockwell-engineering/SKILL.md') -Value 'Generated enabled update.'
+    $commands.Clear()
+    Set-RockwellCodexIntegration -Root $caseRoot | Out-Null
+    $updatedBundle = New-RockwellStandalonePackage $caseRoot
+    Check ($updatedBundle.package -ne $bundle.package -and @($commands | Where-Object { $_ -like 'codex plugin add *' }).Count -eq 1) 'Reinstall republishes changed standalone guidance and refreshes an enabled app-owned plugin'
+    Check ((Get-FileHash -LiteralPath $originalGuide).Hash -eq $originalHash) 'Standalone upgrade retains the exact previous immutable package for rollback'
+    $inventory[0].source.path = $updatedBundle.package; $inventory[0].enabled = $false
+    Add-Content -LiteralPath (Join-Path $caseRoot 'skills/rockwell-engineering/SKILL.md') -Value 'Generated disabled update.'
+    $commands.Clear()
+    $plan = Set-RockwellCodexIntegration -Root $caseRoot
+    Check ($plan.pluginRefreshRequired -and !($commands | Where-Object { $_ -like 'codex plugin add *' }) -and
+        (New-RockwellStandalonePackage $caseRoot).package -ne $updatedBundle.package) 'Disabled app-owned plugins receive staged updates without invoking an enabling command'
+    $inventory[0].marketplaceSource.source = '\\?\' + $updatedBundle.marketplace
+    Check (Test-RockwellOwnedStandalone $inventory[0] $caseRoot) 'Owned-package detection handles Windows extended-length marketplace paths'
+    $inventory[0].source.path = Join-Path $caseRoot '.local/codex-marketplace/packages-other/foreign'
+    Check (!(Test-RockwellOwnedStandalone $inventory[0] $caseRoot)) 'A similarly prefixed foreign package is not adopted by the installer'
 
     foreach ($mode in @('disabled','incompatible','missing-runtime','acceptance-pending')) {
         Case $mode

@@ -17,13 +17,15 @@ RockwellMCPServer remains an independent desktop/REST/MCP application and contin
 | Auto, existing receipt | Retain that route. A failed broker prerequisite never installs a fallback or replays work through another route. |
 | Auto, existing app plugin | Preserve standalone, including a disabled choice. Never remove/disable it because a broker appears. |
 | Auto, fresh profile | Prefer enabled compatible Universal Tools with explicit acceptance for this app version; otherwise install standalone. A conflicting registration blocks selection. |
-| Standalone | Install the app plugin when absent; preserve existing plugin settings. No broker required. |
+| Standalone | Install the app plugin when absent. Refresh enabled app-owned packages; stage disabled updates while preserving settings. No broker required. |
 | Broker | Require enabled Universal Tools, matching initialized local runtime, compatible versions and accepted workflow parity. Register the app when absent; skip the app plugin. |
 | None | Skip optional integration, retain existing plugins/registrations and preserve the choice on future auto installs. |
 
 Receipts are per `CODEX_HOME` profile under ignored `.local/codex-integration/`. Detection uses `codex plugin list --json`, installed/enabled flags and exact `universal-tools@universal-tools-local` identity. Cache folders alone do not establish availability. This adapter supports the broker's local `plugins/universal-tools/runtime.json` layout, plugin/runtime **0.11.1 or later** and `shared` sessions. Installed plugin version, runtime version and app acceptance each must pass; an updated checkout alone does not update installed packages. A different distribution needs an assessed adapter.
 
-Standalone packages use an explicit public-content allowlist under `.local/codex-marketplace/packages/`. Identical bytes reuse an immutable package. Only manifests, the MIT license, Markdown skills/references, a launcher and its private runtime pointer enter the plugin cache. Never register the whole checkout as a plugin source: it contains local files and build outputs. Existing installations are preserved; refresh/reinstall them through Codex when packaged guidance changes. Keep the app checkout in place or rerun installation after moving it.
+Standalone packages use an explicit public-content allowlist under `.local/codex-marketplace/packages/`. Identical bytes reuse an immutable package. Only manifests, the MIT license, Markdown skills/references, a launcher and its private runtime pointer enter the plugin cache. Never register the whole checkout as a plugin source: it contains local files and build outputs. Keep the app checkout in place or rerun installation after moving it.
+
+Reinstallation republishes current guidance for app-owned standalone installations and refreshes an already enabled plugin through the Codex CLI. Ownership requires the exact plugin identity and matching marketplace/package paths; another installation's plugin is retained. The app must be idle before refreshing an enabled package. Older source packages remain unchanged. Disabled plugins receive an updated marketplace package without calling `codex plugin add`, which would enable them. The result reports `pluginRefreshRequired: true`; refresh the staged package through Codex when needed. Disabled upgrades preserve existing configuration/cache bytes. Native CLI refresh of enabled plugins may normalize configuration newlines while preserving settings. Updated native skills still need the host's normal refresh/new-chat lifecycle.
 
 Missing Codex tooling or an integration error in Auto mode leaves the application installed and reports the limitation. Explicit route failures are errors. Plugin installation/new skills can require a fresh chat; see [OpenAI's packaging documentation](https://developers.openai.com/plugins/build/plugins).
 
@@ -65,9 +67,11 @@ Authenticated REST equivalents: `GET /api/broker/capabilities`, `/api/broker/wor
 
 ```powershell
 .\scripts\Verify-CodexIntegration.ps1
+# Optional real CLI install/upgrade checks in a disposable CODEX_HOME:
+.\scripts\Verify-CodexPluginCli.ps1
 .\scripts\Verify-Isolated.ps1
 # Broker development Python with its locked dependencies:
 C:\Tools\CodexMCPBroker\.local\development\Scripts\python.exe scripts\verify_broker.py --broker-root C:\Tools\CodexMCPBroker --workspace-root <isolated-profile>
 ```
 
-Installer fixtures mock administrative commands and cover route preservation, fallback, conflicts, acceptance and immutable package content under PowerShell 7 and Windows PowerShell. The optional Python check uses real broker source/protocol with its own state, generated L5X and a profile from `Verify-Isolated.ps1`; all native bridges/targets must be disabled. It checks the fourteen-tool broker frontend, guides/references, inner schemas, read/write policy, review guards and idempotent app receipts. Normal registrations/Codex settings remain untouched. Fresh-chat/native acceptance remains an operator task.
+Installer fixtures mock administrative commands and cover route preservation, fallback, conflicts, acceptance, package ownership and enabled/disabled upgrades under PowerShell 7 and Windows PowerShell. The optional real CLI script checks install, updated cache content, retained per-server policy, staged disabled updates and preserved old packages using generated content and a disposable profile. It starts no app or native worker. The optional Python check uses real broker source/protocol with its own state, generated L5X and a profile from `Verify-Isolated.ps1`; all native bridges/targets must be disabled. It checks the fourteen-tool broker frontend, guides/references, inner schemas, read/write policy, review guards and idempotent app receipts. Normal registrations/Codex settings remain untouched. Fresh-chat/native acceptance remains an operator task.

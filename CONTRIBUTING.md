@@ -47,6 +47,8 @@ dotnet build RockwellMCPServer.sln -c Release
 .\scripts\Verify-CodexIntegration.ps1
 ```
 
+For optional standalone plugin install/upgrade validation with the real Codex CLI, run `.\scripts\Verify-CodexPluginCli.ps1`. It uses generated files and a disposable `CODEX_HOME`; normal plugin settings and app processes are untouched.
+
 The isolated verifier has its own service/state, no native bridge and disabled controller execution. See [validation instructions](docs/VALIDATION.md) for expected outputs, conditional schema checks and optional native procedures. Report what was actually tested, including skipped checks and native boundaries. Ordinary development does not authorize controller connections or native project changes.
 
 Keep commits focused and include the relevant validation in the pull request. Changes should preserve original inputs, reject stale mutations and avoid automatic retries of indeterminate native work.
