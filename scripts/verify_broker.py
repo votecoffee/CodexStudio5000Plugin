@@ -1,6 +1,6 @@
 """Exercise the real broker protocol with an isolated offline Rockwell profile.
 
-Run with the broker's development Python (mcp/jsonschema dependencies installed).
+Run with the pinned framework environment (MCP Python SDK 2.3 / framework 0.14).
 Neither real Codex settings nor normal app/broker registrations are changed.
 """
 
@@ -9,6 +9,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import hashlib
+import importlib.metadata
 import json
 import os
 import socket
@@ -48,12 +49,12 @@ def main():
         raise ValueError(
             "Use an isolated offline validation profile with all native/target access disabled"
         )
-    sys.path.insert(0, str(broker / "src"))
-    os.environ["PYTHONPATH"] = str(broker / "src")
+    if (importlib.metadata.version("universal-codex-tools") != "0.14.0"
+            or importlib.metadata.version("mcp") != "2.3.0"):
+        raise ValueError("Use the installed framework 0.14 / MCP SDK 2.3 environment")
     import jsonschema
     from mcp import ClientSession, StdioServerParameters
     from mcp.client.stdio import stdio_client
-
     from universal_tools.cli import initialize, register, stop
     from universal_tools.models import atomic_json
 
@@ -129,9 +130,9 @@ def main():
         print("PASS:", description, flush=True)
 
     def data(result):
-        if result.isError:
-            raise AssertionError(result.model_dump_json())
-        return result.structuredContent or json.loads(result.content[0].text)
+        if result.is_error:
+            raise AssertionError(result.model_dump_json(by_alias=True))
+        return result.structured_content or json.loads(result.content[0].text)
 
     async def run():
         if args.standalone_launcher:
@@ -146,7 +147,7 @@ def main():
                 ],
                 env=dict(os.environ),
             )
-            async with stdio_client(direct) as (reader, writer):
+            async with stdio_client(direct) as (reader, writer):  # noqa: SIM117
                 async with ClientSession(reader, writer) as session:
                     await session.initialize()
                     check(
@@ -163,7 +164,7 @@ def main():
             args=["-m", "universal_tools", "--state", str(state), "proxy"],
             env=dict(os.environ),
         )
-        async with stdio_client(params) as (reader, writer):
+        async with stdio_client(params) as (reader, writer):  # noqa: SIM117
             async with ClientSession(reader, writer) as session:
                 await session.initialize()
                 check(
@@ -239,7 +240,7 @@ def main():
                         )
                     stale = dict(discovery["arguments"], expectedRevision="stale")
                     check(
-                        (await invoke("rockwell_read_workflow", stale)).isError,
+                        (await invoke("rockwell_read_workflow", stale)).is_error,
                         "Stale guide revisions fail through the broker: " + guide["id"],
                     )
 
@@ -287,7 +288,7 @@ def main():
                     ],
                 }
                 check(
-                    (await invoke("studio_preview_changes", preview_args)).isError,
+                    (await invoke("studio_preview_changes", preview_args)).is_error,
                     "Broker read channel rejects a preview with local staging effects",
                 )
                 preview = data(await invoke("studio_preview_changes", preview_args, write=True))
@@ -298,7 +299,7 @@ def main():
                 }
                 bad = dict(apply, expectedSha256="stale")
                 check(
-                    (await invoke("studio_apply_changes", bad, write=True)).isError,
+                    (await invoke("studio_apply_changes", bad, write=True)).is_error,
                     "App source/review guards remain effective through broker write routing",
                 )
                 updated = data(await invoke("studio_apply_changes", apply, write=True))
@@ -327,7 +328,7 @@ def main():
                             },
                             write=True,
                         )
-                    ).isError,
+                    ).is_error,
                     "Exact outer-tool allowlist blocks control operations before app dispatch",
                 )
                 check(
