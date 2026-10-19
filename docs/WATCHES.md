@@ -6,6 +6,8 @@ Definitions default to `backend: "Sdk"`. The optional `backend: "LibPlcTag"` sha
 
 Use [watch preflight](WATCH_PREFLIGHT.md) to inspect a draft, saved definition or browser selection without opening a reader. It reports all selection problems, observed source hashes, configuration gates and CIP budgets; it does not save or start the list.
 
+[Portable templates](WATCH_TEMPLATES.md) export saved selections/settings and bind them to another project through a reviewed import. Each import creates an independent stopped list; source paths, routes, mode, values and recordings are excluded from templates.
+
 ## Create and poll
 
 `POST /api/watches` or `studio_watch_save` creates a stopped list. Example online definition:

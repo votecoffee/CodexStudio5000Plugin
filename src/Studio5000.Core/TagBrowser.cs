@@ -10,7 +10,7 @@ public sealed record TagBrowserNode(string Name, string Kind, string DataType, i
 public sealed record TagBrowserPage(string ProjectId, string SourceSha256, string Controller, string[] Programs,
     StructureType[] Types, TagBrowserNode[] Nodes, int Total, int Offset, int Limit, TagBrowserNode? Selection = null);
 public sealed record BrowserWatchRequest(string ProjectId, string ExpectedSha256, string Name, WatchTag[] Tags,
-    string Mode = "Offline", string? ControllerTargetId = null, int IntervalMs = 1000, string Backend = "Sdk");
+    string Mode = "Offline", string? ControllerTargetId = null, int IntervalMs = 1000, string Backend = "Sdk", int HistoryLimit = 100);
 
 public sealed partial class ProjectService
 {
@@ -96,6 +96,6 @@ public sealed partial class ProjectService
         }
         var artifact = await ExportAsync(info.Id, new(request.ExpectedSha256), ct);
         return await SaveWatchAsync(new(request.Name, request.Tags, artifact.Sha256, SourceArtifactId: artifact.Id,
-            ControllerTargetId: request.ControllerTargetId, Mode: request.Mode, IntervalMs: request.IntervalMs, Backend: request.Backend), ct: ct);
+            ControllerTargetId: request.ControllerTargetId, Mode: request.Mode, IntervalMs: request.IntervalMs, HistoryLimit: request.HistoryLimit, Backend: request.Backend), ct: ct);
     }
 }

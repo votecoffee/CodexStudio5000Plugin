@@ -28,7 +28,7 @@ public sealed partial class ProjectService
         if (project.Kind != "logix") throw new OperationException("not_logix", "Select a saved Logix snapshot.");
         var source = RevisionFile(project.Id, project.Revision);
         var settings = new WatchListRequest(browser.Name, browser.Tags, browser.ExpectedSha256, SourcePath: source,
-            ControllerTargetId: browser.ControllerTargetId, Mode: browser.Mode, IntervalMs: browser.IntervalMs, Backend: browser.Backend);
+            ControllerTargetId: browser.ControllerTargetId, Mode: browser.Mode, IntervalMs: browser.IntervalMs, HistoryLimit: browser.HistoryLimit, Backend: browser.Backend);
         // This private, hash-bound revision path comes only from an authorized project lookup; no export artifact is created.
         return PreflightWatchCoreAsync(settings, ct, null, null, source);
     }

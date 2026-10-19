@@ -53,16 +53,23 @@ public static class WatchValidation
     }
     public static void ValidateSettings(WatchListRequest request)
     {
-        if (request.Backend is not ("Sdk" or "LibPlcTag") || request.Backend == "LibPlcTag" && request.Mode != "Online")
+        ValidatePortableSettings(request.Name, request.Tags, request.IntervalMs, request.HistoryLimit, request.Backend);
+        if (request.Backend == "LibPlcTag" && request.Mode != "Online")
             throw new OperationException("watch_backend", "Use Sdk (Online/Offline) or LibPlcTag (Online only).");
-        if (string.IsNullOrWhiteSpace(request.Name) || request.Name.Length > 100 || request.Tags is null || request.Tags.Length is < 1 or > 64 ||
-            request.Tags.Any(t => t is null || string.IsNullOrWhiteSpace(t.Key) || t.Key.Length > 100) || request.Tags.Select(t => t.Key).Distinct(StringComparer.Ordinal).Count() != request.Tags.Length)
-            throw new OperationException("watch_invalid", "Supply a name and 1–64 tags with unique nonempty keys (100 characters maximum).");
-        if (request.Mode is not ("Online" or "Offline") || request.IntervalMs is < 100 or > 86400000 || request.HistoryLimit is < 1 or > 1000)
+        if (request.Mode is not ("Online" or "Offline"))
             throw new OperationException("watch_invalid", "Use Online/Offline, interval 100–86400000 ms, and history limit 1–1000.");
         if ((request.SourcePath is null) == (request.SourceArtifactId is null) || !Regex.IsMatch(request.ExpectedSha256 ?? "", "^[a-fA-F0-9]{64}$"))
             throw new OperationException("watch_source", "Choose exactly one sourcePath/sourceArtifactId and its exact SHA-256.");
         if (request.Mode == "Online" && string.IsNullOrWhiteSpace(request.ControllerTargetId))
             throw new OperationException("watch_target", "An online list requires a configured controller target.");
+    }
+    public static void ValidatePortableSettings(string name, WatchTag[] tags, int intervalMs, int historyLimit, string backend)
+    {
+        if (backend is not ("Sdk" or "LibPlcTag")) throw new OperationException("watch_backend", "Use Sdk or LibPlcTag.");
+        if (string.IsNullOrWhiteSpace(name) || name.Length > 100 || tags is null || tags.Length is < 1 or > 64 ||
+            tags.Any(t => t is null || string.IsNullOrWhiteSpace(t.Key) || t.Key.Length > 100) || tags.Select(t => t.Key).Distinct(StringComparer.Ordinal).Count() != tags.Length)
+            throw new OperationException("watch_invalid", "Supply a name and 1–64 tags with unique nonempty keys (100 characters maximum).");
+        if (intervalMs is < 100 or > 86400000 || historyLimit is < 1 or > 1000)
+            throw new OperationException("watch_invalid", "Use interval 100–86400000 ms and history limit 1–1000.");
     }
 }

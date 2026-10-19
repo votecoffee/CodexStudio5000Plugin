@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "name": "Reusable process watch",
+  "tags": [
+    { "key": "record", "tagName": "Record", "programName": "WatchProgram" },
+    { "key": "count", "tagName": "Record", "programName": "WatchProgram", "memberPath": "Inner.Count" },
+    { "key": "sample", "tagName": "Record", "programName": "WatchProgram", "memberPath": "Samples[1]" }
+  ],
+  "intervalMs": 1000,
+  "historyLimit": 100,
+  "backend": "Sdk"
+}

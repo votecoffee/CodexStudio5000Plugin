@@ -26,7 +26,7 @@ internal static class ExtensionIntegration
         { ["extensionId"] = view.Id, ["operation"] = "viewdesigner_screen_summary", ["generation"] = view.Generation });
         Check(view.Operations.All(o => o.InputSchema.ValueKind == JsonValueKind.Undefined) && descriptor.InputSchema.GetProperty("properties").TryGetProperty("file", out _),
             "Compact live catalog omits schemas and describe returns the selected exact schema");
-        Check(catalog.Extensions.Where(x => x.Id != "fixture").Sum(x => x.Operations.Length) == 60, "Live catalog exposes watch preflight, PLC where-used, FactoryTalk reference resolution, project comparison and ladder previews");
+        Check(catalog.Extensions.Where(x => x.Id != "fixture").Sum(x => x.Operations.Length) == 63, "Live catalog exposes watch templates/preflight, PLC where-used, FactoryTalk reference resolution, project comparison and ladder previews");
         var graphics = await client.PostAsync<ProjectInfo>("/api/projects", new RegisterRequest(Path.Combine(root, "examples", "DemoME.xml")));
         var factoryTalk = catalog.Extensions.Single(x => x.Id == "factorytalk" && x.State == "active");
         var referenceCall = new ExtensionCall(factoryTalk.Id, "ftview_tag_references", factoryTalk.Generation,
@@ -80,6 +80,43 @@ internal static class ExtensionIntegration
                 "Saved watch preflight includes the exact definition revision and leaves polling stopped");
         }
         finally { await client.PostAsync<JsonElement>($"/api/watches/{preflightSaved.Definition.Id}/delete", new { }); }
+        var templateSource = await client.PostAsync<WatchStatus>("/api/watches", preflightDraft with { Name = "Portable integration", Backend = "Sdk", Mode = "Offline", ControllerTargetId = null, IntervalMs = 375, HistoryLimit = 37 });
+        WatchStatus? templateImported = null;
+        try
+        {
+            var exportCall = new ExtensionCall(watches.Id, "studio_watch_template_export", watches.Generation,
+                JsonSerializer.SerializeToElement(new { watchId = templateSource.Definition.Id, request = new WatchTemplateExportRequest(0) }, ProjectService.Json));
+            var templateArtifact = await Tool<Artifact>("studio_extensions_apply", new() { ["call"] = exportCall });
+            var templateBytes = await client.DownloadAsync(templateArtifact.Id); var portable = JsonSerializer.Deserialize<JsonElement>(templateBytes);
+            Check(templateArtifact.Format == "json" && ProjectService.Hash(templateBytes) == templateArtifact.Sha256 &&
+                portable.EnumerateObject().Select(p => p.Name).Order().SequenceEqual(new[] { "schemaVersion", "name", "tags", "intervalMs", "historyLimit", "backend" }.Order()),
+                "MCP exports a verified portable JSON artifact containing only template fields");
+            var templateRequest = new WatchTemplatePreviewRequest(portable, resolutionPlc.Id, resolutionPlc.CurrentSha256, Name: "Imported integration");
+            var templateCall = new ExtensionCall(watches.Id, "studio_watch_template_preview", watches.Generation,
+                JsonSerializer.SerializeToElement(new { request = templateRequest }, ProjectService.Json));
+            var templatePreview = await Tool<WatchTemplatePreviewReport>("studio_extensions_read", new() { ["call"] = templateCall });
+            var restTemplatePreview = await client.PostAsync<WatchTemplatePreviewReport>("/api/watch-templates/preview", templateRequest);
+            Check(templatePreview.CanImport && JsonSerializer.Serialize(restTemplatePreview) == JsonSerializer.Serialize(templatePreview),
+                "REST and MCP preview the same stopped-list binding independently of reader availability");
+            var wrongReview = new ExtensionCall(watches.Id, "studio_watch_template_import", watches.Generation,
+                JsonSerializer.SerializeToElement(new { request = new WatchTemplateImportRequest(templateRequest with { Name = "Changed after review" }, templatePreview.ReviewSha256) }, ProjectService.Json));
+            Check((await mcp.CallToolAsync("studio_extensions_apply", new Dictionary<string, object?> { ["call"] = wrongReview })).IsError == true,
+                "MCP template import rejects a changed binding under the old review hash");
+            var importCall = wrongReview with { Arguments = JsonSerializer.SerializeToElement(new { request = new WatchTemplateImportRequest(templateRequest, templatePreview.ReviewSha256) }, ProjectService.Json) };
+            templateImported = await Tool<WatchStatus>("studio_extensions_apply", new() { ["call"] = importCall });
+            Check(templateImported.Definition.Id != templateSource.Definition.Id && templateImported.State == "stopped" && templateImported.Latest is null &&
+                templateImported.Definition.Settings is { IntervalMs: 375, HistoryLimit: 37, Mode: "Offline", ControllerTargetId: null, SourcePath: null, SourceArtifactId: not null },
+                "Reviewed MCP template import creates an independent stopped list with preserved polling settings and a new source artifact");
+            var savedTemplate = await client.PostAsync<SavedArtifact>($"/api/artifacts/{templateArtifact.Id}/save", new SaveArtifactRequest(Path.Combine(root, "artifacts", "exports", "process.watch.json")));
+            Check(savedTemplate.Sha256 == templateArtifact.Sha256 && ProjectService.Hash(await File.ReadAllBytesAsync(savedTemplate.Path)) == templateArtifact.Sha256 &&
+                (await client.GetAsync<WatchStatus>($"/api/watches/{templateSource.Definition.Id}")).Definition.Revision == 0,
+                "Portable JSON saves through the shared output-root guard and preserves the source list");
+        }
+        finally
+        {
+            if (templateImported is not null) await client.PostAsync<JsonElement>($"/api/watches/{templateImported.Definition.Id}/delete", new { });
+            await client.PostAsync<JsonElement>($"/api/watches/{templateSource.Definition.Id}/delete", new { });
+        }
         var resolutionRequest = new GraphicsResolveRequest(resolutionDisplay.CurrentSha256, [new("PLC", resolutionPlc.Id, resolutionPlc.CurrentSha256)],
             [new("/gfx[1]", "#1", "{[PLC]Program:WatchProgram.Record}")]);
         var resolutionCall = new ExtensionCall(factoryTalk.Id, "ftview_resolve_references", factoryTalk.Generation,

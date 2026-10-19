@@ -65,6 +65,8 @@ public sealed partial class ProjectService : IDisposable
         watches = new { minimumIntervalMs = 100, maximumTags = 64, maximumActiveLists = 4, autoStartAfterRestart = false, structures = "SDK-native decorated XML; no inferred memory offsets",
             backends = new[] { "Sdk", "LibPlcTag" }, cipBridgeConfigured = File.Exists(options.CipBridgePath), cipPlan = "/api/projects/{id}/cip-watch-plan",
             preflight = "/api/watches/preflight",
+            templates = new { schemaVersion = WatchTemplates.SchemaVersion, maximumBytes = WatchTemplates.MaximumBytes,
+                preview = "/api/watch-templates/preview", import = "/api/watch-templates/import", importStartsPolling = false },
             browser = "/api/tags/browse", recording = "Durable segmented journal, default 7 days/64 MiB per list; explicit gaps, revision/time queries and CSV" },
         validation = "XML checks and installed SDK operations have distinct evidence levels. Live controller operations require an enabled, configured target; validation is operation/version-specific."
     };
@@ -320,7 +322,7 @@ public sealed partial class ProjectService : IDisposable
             if (File.Exists(path)) throw new OperationException("output_exists", "Choose a new output filename; existing files are preserved.");
             Directory.CreateDirectory(Path.GetDirectoryName(path)!);
             File.Copy(source, path, overwrite: false);
-            if (artifact.Format == "csv") return new(path, artifact.Sha256, artifact.Bytes);
+            if (artifact.Format is "csv" or "json") return new(path, artifact.Sha256, artifact.Bytes); // Watch-owned exports have no project/SDK job owner.
             var info = File.Exists(ProjectMeta(artifact.ProjectId)) ? Get(artifact.ProjectId) :
                 File.Exists(VdMeta(artifact.ProjectId)) ? ViewDesignerProject(artifact.ProjectId) : SdkAuditProject(SdkJob(artifact.ProjectId));
             Audit("save_artifact", info, null, artifact.Sha256, path);

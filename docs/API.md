@@ -40,6 +40,9 @@ Exploded import/export compatibility and stable rejection codes are documented i
 | POST | `/api/projects/{id}/cip-watch-plan` | Hash-bound offline symbolic read plan; never connects |
 | POST | `/api/watches/preflight` | Read-only draft/saved/browser preflight; exactly one settings/watchId/browser |
 | GET | `/api/watches/{id}/preflight` | Inspect a saved definition and source without starting polling |
+| POST | `/api/watches/{id}/template` | Export a portable JSON artifact at expectedRevision |
+| POST | `/api/watch-templates/preview` | Check exact project/program bindings without creating state |
+| POST | `/api/watch-templates/import` | Recheck the review hash and create a new stopped list |
 | GET/POST | `/api/watches/{id}` | Read status/latest/types / update stopped settings with expectedRevision |
 | POST | `/api/watches/{id}/start` | Start interval reads; online access requires an enabled allowed target |
 | POST | `/api/watches/{id}/stop` | Stop polling and retain stale cached values |
@@ -55,6 +58,8 @@ SDK request/response examples, target configuration and evidence boundaries are 
 [WATCHES.md](WATCHES.md) covers watch request/response shapes, intervals, UDT extraction, scope policy and native decoding. Reading cached watches never connects; starting online polling or pulling structures requires controller authorization/access.
 
 [WATCH_PREFLIGHT.md](WATCH_PREFLIGHT.md) covers local declaration diagnostics, stale sources, reader configuration and partial/combined CIP budgets. Preflight never saves, starts polling or launches a reader.
+
+[WATCH_TEMPLATES.md](WATCH_TEMPLATES.md) covers portable schema 1, export fields, program mappings and hash-bound import. Templates contain no source/target binding or live data; imports never start polling.
 
 Register and edit using PowerShell:
 
