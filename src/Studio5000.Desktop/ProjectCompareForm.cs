@@ -17,6 +17,9 @@ public sealed class ProjectCompareForm : WorkspaceForm
     private readonly ComboBox right = new() { Width = 330, DropDownStyle = ComboBoxStyle.DropDownList };
     private readonly TextBox query = new() { Width = 240, PlaceholderText = "Filter component path or kind" };
     private readonly CheckBox numbers = new() { Text = "Include rung numbers", AutoSize = true };
+    private readonly ComboBox reportFormat = new() { Width = 80, DropDownStyle = ComboBoxStyle.DropDownList };
+    private readonly CheckBox reportXml = new() { Text = "XML snippets", AutoSize = true };
+    private readonly CheckBox reportLadder = new() { Text = "Ladder drawings", AutoSize = true, Checked = true };
     private readonly ComboBox sessions = new() { Width = 225, DropDownStyle = ComboBoxStyle.DropDownList };
     private readonly TextBox sessionName = new() { Width = 190, Text = "Comparison session", PlaceholderText = "Session name" };
     private readonly DataGridView changes = new() { Dock = DockStyle.Fill, ReadOnly = true, AutoGenerateColumns = false,
@@ -66,7 +69,11 @@ public sealed class ProjectCompareForm : WorkspaceForm
         var xmlTab = new TabPage("XML differences"); xmlTab.Controls.Add(sides);
         var ladderTab = new TabPage("Ladder comparison browser"); ladderTab.Controls.Add(ladder); previews.TabPages.AddRange([xmlTab, ladderTab]);
         horizontal.Panel2.Controls.Add(previews);
-        Controls.Add(horizontal); Controls.Add(top); Controls.Add(status);
+        var exports = new FlowLayoutPanel { Dock = DockStyle.Bottom, Height = 46, Padding = new(8) };
+        exports.Controls.Add(new Label { Text = "Review report", AutoSize = true, Padding = new(0, 7, 0, 0) });
+        reportFormat.Items.AddRange(["html", "json"]); reportFormat.SelectedIndex = 0; exports.Controls.Add(reportFormat); exports.Controls.Add(reportXml); exports.Controls.Add(reportLadder);
+        Button(exports, "Export report…", ExportReportAsync); Button(exports, "Report history…", HistoryAsync);
+        Controls.Add(horizontal); Controls.Add(exports); Controls.Add(top); Controls.Add(status);
         Shown += async (_, _) =>
         {
             horizontal.SplitterDistance = Math.Max(100, horizontal.Height / 4);
@@ -214,6 +221,45 @@ public sealed class ProjectCompareForm : WorkspaceForm
         recovery = null; await RefreshSessionsAsync(loadedSession.Id);
         status.Text = $"Recovered session revision {loadedSession.Revision}. Previous bookmark cleared; choose a rung in the current comparison before saving a new position.";
     }
+    private ProjectCompareRequest ReviewedComparison()
+    {
+        if (request is null || report is null) throw new InvalidOperationException("Compare current snapshots before exporting a report.");
+        var selected = SelectedComparison();
+        if (selected.LeftProjectId != request.LeftProjectId || selected.RightProjectId != request.RightProjectId || selected.Query != request.Query || selected.IncludeRungNumbers != request.IncludeRungNumbers ||
+            !selected.LeftSha256.Equals(request.LeftSha256, StringComparison.OrdinalIgnoreCase) || !selected.RightSha256.Equals(request.RightSha256, StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException("Selections or filters changed; compare again before exporting.");
+        return request;
+    }
+    private async Task ExportReportAsync()
+    {
+        ReviewedComparison(); var format = (string)reportFormat.SelectedItem!;
+        using var dialog = new SaveFileDialog { Filter = $"Comparison report|*.{format}", FileName = "comparison-review." + format, OverwritePrompt = false };
+        if (dialog.ShowDialog(this) != DialogResult.OK) return;
+        var exported = await ExportReportToAsync(dialog.FileName);
+        status.Text = $"Saved {exported.Review.IncludedChanges} matching changes and retained the report in local history. Structural saved-project review only.";
+    }
+    private async Task<ComparisonReviewExport> ExportReportToAsync(string path)
+    {
+        var comparison = ReviewedComparison();
+        var exported = await client.PostAsync<ComparisonReviewExport>("/api/comparison-reviews/export", new ComparisonReviewExportRequest(comparison, (string)reportFormat.SelectedItem!, reportXml.Checked, reportLadder.Checked));
+        await client.PostAsync<SavedArtifact>($"/api/artifacts/{exported.Artifact.Id}/save", new SaveArtifactRequest(path)); return exported;
+    }
+    private async Task HistoryAsync()
+    {
+        using var history = new ComparisonReviewHistoryForm(client);
+        if (history.ShowDialog(this) == DialogResult.OK && history.Selection is { } entry) await LoadReviewSnapshotsAsync(entry);
+    }
+    private async Task LoadReviewSnapshotsAsync(ComparisonReviewEntry entry)
+    {
+        await RefreshAsync(); loadedSession = null;
+        left.SelectedItem = left.Items.Cast<ReviewProjectChoice>().FirstOrDefault(p => p.Project.Id == entry.Left.Id);
+        right.SelectedItem = right.Items.Cast<ReviewProjectChoice>().FirstOrDefault(p => p.Project.Id == entry.Right.Id);
+        query.Text = entry.Query ?? ""; numbers.Checked = entry.IncludeRungNumbers;
+        if (left.SelectedItem is not ReviewProjectChoice a || right.SelectedItem is not ReviewProjectChoice b ||
+            !a.Project.CurrentSha256.Equals(entry.Left.Sha256, StringComparison.OrdinalIgnoreCase) || !b.Project.CurrentSha256.Equals(entry.Right.Sha256, StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException("Recorded snapshots have changed or are unavailable. Save the retained report copy to inspect its original comparison; select current snapshots explicitly for a new comparison.");
+        await CompareAsync();
+    }
     public void LoadForTest(bool showLadder = false, bool workflow = false)
     {
         fixture = true; if (workflow) return;
@@ -268,6 +314,17 @@ public sealed class ProjectCompareForm : WorkspaceForm
             Check(loadedSession is { Revision: 1, Bookmark: null } && loadedSession.Comparison.RightProjectId == c.Id,
                 "GUI saves recovery through the shared service and clears the previous aligned rung position");
             await LoadSessionAsync(); await Open("modified");
+            reportFormat.SelectedItem = "json"; reportXml.Checked = true;
+            var output = Path.Combine(root, "artifacts", "exports", "gui-comparison-review.json"); var exported = await ExportReportToAsync(output);
+            using var document = System.Text.Json.JsonDocument.Parse(File.ReadAllBytes(output));
+            Check(document.RootElement.GetProperty("changes").GetArrayLength() == 2 && exported.Review.IncludeLadder && exported.Review.IncludeXml,
+                "GUI exports all matching differences with the selected XML and passive ladder options through the shared service");
+            ClearSelection(); await LoadReviewSnapshotsAsync(exported.Review);
+            Check(report is { TotalChanges: 2 } && request?.RightProjectId == c.Id, "GUI history navigation restores only unchanged recorded snapshot hashes");
+            query.Text = "Unsaved filter"; rejected = false;
+            try { await ExportReportToAsync(output + ".unused.json"); } catch (InvalidOperationException) { rejected = true; }
+            Check(rejected, "GUI export rejects changed filters until the current comparison is refreshed");
+            query.Text = ""; await Open("modified");
         }
         WorkflowValidation.Run(ExerciseAsync);
         Check(previews.SelectedIndex == 1 && ladder.Visible && ladder.IsHandleCreated && ladder.Width > 0 && ladder.Height > 0, "GUI navigation leaves a visible ladder pane with handles owned by the UI thread");
