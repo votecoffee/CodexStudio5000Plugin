@@ -11,7 +11,7 @@ dotnet test tests/Studio5000.Tests/Studio5000.Tests.csproj -c Release
 .\scripts\Verify-Isolated.ps1
 ```
 
-The isolated script publishes a separate service, MCP adapter, desktop application and extension worker under `artifacts/isolated-validation/<run-id>/`. It selects its own loopback port and state, leaves the normal service configuration alone, unconfigures the native bridge and disables controller operations. It runs core tests, REST/MCP integration checks through an official MCP client, extension reload checks and thirteen off-screen desktop renders. It stops its temporary service when finished.
+The isolated script publishes a separate service, MCP adapter, desktop application and extension worker under `artifacts/isolated-validation/<run-id>/`. It selects its own loopback port and state, leaves the normal service configuration alone, unconfigures the native bridge and disables controller operations. It runs core tests, REST/MCP integration checks through an official MCP client, extension reload checks and sixteen off-screen desktop renders. It stops its temporary service when finished.
 
 Results are under that run's `artifacts/test-results/`, including `core.trx`, `integration.json`, `extensions.json` and desktop PNGs. FactoryTalk schema-dependent checks require the matching installed ME/SE schemas; inspect skipped checks rather than treating them as passes. Rendering a desktop view checks layout, not every button or native Studio workflow.
 
@@ -23,6 +23,7 @@ The checks cover:
 - Tag/UDT browsing, paged arrays, watch scheduling/decoding, journal recovery/retention, CSV quality rows and graph gaps.
 - Read-only watch preflight for drafts, saved definitions and managed browser snapshots: per-row diagnostics, stale hashes, configuration gates, deferred ACD/templates and combined CIP budgets. Generated GUI rendering covers the preflight viewer.
 - Portable watch templates: strict schema/field limits, omission of runtime/source/target fields, exact scope mappings, review/source hash rejection, settings preservation and independent stopped imports. REST/MCP exercise export/preview/import and JSON artifact save; a generated GUI fixture renders the mapping/review window.
+- Watch source rebinding: saved-declaration fingerprints, explicit unavailable/partial baselines, stopped/revision/review guards and same-list updates with immutable source artifacts. Generated reads verify retained samples/definitions/settings across restart; paused recordings retain a forced cutover event. REST/MCP and generated GUI checks use no controller.
 - Extension package hashes/contracts, generation pinning, reload over the same MCP connection, old-job completion, rejected reloads and rollback.
 
 `scripts/Verify.ps1` instead uses the configured running service and conditionally exercises its native bridge. Choose the isolated script for ordinary development without native execution.

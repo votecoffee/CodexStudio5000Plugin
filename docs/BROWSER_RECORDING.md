@@ -8,6 +8,8 @@ Version 0.14 adds **Preflight selection…** in the browser and **Preflight draf
 
 Version 0.15 adds [portable watch templates](WATCH_TEMPLATES.md) with saved-definition export, explicit program mapping, preflight/review hashes and new stopped-list import. Import preserves the template's interval/history limit and uses the browser's shared immutable source-artifact path.
 
+Version 0.16 adds [source rebinding](WATCH_REBIND.md) for existing stopped lists. Applying a reviewed snapshot/program mapping preserves the list ID, settings and retained recording revisions, clears current samples and records a `source_rebound` cutover. Select the older revision in the trend window to inspect pre-rebind data.
+
 ## Desktop workflow
 
 1. Open **Tag / UDT browser…** from the main workspace or watch window. Choose a registered Logix project, open an ACD/L5X, or enter a completed SDK upload job ID. ACD conversion needs the installed native bridge; L5X browsing does not. Loading an upload result reads its saved metadata; it does not perform another upload.

@@ -34,6 +34,7 @@ RockwellMCPServer gives agents and engineers a shared workspace for project insp
 | Tag/UDT browser and watches | Search snapshot structures, expand members/arrays, create stopped watch lists, poll authorized tags and extract structures as JSON. |
 | Watch preflight | Check drafts, saved lists and browser selections; report each unsupported tag, source changes, configuration failures and combined CIP read budgets without connecting. |
 | Portable watch templates | Export selections/settings, preview explicit project/program bindings and import a new stopped list with a checked review hash. |
+| Watch source rebinding | Preview declaration/scope changes and move a stopped list to a new snapshot while retaining its ID, settings and recording revisions. |
 | Optional CIP reader | Read bounded scalar/UDT/array symbols through an isolated libplctag worker; plan reads offline and share watch recording/trends. Live validation pending. |
 | Trending and recording | Persist history across restarts, graph numeric/BOOL values, show quality/stale gaps and export CSV. |
 | Reloadable extensions | Discover operation schemas and reload compatible modules through MCP or the GUI while the host and chat remain running. |
@@ -78,6 +79,8 @@ For the optional read-only CIP watch backend, use `Build.ps1 -WithCip` and `Init
 Use **Preflight draft…** in the watch window or **Preflight selection…** in the tag browser to inspect declarations and configuration before polling. The same read-only operation is available through REST and the extension catalog; see [watch preflight](docs/WATCH_PREFLIGHT.md).
 
 Use **Export saved template…** and **Import template…** in the watch window to reuse selections/settings with another snapshot. Templates omit source paths, controller routes and live data; import previews exact program mappings and creates a stopped list. See [portable watch templates](docs/WATCH_TEMPLATES.md).
+
+Use **Rebind source…** to update the saved snapshot for an existing stopped list. Preview declaration changes, apply the reviewed binding and retain older recordings under their original revisions. See [watch source rebinding](docs/WATCH_REBIND.md).
 
 Local settings are in ignored `service.local.json`; use [service.example.json](service.example.json) as the portable reference. `AllowedRoots` controls source access, `OutputRoots` controls new saved exports, and the default output directory is `artifacts/exports`. Restart the service after configuration changes.
 
@@ -152,6 +155,7 @@ XML checks, file comparisons and successful SDK calls do not establish native HM
 | [Watches and UDTs](docs/WATCHES.md) | Polling, value extraction and controller structure snapshots |
 | [Watch preflight](docs/WATCH_PREFLIGHT.md) | Draft/saved/browser diagnostics, source hashes and combined read budgets |
 | [Watch templates](docs/WATCH_TEMPLATES.md) | Portable JSON export, exact program mappings and reviewed stopped-list import |
+| [Watch source rebinding](docs/WATCH_REBIND.md) | Declaration comparisons, reviewed source updates and retained revision history |
 | [Optional CIP reader](docs/CIP_READS.md) | Symbolic read plans, configured routes, supported types and offline-only validation |
 | [Browser and recording](docs/BROWSER_RECORDING.md) | Search, watch creation, trends, retention and CSV |
 | [PLC where-used](docs/TAG_REFERENCES.md) | Scoped lexical references, source locations, indirect indices and desktop navigation |

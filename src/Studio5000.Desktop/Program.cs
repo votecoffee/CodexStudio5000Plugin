@@ -7,6 +7,23 @@ try
 {
     var root = ServiceClient.FindRoot();
     using var client = new ServiceClient(root);
+    if (args.Length == 2 && args[0] == "--self-test-watch-rebind")
+    {
+        var tags = new WatchTag[] { new("count", "Record", "WatchProgram", "Inner.Count") };
+        var definition = new WatchDefinition(new string('0', 32), 2, DateTimeOffset.UtcNow, new("Process watch", tags, new string('a', 64), SourcePath: "Fixture.L5X", Mode: "Offline"));
+        var stopped = new WatchStatus(definition, "stopped", null, true, null, []);
+        var proposed = new BrowserWatchRequest("fixture", new string('b', 64), "Process watch", tags);
+        var preflight = new WatchPreflightReport("Sdk", "Offline", null, null, proposed.ExpectedSha256, true, "blocked",
+            [new("reader_configuration", "blocked", new("native_unavailable", "Reader is not configured. A checked stopped rebind remains available."))],
+            [new(tags[0], "supported", "LINT", [], null, [])], null, "Generated saved declarations only; no controller connection.");
+        var report = new WatchRebindPreviewReport(definition.Id, 2, definition.Settings.ExpectedSha256, definition.Settings.ExpectedSha256, "matching_l5x", new string('c', 64), proposed, true, [],
+            [new(tags[0], tags[0], new("DINT", [], "WatchRecord", new string('d', 64), true), new("LINT", [], "WatchRecord", new string('e', 64), true), ["selected_type_changed", "base_declaration_changed"], [])],
+            preflight, "Rebind retains this list ID, settings and retained recording history. It creates revision 3, clears cached values and leaves polling stopped. Declaration checks do not establish native/live behavior.");
+        using var rebindView = new WatchRebindForm(client, stopped, null); rebindView.LoadForTest(report);
+        rebindView.StartPosition = FormStartPosition.Manual; rebindView.Location = new(-30000, -30000); rebindView.ShowInTaskbar = false;
+        rebindView.Show(); Application.DoEvents(); using var bitmap = new Bitmap(rebindView.Width, rebindView.Height);
+        rebindView.DrawToBitmap(bitmap, new Rectangle(Point.Empty, rebindView.Size)); bitmap.Save(args[1], System.Drawing.Imaging.ImageFormat.Png); rebindView.Close(); return;
+    }
     if (args.Length == 2 && args[0] == "--self-test-watch-template")
     {
         var portable = new WatchTemplate(1, "Reusable process watch", [new("count", "Record", "WatchProgram", "Inner.Count")], 1000, 100);

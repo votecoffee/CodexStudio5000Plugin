@@ -41,6 +41,7 @@ public sealed class WatchForm : Form
         Button(toolbar, "Save list", SaveAsync); Button(toolbar, "Preflight draft…", PreflightAsync); Button(toolbar, "Start polling", () => ActionAsync("start")); Button(toolbar, "Stop polling", () => ActionAsync("stop"));
         Button(toolbar, "Delete stopped list", DeleteAsync); Button(toolbar, "History", HistoryAsync);
         Button(toolbar, "Export saved template…", ExportTemplateAsync); Button(toolbar, "Import template…", ImportTemplateAsync);
+        Button(toolbar, "Rebind source…", RebindAsync);
         Button(toolbar, "Tag / UDT browser…", BrowserAsync); Button(toolbar, "Trends & recording…", () =>
         {
             if (selected is null) throw new ArgumentException("Save or select a watch list first.");
@@ -162,6 +163,12 @@ public sealed class WatchForm : Form
     {
         using var form = new WatchTemplateForm(client, project); form.ShowDialog(this);
         if (form.ImportedWatch is { } imported) { LoadWatch(imported); await RefreshAsync(); tabs.SelectedIndex = 0; }
+    }
+    private async Task RebindAsync()
+    {
+        if (selected is null) throw new ArgumentException("Select a saved stopped watch list first. Rebind uses its saved definition.");
+        using var form = new WatchRebindForm(client, selected, project); form.ShowDialog(this);
+        if (form.ReboundWatch is { } rebound) { LoadWatch(rebound); await RefreshAsync(); tabs.SelectedIndex = 0; }
     }
     private async Task ExtractAsync()
     {
