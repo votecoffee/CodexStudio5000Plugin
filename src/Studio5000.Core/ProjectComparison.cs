@@ -98,7 +98,7 @@ public static class ProjectComparison
         return result;
     }
 
-    private static XElement Normalize(XElement element, bool rungNumbers, bool header = false)
+    internal static XElement Normalize(XElement element, bool rungNumbers, bool header = false)
     {
         var result = new XElement(element.Name, element.Attributes().Where(a =>
             !(element.Name == "RSLogix5000Content" && a.Name == "ExportDate") &&
@@ -115,7 +115,7 @@ public static class ProjectComparison
         return result;
     }
 
-    private static void ValidateSize(XDocument document)
+    internal static void ValidateSize(XDocument document)
     {
         var count = 0;
         foreach (var element in document.Descendants())
@@ -123,7 +123,7 @@ public static class ProjectComparison
                 throw new OperationException("comparison_limit", "Comparison supports 100000 XML elements and 64 nesting levels per project.");
     }
 
-    private static List<(int Left, int Right)> Align(string[] left, string[] right)
+    internal static List<(int Left, int Right)> Align(string[] left, string[] right)
     {
         var result = new List<(int, int)>();
         var prefix = 0;

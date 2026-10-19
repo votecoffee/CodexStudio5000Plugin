@@ -4,7 +4,9 @@ These read-only operations use registered Logix snapshots. They preserve source 
 
 ## Desktop views
 
-Open **Compare projects…** to choose left/right snapshots, refresh their hashes, compare, filter component paths and page results. Selecting a change shows normalized before/after XML. Snippets are explicitly marked when truncated. Changing a snapshot clears the old result; comparison never migrates or applies components.
+Open **Compare projects…** to choose left/right snapshots, refresh their hashes, compare, filter component paths and page results. The **XML differences** tab shows normalized before/after XML for the selected change. Snippets are explicitly marked when truncated. Changing a snapshot clears the old result; comparison never migrates or applies components. The implementation does not invoke the Studio 5000 compare tool.
+
+The **Ladder comparison browser** tab groups routine pairs by program/AOI, including unchanged, added and removed routines. Filter routine names/owners and page the routine tree. Select an RLL pair, then use **Previous rung** / **Next rung** to browse aligned occurrences side by side. **Changed rungs only** hides equal pairs. Insertions/deletions leave an explicit empty side; following matching rungs retain their own original source positions. Each side has an independently scrollable drawing and raw source/comments/diagnostics. Non-RLL routines remain available in the XML comparison. Unknown or malformed ladder keeps its text/diagnostics even when a drawing cannot be made.
 
 Open **Ladder preview…**, select a snapshot, filter/find routines, then select an RLL routine and **Load routine**. Previous/Next selects a rung occurrence, including online-edit variants. Scroll the drawing for wide branches. Raw code, comments and parse diagnostics remain below; unsupported/malformed rungs have no drawing. The desktop consumes Core's drawing geometry rather than parsing rung text independently.
 
@@ -34,6 +36,14 @@ XML attribute order, indentation between elements, root `ExportDate` and Control
 Rung sequences use longest-common-subsequence alignment. A simple insertion does not mark all following renumbered rungs changed. Repeated identical rungs remain occurrences; moves are not inferred. Consecutive deletion/insertion runs are paired positionally into modifications, with remaining entries added/removed. Each entry includes source XPaths, normalized-content hashes and XML snippets capped at 4096 characters, with truncation flags. These hashes are comparison-unit hashes, not original-file hashes.
 
 Counts cover all differences. `query` filters component paths/kinds before pagination, and `filteredChanges` reports that subset. Limits are 100000 XML elements and 64 levels per project, a 1000000-cell changed-rung alignment budget after common prefix/suffix removal, 200 rows per page, 256 query characters and a 4 MiB encoded response. Oversized unrelated sequences fail with `comparison_limit`; oversized pages use `comparison_page_too_large`. Stale snapshots use `stale_revision`.
+
+## Routine and ladder comparison API
+
+`POST /api/projects/compare/routines` accepts the same snapshot/hash/query/page fields as structural comparison. It returns a paged routine list with `owner`, `name`, `change`, left/right types, exact XPaths and rung counts. Unlike the structural difference list, it includes unchanged routines. `query` filters the owner/name; each page contains at most 200 routines.
+
+`POST /api/projects/compare/ladder` accepts the four project ID/hash fields plus `leftRoutineXPath`, `rightRoutineXPath`, `offset` (0..100000), `limit` (1..20), `includeRungNumbers` and `changesOnly`. One XPath may be null for a wholly added/removed routine. Present selections must be exact RLL routines. The result includes each pair's aligned `position`, `change` and nullable `left`/`right` rung previews. Source indexes/numbers refer to their respective original routines. Filtering changes does not renumber those aligned positions; `total` counts rows matching the current filter.
+
+Both paths share structural comparison's normalization, 100000-element/64-level project bounds and 1000000-cell alignment budget. Adjacent unmatched spans pair by order; there is no inferred move/rename or semantic matching. Drawing and response limits are the same as ladder preview. The `logix` extension exposes `studio_compare_routines` and `studio_compare_ladder` as read operations through the existing fixed dispatcher, with REST bodies nested inside `request`.
 
 ## Ladder previews
 

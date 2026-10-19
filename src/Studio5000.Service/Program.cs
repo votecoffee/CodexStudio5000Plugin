@@ -65,6 +65,11 @@ app.MapGet("/health", () => new { status = "ok", name = WorkspaceIdentity.Name, 
 app.MapGet("/api/capabilities", (ProjectService service) => service.Capabilities());
 app.MapGet("/api/projects", (ProjectService service) => service.Projects());
 app.MapPost("/api/projects/compare", (ProjectService service, ProjectCompareRequest request) => service.CompareProjects(request));
+app.MapPost("/api/projects/compare/routines", (ProjectService service, ProjectCompareRequest request) => service.CompareRoutines(request));
+app.MapPost("/api/projects/compare/ladder", (ProjectService service, LadderCompareRequest request) => service.CompareLadder(request));
+app.MapPost("/api/value-merge/capture", (ProjectService service, StructurePullRequest request, CancellationToken ct) => service.CaptureTagValueSourceAsync(request, ct));
+app.MapPost("/api/value-merge/preview", (ProjectService service, TagValueMergeRequest request, CancellationToken ct) => service.PreviewTagValueMergeAsync(request, ct));
+app.MapPost("/api/value-merge/apply", (ProjectService service, TagValueMergeApplyRequest request, CancellationToken ct) => service.ApplyTagValueMergeAsync(request, ct));
 app.MapPost("/api/projects/{id}/ladder-preview", (ProjectService service, string id, LadderPreviewRequest request) => service.PreviewLadder(id, request));
 app.MapPost("/api/projects", (ProjectService service, RegisterRequest request, CancellationToken ct) => service.RegisterAsync(request.Path, ct));
 app.MapPost("/api/projects/from-exploded", (ProjectService service, RegisterRequest request, CancellationToken ct) => service.RegisterExplodedAsync(request.Path, ct));

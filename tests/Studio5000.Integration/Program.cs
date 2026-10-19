@@ -138,6 +138,7 @@ checks.AddRange(await OnlineEditPlanIntegration.RunAsync(root));
 checks.AddRange(await WatchIntegration.RunAsync(root, client, mcp));
 checks.AddRange(await ViewDesignerIntegration.RunAsync(root, client, mcp));
 checks.AddRange(await ExtensionIntegration.RunAsync(root, client, mcp));
+checks.AddRange(await EngineeringUtilitiesIntegration.RunAsync(root, client, mcp));
 checks.AddRange(await BrowserRecordingIntegration.RunAsync(root, client, mcp));
 Directory.CreateDirectory(Path.Combine(root, "artifacts", "test-results"));
 await File.WriteAllTextAsync(Path.Combine(root, "artifacts", "test-results", "integration.json"),
