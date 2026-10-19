@@ -50,6 +50,7 @@ RockwellMCPServer gives agents and engineers a shared workspace for project insp
 | Project workflows | Three-source logic/value merging with explicit conflicts and separate native target-version conversion/readback jobs. |
 | Reloadable extensions | Discover operation schemas and reload compatible modules through MCP or the GUI while the host and chat remain running. |
 | Codex integration choices | Retain the standalone plugin or register with Universal Tools, including live capability discovery and shared versioned workflow guides. |
+| Optional shared framework | App-owned Python host pinned to framework 0.14 / SDK 2.3, with immutable C# backend publications and a fixed discovery interface. |
 | Service settings | GUI editing for controller/file access, target scopes, SDK/HMI paths and limits; broad local profile, backups and saved-versus-running configuration. |
 | Concurrent requests and transactions | Edit independent workspaces concurrently; stage/review/commit offline changes as one revision with conflict checks, abort and durable retry receipts. Bundled stateless extensions support parallel worker pools. |
 
@@ -189,6 +190,7 @@ XML checks, file comparisons and successful SDK calls do not establish native HM
 | [Architecture](docs/ARCHITECTURE.md) | Shared service, storage, authentication and process boundaries |
 | [Settings and access](docs/SETTINGS.md) | GUI configuration, broad local preset, target policies, backups and pending restart state |
 | [Codex integration](docs/CODEX_INTEGRATION.md) | Standalone plugin packaging, Universal Tools discovery, workflow guides and accepted route selection |
+| [Optional app framework](docs/FRAMEWORK.md) | Separate host package, pinned dependencies, backend publication, isolation and verification boundaries |
 | [Logix SDK](docs/SDK.md) | Bound catalog, native jobs and controller target policies |
 | [Diagnostics and trends](docs/DIAGNOSTICS.md) | Logic tracing, captured conditions, trigger windows, saved trend results, baseline merging and native compatibility |
 | [Multilingual documentation](docs/PROJECT_DOCUMENTATION.md) | Explicit languages, tag/rung/component comments, reviewed updates and text extraction |

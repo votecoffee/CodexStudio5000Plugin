@@ -53,6 +53,10 @@ The ladder browser ignores duplicate selection notifications for its already loa
 
 `settings-workflow` exercises the GUI broad-local preset, target policy clearing, saved-versus-running options and restoring the generated configuration. REST checks cover exact backups, competing saves, stale revisions and validation failures. The separate settings-staging fixture verifies that the administrative command opens no workspace or native session, then checks explicit empty roots on a temporary offline host. See [settings and access](SETTINGS.md).
 
+## Optional app-owned framework
+
+The optional Python [framework profile](FRAMEWORK.md#isolated-validation-and-limits) uses a separately installed, pinned wheel environment and the actual C# MCP adapter against an isolated service. It checks complete definitions/results, two frontends, immutable publication replacement, revision/write policy and app-error reconciliation without native providers. It is separate from the default .NET suite and does not migrate installed plugins.
+
 ## Optional offline Logix SDK checks
 
 `scripts/Verify-ValueMergeNative.ps1` publishes a separate native bridge/verifier, merges generated v38 scalar/STRING/nested UDT/UDT-array values, exports a new ACD, reopens/builds it in a fresh offline SDK job and compares native re-exported values. It disables controller operations and configures no targets; the normal service is untouched. Run evidence stays under ignored `artifacts/test-results/value-merge-native-*`. This checks the generated fixture and installed SDK, not live upload or general native/runtime acceptance.

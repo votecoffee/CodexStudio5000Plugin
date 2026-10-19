@@ -2,6 +2,8 @@
 
 RockwellMCPServer remains an independent desktop/REST/MCP application and continues shipping its own Codex plugin. Universal Tools from [CodexMCPBroker](https://github.com/votecoffee/CodexMCPBroker) provides another route to the same app-owned service. Broker users can use one Universal Tools plugin; standalone users need no broker.
 
+An [optional app-owned framework host](FRAMEWORK.md) is also available as a separate Python package pinned to framework 0.14 / MCP Python SDK 2.3. It wraps the C# adapter without changing normal installation, installed plugins or route selection. The .NET SDK stays independently pinned at 2.2.0; a native .NET framework binding is not available upstream.
+
 ## Installation choices
 
 `Install.cmd` defaults to `-CodexIntegration Auto`. Inspect or select integration separately:
@@ -70,8 +72,8 @@ Authenticated REST equivalents: `GET /api/broker/capabilities`, `/api/broker/wor
 # Optional real CLI install/upgrade checks in a disposable CODEX_HOME:
 .\scripts\Verify-CodexPluginCli.ps1
 .\scripts\Verify-Isolated.ps1
-# Broker development Python with its locked dependencies:
-C:\Tools\CodexMCPBroker\.local\development\Scripts\python.exe scripts\verify_broker.py --broker-root C:\Tools\CodexMCPBroker --workspace-root <isolated-profile>
+# Installed framework 0.14 / Python SDK 2.3 environment (see FRAMEWORK.md):
+.local\framework-runtime\Scripts\python.exe scripts\verify_broker.py --broker-root C:\Tools\CodexMCPBroker --workspace-root <isolated-profile>
 ```
 
-Installer fixtures mock administrative commands and cover route preservation, fallback, conflicts, acceptance, package ownership and enabled/disabled upgrades under PowerShell 7 and Windows PowerShell. The optional real CLI script checks install, updated cache content, retained per-server policy, staged disabled updates and preserved old packages using generated content and a disposable profile. It starts no app or native worker. The optional Python check uses real broker source/protocol with its own state, generated L5X and a profile from `Verify-Isolated.ps1`; all native bridges/targets must be disabled. It checks the fourteen-tool broker frontend, guides/references, inner schemas, read/write policy, review guards and idempotent app receipts. Normal registrations/Codex settings remain untouched. Fresh-chat/native acceptance remains an operator task.
+Installer fixtures mock administrative commands and cover route preservation, fallback, conflicts, acceptance, package ownership and enabled/disabled upgrades under PowerShell 7 and Windows PowerShell. The optional real CLI script checks install, updated cache content, retained per-server policy, staged disabled updates and preserved old packages using generated content and a disposable profile. It starts no app or native worker. The optional Python check uses the installed framework/broker package with its own state, generated L5X and a profile from `Verify-Isolated.ps1`; all native bridges/targets must be disabled. It checks the fourteen-tool broker frontend, guides/references, inner schemas, read/write policy, review guards and idempotent app receipts. Normal registrations/Codex settings remain untouched. Fresh-chat/native acceptance remains an operator task.
