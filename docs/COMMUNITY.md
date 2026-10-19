@@ -19,7 +19,9 @@ The following are candidates, not installed or validated dependencies unless exp
 
 1. **Exploded compatibility:** implemented shared-service schema checks and explicit rejection of known unsupported metadata/encoded AOIs. See [EXPLODED_PROJECTS.md](EXPLODED_PROJECTS.md). The existing vendor source remains unchanged.
 2. **Project comparison and ladder preview:** evaluate parsers/renderers against branches, nested calls, AOIs, malformed rungs and large projects; distinguish structural differences from native semantics.
-3. **PLC/HMI references:** extract exact source expressions/selectors first, then resolve supported shortcuts/parameters against explicit project context. Missing context must not become a false broken-binding verdict.
+3. **PLC/HMI references:** FactoryTalk expression/reference extraction is implemented in the shared service, REST, extension catalog and desktop. It preserves occurrences/selectors and leaves context unresolved. See [FACTORYTALK.md](FACTORYTALK.md#tag-references). Full PLC/HMI resolution still requires explicit shortcut/parameter context.
 4. **Alternative live-data backend:** benchmark an optional read-oriented adapter with generated/offline tests first, then an explicitly authorized controller fixture. Native project editing remains on the Rockwell SDK.
 
 Review licenses of the exact files and transitive dependencies before copying or distributing code. Keep public documentation reusable; private research checkouts, native projects and per-installation validation receipts belong in ignored local folders.
+
+The FactoryTalk scanner was informed by [extractor revision 6ba6466b2bdecee6caf2812d5825e7f0c174c0f4](https://github.com/dergroncki/parse_ft_gfx_xml/tree/6ba6466b2bdecee6caf2812d5825e7f0c174c0f4), which collects connection expressions and substitutes reference-object parameters. The C# scanner is a new implementation with hash-bound snapshots, pagination and conservative unresolved-context labels; no Rust source, executable or dependency was copied into this repository. Parameter substitution is deliberately outside its current scope.

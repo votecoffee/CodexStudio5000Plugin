@@ -105,6 +105,7 @@ app.MapPost("/api/watches/{id}/recording", (ProjectService service, string id, W
 app.MapPost("/api/watches/{id}/recording/query", (ProjectService service, string id, WatchRecordingQuery request) => service.QueryRecording(id, request));
 app.MapPost("/api/watches/{id}/recording/export", (ProjectService service, string id, WatchRecordingQuery request) => service.ExportRecording(id, request));
 app.MapGet("/api/factorytalk/status", (ProjectService service) => service.FactoryTalkStatus());
+app.MapPost("/api/projects/{id}/graphics-references", (ProjectService service, string id, GraphicsReferenceRequest request) => service.GraphicsTagReferences(id, request));
 app.MapPost("/api/factorytalk/launch", (ProjectService service) => service.LaunchFactoryTalkStudio());
 app.MapGet("/api/projects/{id}/graphics-validation", (ProjectService service, string id) => service.ValidateGraphics(id));
 app.MapPost("/api/projects/{id}/graphics-imports", (ProjectService service, string id, PrepareGraphicsImportRequest request, CancellationToken ct) => service.PrepareGraphicsImportAsync(id, request, ct));

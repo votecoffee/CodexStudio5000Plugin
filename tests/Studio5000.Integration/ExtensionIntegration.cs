@@ -26,7 +26,17 @@ internal static class ExtensionIntegration
         { ["extensionId"] = view.Id, ["operation"] = "viewdesigner_screen_summary", ["generation"] = view.Generation });
         Check(view.Operations.All(o => o.InputSchema.ValueKind == JsonValueKind.Undefined) && descriptor.InputSchema.GetProperty("properties").TryGetProperty("file", out _),
             "Compact live catalog omits schemas and describe returns the selected exact schema");
-        Check(catalog.Extensions.Where(x => x.Id != "fixture").Sum(x => x.Operations.Length) == 53, "Live catalog exposes existing operations, HMI summary and six browser/recording operations");
+        Check(catalog.Extensions.Where(x => x.Id != "fixture").Sum(x => x.Operations.Length) == 54, "Live catalog exposes existing operations and FactoryTalk reference extraction");
+        var graphics = await client.PostAsync<ProjectInfo>("/api/projects", new RegisterRequest(Path.Combine(root, "examples", "DemoME.xml")));
+        var factoryTalk = catalog.Extensions.Single(x => x.Id == "factorytalk" && x.State == "active");
+        var referenceCall = new ExtensionCall(factoryTalk.Id, "ftview_tag_references", factoryTalk.Generation,
+            JsonSerializer.SerializeToElement(new { projectId = graphics.Id, request = new GraphicsReferenceRequest(graphics.CurrentSha256) }, ProjectService.Json));
+        var references = await Tool<GraphicsReferenceReport>("studio_extensions_read", new() { ["call"] = referenceCall });
+        Check(references.Total == 1 && references.References[0].Shortcut == "PLC" && references.References[0].TagPath == "Demo.CycleCount",
+            "Stable MCP bridge discovers and invokes FactoryTalk references through the shared service");
+        var restReferences = await client.PostAsync<GraphicsReferenceReport>($"/api/projects/{graphics.Id}/graphics-references", new GraphicsReferenceRequest(graphics.CurrentSha256, "missing"));
+        Check(restReferences.Total == 0 && restReferences.Project.CurrentSha256 == graphics.CurrentSha256,
+            "REST reference filtering preserves snapshot identity without connecting to a controller");
         var p = await client.PostAsync<ProjectInfo>("/api/viewdesigner/projects", new RegisterRequest(Path.Combine(root, "examples", "ViewDesignerDemo")));
         var call = new ExtensionCall("viewdesigner", "viewdesigner_screen_summary", view.Generation,
             JsonSerializer.SerializeToElement(new { projectId = p.Id, file = "User-Defined Screens/Overview.hmi" }));

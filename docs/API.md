@@ -4,6 +4,8 @@ Default base URL: `http://127.0.0.1:5487`. Read `.local/connection.json` for the
 
 Exploded import/export compatibility and stable rejection codes are documented in [EXPLODED_PROJECTS.md](EXPLODED_PROJECTS.md). The same checks apply through REST, fixed MCP tools, extension proxies and the desktop.
 
+`POST /api/projects/{id}/graphics-references` performs hash-bound read-only FactoryTalk reference extraction. Body: `{ "expectedSha256": "...", "query": "optional substring", "offset": 0, "limit": 200 }`. The `factorytalk` extension exposes it as `ftview_tag_references` through `studio_extensions_read`; it is not a new fixed MCP tool. See [FactoryTalk reference coverage and limits](FACTORYTALK.md#tag-references).
+
 [EXTENSIONS.md](EXTENSIONS.md) documents the stable `/api/extensions` catalog, describe/reload/invoke and pinned-job endpoints. These let installed extension features change while the MCP bridge stays connected, with separate read/preview/apply/control dispatch channels.
 
 | Method | Path | Purpose |

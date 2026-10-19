@@ -6,6 +6,29 @@ The installed Rockwell graphics schema named by the XML is used for validation. 
 
 Supported changes are existing captions, state captions, connection/animation expressions, colors, geometry and other existing attributes/text values. `replace_element` can change existing values while preserving identity, attribute names and child structure. Object creation/deletion and reference-aware renaming require a separate native workflow. Do not hand-edit `.gfx`, `.apa` or `.mer` files.
 
+## Tag references
+
+The shared service extracts reference occurrences from `expression` attributes and global-object `parameter/@value` attributes. It retains each source expression, its exact property XPath, owning object, character offset/length and the tag/shortcut text. Repeated uses remain separate occurrences. The scan supports braced references and simple standalone ASCII HMI names or parameter tokens; quoted string literals are skipped. It does not compile the full FactoryTalk expression language or scan VBA, command strings, embedded caption variables or an HMI tag database.
+
+Use **Tag references** in the desktop to view the first page. For search/pagination, use **Extensions… → factorytalk → ftview_tag_references**, or discover/describe that operation through `studio_extensions_*` and invoke it with `studio_extensions_read`. The fixed MCP tool list stays unchanged.
+
+REST uses `POST /api/projects/{id}/graphics-references`:
+
+```json
+{
+  "expectedSha256": "CURRENT_DISPLAY_SHA256",
+  "query": "CycleCount",
+  "offset": 0,
+  "limit": 200
+}
+```
+
+Extension arguments are `{ "projectId": "DISPLAY_ID", "request": { ...the body above... } }`. The hash binds every page to a managed revision. A changed revision produces `stale_revision`; refresh its hash before continuing. `query` is a case-insensitive substring of reference text or object name. `total` counts filtered occurrences before pagination.
+
+Resolution labels describe missing context, not missing tags: direct references require a shortcut mapping, HMI references require the HMI database, and `#` references require parameter context. No controller connection or automatic parameter substitution occurs. Malformed/unsupported expressions produce bounded diagnostics; this is a conservative inventory, not a complete reference or binding-validity audit. Read-only extraction needs no installed XSD, and source bytes/revisions remain unchanged.
+
+Limits: 200 rows per page, 256 query characters, 16 KiB per expression, 10000 reference occurrences per display, 8192 characters per selector, 50 diagnostic entries and a 4 MiB encoded response. Oversized pages return `reference_page_too_large`; use a smaller limit. Invalid paging returns `invalid_reference_query`; scan limits return `reference_limit`.
+
 ## Native application interaction
 
 `ftview_status` reports the configured launcher, installed schemas and Studio windows. `ftview_launch_studio` opens the installed launcher. Select the correct ME or SE application type through the UI; for SE, identify the intended topology and HMI server. This release does not guess application launch switches or use an undocumented Studio COM editing API.

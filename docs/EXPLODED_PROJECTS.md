@@ -12,6 +12,8 @@ Options must be one flat YAML mapping with unique scalar keys/values, at most 64
 
 ## Content boundaries
 
+YAML aliases and nested collections in export options are rejected before loading the mapping.
+
 - Protected/encoded Add-On Instructions are rejected on exploded export and import. The legacy sorter does not consume newer dependency metadata, so the presence of a `Dependencies` export option does not make this reader compatible. Keep these projects in L5X/ACD form or use a dependency-aware exploded tool.
 - Schema 1 persists ST code but omits routine descriptions and other XML metadata. Exploding ST routines with extra attributes/elements or XML comments is rejected to prevent that known loss. Ordinary L5X export preserves the managed revision bytes.
 - ST logic without those extra fields, ordinary ladder content and the existing legacy options remain supported. General cross-reference/dependency correctness still requires native verification.

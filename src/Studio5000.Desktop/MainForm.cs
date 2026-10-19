@@ -54,6 +54,12 @@ public sealed class MainForm : Form
         AddButton(graphicsToolbar, "Studio status", async () => ShowJson(await client.GetAsync<JsonElement>("/api/factorytalk/status")));
         AddButton(graphicsToolbar, "Open Studio", async () => ShowJson(await client.PostAsync<JsonElement>("/api/factorytalk/launch", new { })));
         AddButton(graphicsToolbar, "Export display XML…", () => ExportAsync("xml"));
+        AddButton(graphicsToolbar, "Tag references", async () =>
+        {
+            if (project is null || !FactoryTalkGraphics.IsFactoryTalk(project.Kind))
+                throw new InvalidOperationException("Select an ME or SE display XML working copy first.");
+            ShowJson(await client.PostAsync<GraphicsReferenceReport>($"/api/projects/{project.Id}/graphics-references", new GraphicsReferenceRequest(project.CurrentSha256)));
+        });
         AddButton(graphicsToolbar, "Prepare import…", PrepareGraphicsAsync);
         graphicsToolbar.Controls.Add(graphicsPlanId);
         AddButton(graphicsToolbar, "Verify re-export", VerifyGraphicsAsync);
