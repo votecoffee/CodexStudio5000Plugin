@@ -41,6 +41,8 @@ Exploded import/export compatibility and stable rejection codes are documented i
 | POST | `/api/watches/preflight` | Read-only draft/saved/browser preflight; exactly one settings/watchId/browser |
 | GET | `/api/watches/{id}/preflight` | Inspect a saved definition and source without starting polling |
 | POST | `/api/watches/{id}/template` | Export a portable JSON artifact at expectedRevision |
+| POST | `/api/watches/{id}/rebind-preview` | Compare approved old declarations with a hash-bound destination |
+| POST | `/api/watches/{id}/rebind` | Apply a reviewed stopped-list source update at expectedRevision |
 | POST | `/api/watch-templates/preview` | Check exact project/program bindings without creating state |
 | POST | `/api/watch-templates/import` | Recheck the review hash and create a new stopped list |
 | GET/POST | `/api/watches/{id}` | Read status/latest/types / update stopped settings with expectedRevision |
@@ -60,6 +62,8 @@ SDK request/response examples, target configuration and evidence boundaries are 
 [WATCH_PREFLIGHT.md](WATCH_PREFLIGHT.md) covers local declaration diagnostics, stale sources, reader configuration and partial/combined CIP budgets. Preflight never saves, starts polling or launches a reader.
 
 [WATCH_TEMPLATES.md](WATCH_TEMPLATES.md) covers portable schema 1, export fields, program mappings and hash-bound import. Templates contain no source/target binding or live data; imports never start polling.
+
+[WATCH_REBIND.md](WATCH_REBIND.md) covers source refresh for the same list, declaration-change flags, unavailable baselines and retained recordings by revision. Rebind does not start polling or modify controller target settings.
 
 Register and edit using PowerShell:
 

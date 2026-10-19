@@ -95,6 +95,8 @@ app.MapPost("/api/projects/{id}/cip-watch-plan", (ProjectService service, string
 app.MapPost("/api/watches/preflight", (ProjectService service, WatchPreflightRequest request, CancellationToken ct) => service.PreflightWatchAsync(request, ct));
 app.MapGet("/api/watches/{id}/preflight", (ProjectService service, string id, CancellationToken ct) => service.PreflightSavedWatchAsync(id, ct));
 app.MapPost("/api/watches/{id}/template", (ProjectService service, string id, WatchTemplateExportRequest request) => service.ExportWatchTemplate(id, request));
+app.MapPost("/api/watches/{id}/rebind-preview", (ProjectService service, string id, WatchRebindPreviewRequest request, CancellationToken ct) => service.PreviewWatchRebindAsync(id, request, ct));
+app.MapPost("/api/watches/{id}/rebind", (ProjectService service, string id, WatchRebindApplyRequest request, CancellationToken ct) => service.ApplyWatchRebindAsync(id, request, ct));
 app.MapPost("/api/watch-templates/preview", (ProjectService service, WatchTemplatePreviewRequest request, CancellationToken ct) => service.PreviewWatchTemplateAsync(request, ct));
 app.MapPost("/api/watch-templates/import", (ProjectService service, WatchTemplateImportRequest request, CancellationToken ct) => service.ImportWatchTemplateAsync(request, ct));
 app.MapPost("/api/watches", (ProjectService service, WatchListRequest request, CancellationToken ct) => service.SaveWatchAsync(request, ct: ct));

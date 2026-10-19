@@ -11,7 +11,7 @@ public sealed class ExtensionCatalogTests
     {
         IWorkspaceExtension[] modules = [new LogixExtension(), new FactoryTalkExtension(), new ViewDesignerExtension(), new WatchesExtension()];
         var operations = modules.SelectMany(x => x.Describe()).ToArray();
-        Assert.Equal(63, operations.Length); Assert.Equal(63, operations.Select(o => o.Name).Distinct().Count());
+        Assert.Equal(65, operations.Length); Assert.Equal(65, operations.Select(o => o.Name).Distinct().Count());
         foreach (var operation in operations) ExtensionSchema.CheckDefinition(operation.InputSchema);
         Assert.Equal("control", operations.Single(o => o.Name == "studio_sdk_start_job").Effect);
         Assert.Equal("control", operations.Single(o => o.Name == "studio_watch_start").Effect);
@@ -27,5 +27,7 @@ public sealed class ExtensionCatalogTests
         Assert.Equal("read", operations.Single(o => o.Name == "studio_watch_template_preview").Effect);
         Assert.Equal("apply", operations.Single(o => o.Name == "studio_watch_template_export").Effect);
         Assert.Equal("apply", operations.Single(o => o.Name == "studio_watch_template_import").Effect);
+        Assert.Equal("read", operations.Single(o => o.Name == "studio_watch_rebind_preview").Effect);
+        Assert.Equal("apply", operations.Single(o => o.Name == "studio_watch_rebind_apply").Effect);
     }
 }

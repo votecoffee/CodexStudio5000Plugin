@@ -26,7 +26,7 @@ internal static class ExtensionIntegration
         { ["extensionId"] = view.Id, ["operation"] = "viewdesigner_screen_summary", ["generation"] = view.Generation });
         Check(view.Operations.All(o => o.InputSchema.ValueKind == JsonValueKind.Undefined) && descriptor.InputSchema.GetProperty("properties").TryGetProperty("file", out _),
             "Compact live catalog omits schemas and describe returns the selected exact schema");
-        Check(catalog.Extensions.Where(x => x.Id != "fixture").Sum(x => x.Operations.Length) == 63, "Live catalog exposes watch templates/preflight, PLC where-used, FactoryTalk reference resolution, project comparison and ladder previews");
+        Check(catalog.Extensions.Where(x => x.Id != "fixture").Sum(x => x.Operations.Length) == 65, "Live catalog exposes watch rebind/templates/preflight, PLC where-used, FactoryTalk reference resolution, project comparison and ladder previews");
         var graphics = await client.PostAsync<ProjectInfo>("/api/projects", new RegisterRequest(Path.Combine(root, "examples", "DemoME.xml")));
         var factoryTalk = catalog.Extensions.Single(x => x.Id == "factorytalk" && x.State == "active");
         var referenceCall = new ExtensionCall(factoryTalk.Id, "ftview_tag_references", factoryTalk.Generation,
@@ -111,6 +111,34 @@ internal static class ExtensionIntegration
             Check(savedTemplate.Sha256 == templateArtifact.Sha256 && ProjectService.Hash(await File.ReadAllBytesAsync(savedTemplate.Path)) == templateArtifact.Sha256 &&
                 (await client.GetAsync<WatchStatus>($"/api/watches/{templateSource.Definition.Id}")).Definition.Revision == 0,
                 "Portable JSON saves through the shared output-root guard and preserves the source list");
+            var rebindProject = await client.PostAsync<ProjectInfo>("/api/projects", new RegisterRequest(preflightSource));
+            var scopePreview = await client.PostAsync<ChangePreview>($"/api/projects/{rebindProject.Id}/previews", new PreviewRequest(rebindProject.CurrentSha256,
+                [new("set_attribute", "//Program[@Name='WatchProgram']", "ReboundProgram", "Name")]));
+            rebindProject = await client.PostAsync<ProjectInfo>($"/api/projects/{rebindProject.Id}/previews/{scopePreview.Id}/apply", new ApplyRequest(rebindProject.CurrentSha256));
+            var rebindRequest = new WatchRebindPreviewRequest(0, rebindProject.Id, rebindProject.CurrentSha256, [new("WatchProgram", "ReboundProgram")]);
+            var rebindCall = new ExtensionCall(watches.Id, "studio_watch_rebind_preview", watches.Generation,
+                JsonSerializer.SerializeToElement(new { watchId = templateImported.Definition.Id, request = rebindRequest }, ProjectService.Json));
+            var reboundPreview = await Tool<WatchRebindPreviewReport>("studio_extensions_read", new() { ["call"] = rebindCall });
+            var restReboundPreview = await client.PostAsync<WatchRebindPreviewReport>($"/api/watches/{templateImported.Definition.Id}/rebind-preview", rebindRequest);
+            Check(reboundPreview.CanApply && reboundPreview.BaselineStatus == "matching_l5x" && reboundPreview.Changes.All(c => c.Changes.Contains("scope_changed")) &&
+                JsonSerializer.Serialize(reboundPreview) == JsonSerializer.Serialize(restReboundPreview),
+                "REST and MCP rebind preview compare the same approved source and exact mapped destination without opening a reader");
+            var wrongRebind = new ExtensionCall(watches.Id, "studio_watch_rebind_apply", watches.Generation,
+                JsonSerializer.SerializeToElement(new { watchId = templateImported.Definition.Id, request = new WatchRebindApplyRequest(rebindRequest, new string('0', 64)) }, ProjectService.Json));
+            Check((await mcp.CallToolAsync("studio_extensions_apply", new Dictionary<string, object?> { ["call"] = wrongRebind })).IsError == true &&
+                (await client.GetAsync<WatchStatus>($"/api/watches/{templateImported.Definition.Id}")).Definition.Revision == 0,
+                "A rejected rebind review hash preserves the existing definition revision");
+            var applyRebind = wrongRebind with { Arguments = JsonSerializer.SerializeToElement(new { watchId = templateImported.Definition.Id,
+                request = new WatchRebindApplyRequest(rebindRequest, reboundPreview.ReviewSha256) }, ProjectService.Json) };
+            var rebound = await Tool<WatchStatus>("studio_extensions_apply", new() { ["call"] = applyRebind });
+            var oldRecording = await client.PostAsync<WatchRecordingPage>($"/api/watches/{rebound.Definition.Id}/recording/query", new WatchRecordingQuery(WatchRevision: 0));
+            var newRecording = await client.PostAsync<WatchRecordingPage>($"/api/watches/{rebound.Definition.Id}/recording/query", new WatchRecordingQuery());
+            Check(rebound.Definition.Id == templateImported.Definition.Id && rebound.Definition.Revision == 1 && rebound.State == "stopped" && rebound.Latest is null &&
+                rebound.Definition.Settings is { IntervalMs: 375, HistoryLimit: 37 } && rebound.Definition.Settings.Tags.All(t => t.ProgramName == "ReboundProgram") &&
+                oldRecording.Definition!.Settings.Tags.All(t => t.ProgramName == "WatchProgram") && newRecording.Records.Any(r => r.Kind == "source_rebound"),
+                "Reviewed MCP rebind advances the same stopped list and preserves its settings, old recording definition and cutover event");
+            Check((await mcp.CallToolAsync("studio_extensions_apply", new Dictionary<string, object?> { ["call"] = applyRebind })).IsError == true,
+                "Reusing an applied rebind request is rejected by the expected watch revision");
         }
         finally
         {

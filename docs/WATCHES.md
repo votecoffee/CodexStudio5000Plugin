@@ -8,6 +8,8 @@ Use [watch preflight](WATCH_PREFLIGHT.md) to inspect a draft, saved definition o
 
 [Portable templates](WATCH_TEMPLATES.md) export saved selections/settings and bind them to another project through a reviewed import. Each import creates an independent stopped list; source paths, routes, mode, values and recordings are excluded from templates.
 
+[Source rebinding](WATCH_REBIND.md) refreshes an existing stopped list's snapshot with a declaration comparison and checked review hash. The same list advances to a new definition revision, clears cached values and retains older recordings/definitions under their original revisions.
+
 ## Create and poll
 
 `POST /api/watches` or `studio_watch_save` creates a stopped list. Example online definition:

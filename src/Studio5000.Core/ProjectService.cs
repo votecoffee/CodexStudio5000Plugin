@@ -65,6 +65,7 @@ public sealed partial class ProjectService : IDisposable
         watches = new { minimumIntervalMs = 100, maximumTags = 64, maximumActiveLists = 4, autoStartAfterRestart = false, structures = "SDK-native decorated XML; no inferred memory offsets",
             backends = new[] { "Sdk", "LibPlcTag" }, cipBridgeConfigured = File.Exists(options.CipBridgePath), cipPlan = "/api/projects/{id}/cip-watch-plan",
             preflight = "/api/watches/preflight",
+            rebind = new { preview = "/api/watches/{id}/rebind-preview", apply = "/api/watches/{id}/rebind", requiresStopped = true, preservesRetainedRecordings = true },
             templates = new { schemaVersion = WatchTemplates.SchemaVersion, maximumBytes = WatchTemplates.MaximumBytes,
                 preview = "/api/watch-templates/preview", import = "/api/watch-templates/import", importStartsPolling = false },
             browser = "/api/tags/browse", recording = "Durable segmented journal, default 7 days/64 MiB per list; explicit gaps, revision/time queries and CSV" },

@@ -56,28 +56,31 @@ public sealed partial class ProjectService
         if (!string.Equals(await SdkFileHashAsync(source, ct), request.ExpectedSha256, StringComparison.OrdinalIgnoreCase))
             throw new OperationException("stale_revision", "Watch source hash changed.");
         ValidateCipWatch(request, target, source);
-        lock (watchLock)
+        lock (watchLock) return PersistWatchLocked(request, id, expectedRevision);
+    }
+
+    // Callers hold watchLock; rebind uses this same revision/history lifecycle after its source snapshot is validated.
+    private WatchStatus PersistWatchLocked(WatchListRequest request, string? id, int? expectedRevision)
+    {
+        WatchRuntime runtime;
+        if (id is null)
         {
-            WatchRuntime runtime;
-            if (id is null)
-            {
-                if (watches.Count >= 100) throw new OperationException("watch_limit", "Maximum 100 saved watch lists.");
-                id = Guid.NewGuid().ToString("N"); Directory.CreateDirectory(WatchDir(id));
-                runtime = new(new(id, 0, DateTimeOffset.UtcNow, Clone(request)!), WatchDir(id)); watches.Add(id, runtime);
-            }
-            else
-            {
-                runtime = Watch(id);
-                if (runtime.Task is { IsCompleted: false }) throw new OperationException("watch_running", "Stop the list before editing it.");
-                if (runtime.Definition.Revision != expectedRevision) throw new OperationException("stale_revision", "Watch list changed; refresh it before saving.");
-                runtime.Definition = runtime.Definition with { Settings = Clone(request)!, Revision = runtime.Definition.Revision + 1 };
-                runtime.Latest = null; runtime.History.Clear(); runtime.HistoryBytes = 0; runtime.Types = []; runtime.Error = null; runtime.State = "stopped";
-                var old = Path.Combine(WatchDir(id), "latest.json"); if (File.Exists(old)) File.Delete(old);
-            }
-            Save(Path.Combine(WatchDir(id), "definition.json"), runtime.Definition);
-            runtime.Recorder.PreserveDefinition(runtime.Definition);
-            return Status(runtime);
+            if (watches.Count >= 100) throw new OperationException("watch_limit", "Maximum 100 saved watch lists.");
+            id = Guid.NewGuid().ToString("N"); Directory.CreateDirectory(WatchDir(id));
+            runtime = new(new(id, 0, DateTimeOffset.UtcNow, Clone(request)!), WatchDir(id)); watches.Add(id, runtime);
         }
+        else
+        {
+            runtime = Watch(id);
+            if (runtime.Task is { IsCompleted: false }) throw new OperationException("watch_running", "Stop the list before editing it.");
+            if (runtime.Definition.Revision != expectedRevision) throw new OperationException("stale_revision", "Watch list changed; refresh it before saving.");
+            runtime.Definition = runtime.Definition with { Settings = Clone(request)!, Revision = runtime.Definition.Revision + 1 };
+            runtime.Latest = null; runtime.History.Clear(); runtime.HistoryBytes = 0; runtime.Types = []; runtime.Error = null; runtime.State = "stopped";
+            var old = Path.Combine(WatchDir(id), "latest.json"); if (File.Exists(old)) File.Delete(old);
+        }
+        Save(Path.Combine(WatchDir(id), "definition.json"), runtime.Definition);
+        runtime.Recorder.PreserveDefinition(runtime.Definition);
+        return Status(runtime);
     }
 
     private ControllerTarget? WatchTarget(WatchListRequest request) => request.ControllerTargetId is null ? null :
