@@ -7,6 +7,16 @@ try
 {
     var root = ServiceClient.FindRoot();
     using var client = new ServiceClient(root);
+    if (args.Length == 2 && args[0] is "--self-test-merge-mappings" or "--self-test-merge-mappings-workflow")
+    {
+        using var mappings = new MergeMappingForm(client, []); mappings.LoadForTest();
+        mappings.StartPosition = FormStartPosition.Manual; mappings.Location = new(-30000, -30000); mappings.ShowInTaskbar = false;
+        mappings.Show(); Application.DoEvents();
+        if (args[0].EndsWith("-workflow", StringComparison.Ordinal)) File.WriteAllText(args[1] + ".json", System.Text.Json.JsonSerializer.Serialize(
+            new { checks = mappings.ExerciseOfflineWorkflowForTest(), controllerConnectionAttempted = false }, ProjectService.Json));
+        using var bitmap = new Bitmap(mappings.Width, mappings.Height); mappings.DrawToBitmap(bitmap, new Rectangle(Point.Empty, mappings.Size));
+        bitmap.Save(args[1], System.Drawing.Imaging.ImageFormat.Png); mappings.Close(); return;
+    }
     if (args.Length == 2 && args[0] == "--self-test-comparison-workflow")
     {
         using var comparison = new ProjectCompareForm(client, null); comparison.LoadForTest(workflow: true);

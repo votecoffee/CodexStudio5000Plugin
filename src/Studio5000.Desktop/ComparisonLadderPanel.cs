@@ -18,7 +18,7 @@ public sealed class ComparisonLadderPanel : UserControl
     private LadderComparisonReport? report;
     internal LadderComparisonReport? DisplayedReport => report;
     private int routineOffset, rungOffset;
-    private bool suppress;
+    private bool suppress, restoring;
     private readonly SemaphoreSlim work = new(1, 1);
     public ComparisonLadderPanel(ServiceClient client)
     {
@@ -27,7 +27,7 @@ public sealed class ComparisonLadderPanel : UserControl
         top.Controls.Add(filter); Button(top, "Find routines", () => { routineOffset = 0; return LoadTreeAsync(); });
         Button(top, "Previous routines", () => RoutinePageAsync(-1)); Button(top, "Next routines", () => RoutinePageAsync(1)); top.Controls.Add(changed);
         Button(top, "Previous rung", () => RungPageAsync(-1)); Button(top, "Next rung", () => RungPageAsync(1));
-        changed.CheckedChanged += async (_, _) => await Run(async () => { rungOffset = 0; await LoadRungAsync(); });
+        changed.CheckedChanged += async (_, _) => { if (!restoring) await Run(async () => { rungOffset = 0; await LoadRungAsync(); }); };
         routines.AfterSelect += async (_, _) => { if (!suppress) await Run(async () => { selected = routines.SelectedNode?.Tag as ComparedRoutine; rungOffset = 0; await LoadRungAsync(); }); };
         var navigation = new SplitContainer { Dock = DockStyle.Fill, FixedPanel = FixedPanel.Panel1, SplitterDistance = 230 };
         navigation.Panel1.Controls.Add(routines); var sides = new SplitContainer { Dock = DockStyle.Fill }; sides.Panel1.Controls.Add(Side("LEFT", left, leftText)); sides.Panel2.Controls.Add(Side("RIGHT", right, rightText)); navigation.Panel2.Controls.Add(sides);
@@ -58,6 +58,29 @@ public sealed class ComparisonLadderPanel : UserControl
     public async Task LoadProjectsAsync(ProjectCompareRequest request)
     {
         Clear(); projects = request; routineOffset = rungOffset = 0; await Run(LoadTreeAsync);
+    }
+    public ComparisonBookmark? CaptureBookmark()
+    {
+        if (work.CurrentCount == 0) throw new InvalidOperationException("Wait for ladder loading before saving its position.");
+        return selected is null || report is null ? null : new(selected.LeftXPath, selected.RightXPath, report.Offset, changed.Checked,
+            string.IsNullOrWhiteSpace(filter.Text) ? null : filter.Text.Trim());
+    }
+    public async Task RestoreAsync(ProjectCompareRequest request, ComparisonBookmark? bookmark)
+    {
+        if (bookmark is null) { await LoadProjectsAsync(request); return; }
+        Clear(); projects = request;
+        await Run(async () =>
+        {
+            filter.Text = bookmark.RoutineQuery ?? "";
+            // Do not trigger the checkbox's async refresh while restoring state.
+            restoring = true; changed.Checked = bookmark.ChangesOnly; restoring = false;
+            var location = await client.PostAsync<LadderLocation>("/api/projects/compare/locate",
+                new LadderLocateRequest(request, bookmark.LeftRoutineXPath, bookmark.RightRoutineXPath, bookmark.ChangesOnly));
+            selected = location.Routine; routineOffset = 0; routineTotal = 1; rungOffset = bookmark.RungOffset;
+            suppress = true; routines.Nodes.Clear(); var owner = routines.Nodes.Add(selected.Owner);
+            var node = owner.Nodes.Add($"{selected.Name} · {selected.Change} · {selected.LeftRungs}/{selected.RightRungs}"); node.Tag = selected;
+            owner.Expand(); routines.SelectedNode = node; suppress = false; await LoadRungAsync();
+        });
     }
     public async Task OpenDifferenceAsync(ProjectCompareRequest request, ProjectDifference difference)
     {

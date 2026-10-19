@@ -24,6 +24,12 @@ Bind a saved mapping's exact revision to source/destination project IDs, current
 
 Apply remains a separate call to `/api/value-merge/apply` with the returned proposed request and review hash. That call rechecks the snapshots and exact reviewed values. Changing a stored mapping does not modify a previously returned explicit request. Original projects are preserved; export a separate working copy for native validation.
 
+## Desktop
+
+In **Compare projects…**, the saved-session row offers refresh, load, save new, update and delete. Load restores the pinned comparison and its exact ladder row. A stale session leaves the comparison empty with diagnostics; explicitly compare current snapshots before updating it.
+
+In **Merge tag values…**, select the source/destination snapshots and scopes, then choose **Reusable mappings…**. Edit source/destination whole-tag names in the grid, save a new mapping or update a loaded one, then choose **Use saved mapping**. The merge window displays the freshly bound value review. It requires a separate click on **Apply reviewed offline merge** to change the destination. Unsaved mapping edits must be saved before use. Both editors retain the revision they loaded when updating; refreshing the library does not authorize overwriting another client's changes.
+
 ## REST and MCP
 
 | Method | Path | Purpose |

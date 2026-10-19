@@ -96,6 +96,15 @@ public sealed class SavedReviewTests : IDisposable
         Assert.Contains(service.History(), e => e.Action == "merge-mappings_delete");
     }
     [Fact]
+    public async Task SessionHashesAcceptHexCaseAndMissingRevisionFilesHaveExplicitResumeDiagnostics()
+    {
+        var a = await Project(); var b = await Project(true);
+        var saved = await service.SaveComparisonSessionAsync(new("Case-insensitive hashes", Compare(a, b) with { LeftSha256 = a.CurrentSha256.ToUpperInvariant() }));
+        Assert.True((await service.GetComparisonSessionAsync(saved.Id)).CanResume);
+        File.Delete(Path.Combine(root, "state", "projects", b.Id, "revision-0.l5x"));
+        var missing = await service.GetComparisonSessionAsync(saved.Id); Assert.False(missing.CanResume); Assert.Contains("unavailable", missing.Issues.Single());
+    }
+    [Fact]
     public async Task InvalidBookmarksAreRejectedBeforeSaving()
     {
         var a = await Project(); var b = await Project(true); var c = Compare(a, b);

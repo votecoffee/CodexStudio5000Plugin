@@ -137,8 +137,9 @@ public sealed partial class ProjectService
             var saved = Read<ComparisonSession>(ExistingReviewPath("comparison-sessions", id)); var issues = new List<string>();
             void Check(string side, string projectId, string hash)
             {
-                try { var current = Get(projectId); if (current.Kind != "logix" || current.CurrentSha256 != hash) issues.Add(side + " snapshot changed; select current snapshots and compare explicitly before saving a new revision."); }
+                try { var current = Get(projectId); if (current.Kind != "logix" || !current.CurrentSha256.Equals(hash, StringComparison.OrdinalIgnoreCase)) issues.Add(side + " snapshot changed; select current snapshots and compare explicitly before saving a new revision."); }
                 catch (OperationException ex) { issues.Add(side + ": " + ex.Code + ": " + ex.Message); }
+                catch (IOException) { issues.Add(side + ": saved snapshot file is unavailable."); }
             }
             Check("Left", saved.Comparison.LeftProjectId, saved.Comparison.LeftSha256); Check("Right", saved.Comparison.RightProjectId, saved.Comparison.RightSha256);
             return new(saved, issues.Count == 0, issues.ToArray());

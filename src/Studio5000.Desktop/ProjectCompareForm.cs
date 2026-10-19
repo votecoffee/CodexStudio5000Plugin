@@ -17,6 +17,8 @@ public sealed class ProjectCompareForm : WorkspaceForm
     private readonly ComboBox right = new() { Width = 330, DropDownStyle = ComboBoxStyle.DropDownList };
     private readonly TextBox query = new() { Width = 240, PlaceholderText = "Filter component path or kind" };
     private readonly CheckBox numbers = new() { Text = "Include rung numbers", AutoSize = true };
+    private readonly ComboBox sessions = new() { Width = 225, DropDownStyle = ComboBoxStyle.DropDownList };
+    private readonly TextBox sessionName = new() { Width = 190, Text = "Comparison session", PlaceholderText = "Session name" };
     private readonly DataGridView changes = new() { Dock = DockStyle.Fill, ReadOnly = true, AutoGenerateColumns = false,
         AllowUserToAddRows = false, RowHeadersVisible = false, MultiSelect = false, SelectionMode = DataGridViewSelectionMode.FullRowSelect };
     private readonly TextBox before = XmlBox(), after = XmlBox();
@@ -26,13 +28,14 @@ public sealed class ProjectCompareForm : WorkspaceForm
     private readonly Label status = new() { Dock = DockStyle.Bottom, Height = 52, Padding = new(8), Text = "Choose two registered Logix snapshots. Structural comparison only." };
     private ProjectComparisonReport? report;
     private ProjectCompareRequest? request;
+    private ComparisonSession? loadedSession;
     private bool busy, fixture;
 
     public ProjectCompareForm(ServiceClient client, ProjectInfo? initial)
     {
         this.client = client; this.initial = initial; ladder = new(client);
         Text = "Logix project comparison"; Size = new(1380, 880); MinimumSize = new(1100, 700); Font = new("Segoe UI", 10);
-        var top = new FlowLayoutPanel { Dock = DockStyle.Top, Height = 92, Padding = new(8), AutoScroll = true };
+        var top = new FlowLayoutPanel { Dock = DockStyle.Top, Height = 136, Padding = new(8), AutoScroll = true };
         top.Controls.Add(new Label { Text = "Left", AutoSize = true, Padding = new(0, 7, 0, 0) }); top.Controls.Add(left);
         top.Controls.Add(new Label { Text = "Right", AutoSize = true, Padding = new(0, 7, 0, 0) }); top.Controls.Add(right);
         Button(top, "Refresh snapshots", RefreshAsync); Button(top, "Compare", CompareAsync);
@@ -40,6 +43,10 @@ public sealed class ProjectCompareForm : WorkspaceForm
         top.SetFlowBreak(top.Controls[^1], true); top.Controls.Add(query); top.Controls.Add(numbers);
         Button(top, "Previous", () => PageAsync(-1)); Button(top, "Next", () => PageAsync(1));
         top.Controls.Add(locate); locate.Click += async (_, _) => await Run(LocateAsync);
+        top.SetFlowBreak(locate, true); top.Controls.Add(sessions); top.Controls.Add(sessionName);
+        Button(top, "Refresh sessions", () => RefreshSessionsAsync()); Button(top, "Load session", LoadSessionAsync);
+        Button(top, "Save new", () => SaveSessionAsync(false)); Button(top, "Update selected", () => SaveSessionAsync(true)); Button(top, "Delete selected", DeleteSessionAsync);
+        sessions.SelectionChangeCommitted += (_, _) => { if (sessions.SelectedItem is SavedReviewChoice s) sessionName.Text = s.Summary.Name; };
         changes.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "Change", HeaderText = "Change", Width = 100 });
         changes.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "Kind", HeaderText = "Component", Width = 150 });
         changes.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "Path", HeaderText = "Component path", AutoSizeMode = DataGridViewAutoSizeColumnMode.Fill });
@@ -59,7 +66,7 @@ public sealed class ProjectCompareForm : WorkspaceForm
         {
             horizontal.SplitterDistance = Math.Max(100, horizontal.Height / 4);
             sides.SplitterDistance = Math.Max(100, sides.Width / 2);
-            if (!fixture) await Run(RefreshAsync);
+            if (!fixture) await Run(async () => { await RefreshAsync(); await RefreshSessionsAsync(); });
         };
     }
     private static TextBox XmlBox() => new() { Dock = DockStyle.Fill, Multiline = true, ReadOnly = true,
@@ -134,6 +141,45 @@ public sealed class ProjectCompareForm : WorkspaceForm
         if (request is null || report is null || changes.CurrentRow?.DataBoundItem is not ProjectDifference difference) throw new ArgumentException("Select a saved RLL change first.");
         previews.SelectedIndex = 1; await ladder.OpenDifferenceAsync(request, difference);
     }
+    private async Task RefreshSessionsAsync(string? id = null)
+    {
+        id ??= (sessions.SelectedItem as SavedReviewChoice)?.Summary.Id;
+        var choices = (await client.GetAsync<ReviewSummary[]>("/api/comparison-sessions")).Select(s => new SavedReviewChoice(s)).ToArray();
+        sessions.DataSource = choices; sessions.SelectedItem = choices.FirstOrDefault(s => s.Summary.Id == id) ?? choices.FirstOrDefault();
+    }
+    private async Task SaveSessionAsync(bool update)
+    {
+        if (request is null || report is null) throw new InvalidOperationException("Compare current snapshots before saving a session.");
+        if (request.Query != (string.IsNullOrWhiteSpace(query.Text) ? null : query.Text.Trim()) || request.IncludeRungNumbers != numbers.Checked)
+            throw new InvalidOperationException("Select Compare to include the changed comparison settings before saving.");
+        var existing = update ? (sessions.SelectedItem as SavedReviewChoice)?.Summary ?? throw new InvalidOperationException("Select a saved session to update.") : null;
+        if (existing is not null && loadedSession?.Id != existing.Id) throw new InvalidOperationException("Load the selected session before updating it.");
+        var saved = await client.PostAsync<ComparisonSession>("/api/comparison-sessions", new ComparisonSessionSaveRequest(sessionName.Text, request, ladder.CaptureBookmark(), existing?.Id, existing is null ? null : loadedSession!.Revision));
+        loadedSession = saved;
+        await RefreshSessionsAsync(saved.Id); status.Text = $"Saved {saved.Name} revision {saved.Revision}, with pinned snapshot hashes and ladder position.";
+    }
+    private async Task LoadSessionAsync()
+    {
+        var chosen = (sessions.SelectedItem as SavedReviewChoice)?.Summary ?? throw new InvalidOperationException("Select a saved session.");
+        var view = await client.GetAsync<ComparisonSessionView>("/api/comparison-sessions/" + chosen.Id);
+        loadedSession = view.Session;
+        await RefreshAsync(); await RefreshSessionsAsync(view.Session.Id); sessionName.Text = view.Session.Name;
+        var c = view.Session.Comparison;
+        left.SelectedItem = left.Items.Cast<ReviewProjectChoice>().FirstOrDefault(p => p.Project.Id == c.LeftProjectId);
+        right.SelectedItem = right.Items.Cast<ReviewProjectChoice>().FirstOrDefault(p => p.Project.Id == c.RightProjectId);
+        query.Text = c.Query ?? ""; numbers.Checked = c.IncludeRungNumbers;
+        if (!view.CanResume) { status.Text = string.Join(" ", view.Issues); return; }
+        request = c; await LoadAsync(); await ladder.RestoreAsync(c, view.Session.Bookmark); previews.SelectedIndex = 1;
+        if (view.Session.Bookmark is { } bookmark && ladder.DisplayedReport?.Offset != bookmark.RungOffset)
+            throw new InvalidOperationException("Saved ladder position could not be restored; refresh snapshots and inspect the ladder diagnostics.");
+    }
+    private async Task DeleteSessionAsync()
+    {
+        var chosen = (sessions.SelectedItem as SavedReviewChoice)?.Summary ?? throw new InvalidOperationException("Select a saved session.");
+        await client.PostAsync<object>($"/api/comparison-sessions/{chosen.Id}/delete", new ReviewDeleteRequest(chosen.Revision));
+        if (loadedSession?.Id == chosen.Id) loadedSession = null;
+        await RefreshSessionsAsync(); status.Text = "Saved session deleted. Project snapshots remain available.";
+    }
     public void LoadForTest(bool showLadder = false, bool workflow = false)
     {
         fixture = true; if (workflow) return;
@@ -166,6 +212,8 @@ public sealed class ProjectCompareForm : WorkspaceForm
                 changes.CurrentCell = row.Cells[0]; Check(locate.Enabled, "GUI enables navigation for the selected " + change + " rung"); await LocateAsync();
             }
             await Open("modified"); Check(ladder.DisplayedReport is { Offset: 18 } page && page.Rungs.Single() is { Left.Index: 17, Right.Index: 18 }, "GUI selected-change action jumps to the late modified source occurrences");
+            sessionName.Text = "Generated saved comparison"; await SaveSessionAsync(false); ClearSelection(); await LoadSessionAsync();
+            Check(ladder.DisplayedReport is { Offset: 18 } restored && restored.Rungs.Single() is { Left.Index: 17, Right.Index: 18 }, "GUI saves and restores a comparison session at the exact aligned rung");
             await Open("added"); Check(ladder.DisplayedReport!.Rungs.Single() is { Change: "added", Left: null, Right.Index: 4 }, "GUI selected-change action preserves the insertion gap and infers the existing routine");
             ClearSelection(); Check(report is null && ladder.DisplayedReport is null && !locate.Enabled, "Changing GUI snapshot selection clears comparison navigation and disables its action");
             await CompareAsync(); await Open("modified");

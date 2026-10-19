@@ -61,6 +61,7 @@ public sealed class TagValueMergeForm : WorkspaceForm
         actions.Controls.Add(query); Button(actions, "Find tags", () => { offset = 0; return FindAsync(); }); Button(actions, "Previous tags", () => PageAsync(-1)); Button(actions, "Next tags", () => PageAsync(1));
         Button(actions, "Select ready on page", () => { SelectReady(); return Task.CompletedTask; }); Button(actions, "Clear selection", () => { ClearSelected(); return Task.CompletedTask; }); actions.Controls.Add(selection); Break(actions);
         Button(actions, "Preview selected values", PreviewAsync); actions.Controls.Add(apply); apply.Click += async (_, _) => await Run(ApplyAsync);
+        Button(actions, "Reusable mappings…", MappingsAsync);
         Button(actions, "Export destination L5X…", () => ExportAsync("l5x")); Button(actions, "Export destination ACD…", () => ExportAsync("acd"));
         Controls.Add(split); Controls.Add(actions); Controls.Add(status); Controls.Add(top);
         Shown += async (_, _) => { split.SplitterDistance = Math.Max(220, split.Height * 3 / 5); if (!fixture) await Run(InitializeAsync); };
@@ -146,6 +147,21 @@ public sealed class TagValueMergeForm : WorkspaceForm
         rows.EndEdit(); var maps = selectedTags.OrderBy(t => t.SourceProgram, StringComparer.Ordinal).ThenBy(t => t.SourceTag, StringComparer.Ordinal).ThenBy(t => t.DestinationProgram, StringComparer.Ordinal).ThenBy(t => t.DestinationTag, StringComparer.Ordinal).ToArray();
         if (maps.Length == 0) throw new ArgumentException("Select at least one tag row.");
         var request = Request(maps); Show(await client.PostAsync<TagValueMergeReport>("/api/value-merge/preview", request), request);
+    }
+    private async Task MappingsAsync()
+    {
+        _ = Request();
+        using var dialog = new MergeMappingForm(client, selectedTags.OrderBy(t => t.SourceTag, StringComparer.Ordinal).Select(t => new MergeTagPair(t.SourceTag, t.DestinationTag)).ToArray());
+        if (dialog.ShowDialog(this) == DialogResult.OK && dialog.Selection is { } mapping) await BindMappingAsync(mapping);
+    }
+    private async Task BindMappingAsync(SavedMergeMapping mapping)
+    {
+        InvalidateReview();
+        var current = Request();
+        var binding = await client.PostAsync<MergeMappingBinding>("/api/merge-mappings/bind", new MergeMappingBindRequest(mapping.Id, mapping.Revision,
+            current.SourceProjectId, current.SourceSha256, current.DestinationProjectId, current.DestinationSha256, current.SourceProgram, current.DestinationProgram));
+        selectedTags.Clear(); selectedTags.UnionWith(binding.Proposed.Tags!); page = null; offset = 0;
+        Show(binding.Preview, binding.Proposed);
     }
     private void Show(TagValueMergeReport value, TagValueMergeRequest? request)
     {
@@ -246,6 +262,12 @@ public sealed class TagValueMergeForm : WorkspaceForm
                 "GUI merge changes selected values, preserves unselected values and leaves its source revision unchanged");
             query.Text = "Batch100"; await FindAsync(); SelectReady(); await PreviewAsync(); sourceScope.SelectedItem = sourceScope.Items.Cast<Scope>().Single(s => s.Name == "WatchProgram");
             Check(selectedTags.Count == 0 && rows.Rows.Count == 0 && !apply.Enabled && reviewed is null, "Changing GUI scope clears mappings and invalidates the review");
+            sourceScope.SelectedItem = sourceScope.Items.Cast<Scope>().Single(s => s.Name is null);
+            var mapping = await client.PostAsync<SavedMergeMapping>("/api/merge-mappings", new MergeMappingSaveRequest(JsonSerializer.SerializeToElement(
+                new MergeMappingTemplate(1, "Generated GUI mapping", [new("Batch100", "Batch101")]), ProjectService.Json)));
+            await BindMappingAsync(mapping);
+            Check(report is { CanApply: true, Rows.Length: 1 } && reviewed?.Tags?.Single().DestinationTag == "Batch101" && apply.Enabled,
+                "GUI binds saved renamed tag pairs to current scopes and displays a fresh review before apply");
         }
         WorkflowValidation.Run(ExerciseAsync); return checks.ToArray();
     }
