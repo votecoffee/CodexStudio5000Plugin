@@ -9,7 +9,7 @@ namespace Studio5000.Core;
 public sealed record DocumentationQuery(string ExpectedSha256, string? Query = null, string? Kind = null, string? Language = null, int Offset = 0, int Limit = 100, bool IncludeMissing = false);
 public sealed record DocumentationText(string? Language, string Text);
 public sealed record DocumentationField(string OwnerXPath, string Kind, string OwnerKind, string Name, string? Program, string? Routine, string? Operand,
-    DocumentationText[] Texts, bool Exists, bool Writable, string[] Diagnostics);
+    DocumentationText[] Texts, bool Exists, bool Writable, string[] Diagnostics, string Context);
 public sealed record DocumentationPage(ComparisonSnapshot Project, string? CurrentLanguage, string? DefaultLanguage, string? ControllerLanguage,
     string[] Languages, DocumentationField[] Fields, int Total, int Offset, int Limit, string Boundary);
 public sealed record DocumentationEdit(string OwnerXPath, string Kind, string? Language, string? Text = null, string? Operand = null, string Operation = "set", string? LegacyLanguage = null);
@@ -33,7 +33,22 @@ public static class ProjectDocumentation
         ["state0"] = new("State0", "LocalizedState0", "State0s"), ["state1"] = new("State1", "LocalizedState1", "State1s"),
         ["additional-help"] = new("AdditionalHelpText", "LocalizedAdditionalHelpText")
     };
-    private static bool Owner(XElement owner, string kind) => !owner.Ancestors().Any(a => a.Name.LocalName is "Data" or "CustomProperties" or "EncryptedContent" or "EncryptedSegments") && kind switch
+    private static bool DeclaredOwner(XElement owner)
+    {
+        var parent = owner.Parent; var scope = parent?.Parent;
+        if (owner.Name == "Controller") return parent == owner.Document?.Root;
+        var container = owner.Name.LocalName switch { "Tag" => "Tags", "LocalTag" => "LocalTags", "Parameter" => "Parameters", "DataType" => "DataTypes", "Member" => "Members", "Program" => "Programs", "EquipmentPhase" => "EquipmentPhases", "Routine" => "Routines", "AddOnInstructionDefinition" => "AddOnInstructionDefinitions", "Task" => "Tasks", "Module" => "Modules", "Trend" => "Trends", "Rung" => "RLLContent", _ => "" };
+        if (container.Length == 0 || parent?.Name != container || scope is null) return false;
+        var permitted = owner.Name.LocalName switch
+        {
+            "Tag" => scope.Name.LocalName is "Controller" or "Program" or "EquipmentPhase",
+            "LocalTag" or "Parameter" => scope.Name == "AddOnInstructionDefinition",
+            "Member" => scope.Name == "DataType", "Routine" => scope.Name.LocalName is "Program" or "EquipmentPhase" or "AddOnInstructionDefinition",
+            "Rung" => scope.Name == "Routine", _ => scope.Name == "Controller"
+        };
+        return permitted && DeclaredOwner(scope);
+    }
+    private static bool Owner(XElement owner, string kind) => DeclaredOwner(owner) && !owner.Ancestors().Any(a => a.Name.LocalName is "Data" or "CustomProperties" or "EncryptedContent" or "EncryptedSegments") && kind switch
     {
         "description" => DescriptionOwners.Contains(owner.Name.LocalName) && (owner.Name != "Member" || owner.Parent?.Name == "Members" && owner.Parent.Parent?.Name == "DataType"),
         "rung-comment" => owner.Name == "Rung" && owner.Parent?.Name == "RLLContent",
@@ -74,7 +89,8 @@ public static class ProjectDocumentation
         }
         if (texts.Count > 64 || texts.GroupBy(t => t.Language ?? "", StringComparer.OrdinalIgnoreCase).Any(g => g.Count() > 1)) diagnostics.Add("duplicate_or_excess_languages");
         return new(XmlProjects.PathOf(owner), kind, owner.Name.LocalName, (string?)owner.Attribute("Name") ?? (string?)owner.Attribute("Number") ?? owner.Name.LocalName,
-            (string?)owner.AncestorsAndSelf("Program").FirstOrDefault()?.Attribute("Name"), (string?)owner.AncestorsAndSelf("Routine").FirstOrDefault()?.Attribute("Name"), operand, texts.ToArray(), elements.Length != 0, diagnostics.Count == 0, diagnostics.Distinct().ToArray());
+            (string?)owner.AncestorsAndSelf("Program").FirstOrDefault()?.Attribute("Name"), (string?)owner.AncestorsAndSelf("Routine").FirstOrDefault()?.Attribute("Name"), operand, texts.ToArray(), elements.Length != 0, diagnostics.Count == 0, diagnostics.Distinct().ToArray(),
+            string.Join(" / ", owner.AncestorsAndSelf().Reverse().Where(e => e.Attribute("Name") is not null || e.Attribute("Number") is not null).Select(e => e.Name.LocalName + ":" + ((string?)e.Attribute("Name") ?? (string?)e.Attribute("Number")))));
     }
     internal static string? DisplayText(XElement? element)
     {
@@ -101,7 +117,7 @@ public static class ProjectDocumentation
         var all = Fields(doc, query.IncludeMissing).Take(50001).ToArray(); if (all.Length > 50000) throw new OperationException("documentation_limit", "More than 50000 documentation fields; use a smaller source export.");
         var languages = all.SelectMany(f => f.Texts).Select(t => t.Language).Where(l => l is not null).Cast<string>().Distinct(StringComparer.OrdinalIgnoreCase).Order(StringComparer.OrdinalIgnoreCase).ToArray();
         var selected = all.Where(f => (query.Kind is null || f.Kind == query.Kind) && (query.Language is null || f.Texts.Any(t => string.Equals(t.Language, query.Language, StringComparison.OrdinalIgnoreCase))) &&
-            (query.Query is null || string.Join(' ', f.Kind, f.OwnerKind, f.Name, f.Program, f.Routine, f.Operand, string.Join(' ', f.Texts.Select(t => t.Text))).Contains(query.Query, StringComparison.OrdinalIgnoreCase))).ToArray();
+            (query.Query is null || string.Join(' ', f.Kind, f.Context, f.Operand, string.Join(' ', f.Texts.Select(t => t.Text))).Contains(query.Query, StringComparison.OrdinalIgnoreCase))).ToArray();
         var fields = exporting ? selected : selected.Skip(query.Offset).Take(query.Limit).ToArray();
         var page = new DocumentationPage(new(p.Id, p.Name, p.Revision, p.CurrentSha256), (string?)controller.Attribute("CurrentProjectLanguage") ?? (string?)doc.Root.Attribute("CurrentLanguage"),
             (string?)controller.Attribute("DefaultProjectLanguage"), (string?)controller.Attribute("ControllerLanguage"), languages, fields, selected.Length, exporting ? 0 : query.Offset, exporting ? selected.Length : query.Limit, Boundary);
@@ -116,7 +132,7 @@ public static class ProjectDocumentation
     internal static (byte[] Bytes, DocumentationChange[] Changes) Update(byte[] before, DocumentationEdit[] edits)
     {
         if (edits is null || edits.Length is < 1 or > 200 || edits.Any(e => e is null)) throw new OperationException("documentation_edits", "Provide 1..200 explicit documentation edits.");
-        var doc = XmlProjects.Parse(before); ProjectComparison.ValidateSize(doc); var changes = new List<DocumentationChange>(); var touched = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var doc = XmlProjects.Parse(before); ProjectComparison.ValidateSize(doc); var changes = new List<DocumentationChange>(); var touched = new HashSet<string>(StringComparer.OrdinalIgnoreCase); var promotions = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         foreach (var edit in edits)
         {
             Language(edit.Language); Language(edit.LegacyLanguage); Operand(edit.Operand);
@@ -125,7 +141,8 @@ public static class ProjectDocumentation
             if (edit.Text is not null) { try { XmlConvert.VerifyXmlChars(edit.Text); } catch (XmlException) { throw new OperationException("documentation_text", "Documentation contains invalid XML characters."); } }
             var owner = XmlProjects.Select(doc, edit.OwnerXPath); var prior = Field(owner, edit.Kind, edit.Operand);
             if (!prior.Writable || edit.Kind == "tag-comment" && edit.Operand is null || shape.Container is null && edit.Operand is not null) throw new OperationException("documentation_target", "Choose an unambiguous supported documentation owner/operand.");
-            if (!touched.Add(prior.OwnerXPath + "|" + edit.Kind + "|" + edit.Operand + "|" + edit.Language)) throw new OperationException("documentation_duplicate", "Edit each field/language pair once per batch.");
+            var fieldKey = prior.OwnerXPath + "|" + edit.Kind + "|" + edit.Operand;
+            if (!touched.Add(fieldKey + "|" + edit.Language)) throw new OperationException("documentation_duplicate", "Edit each field/language pair once per batch.");
             var element = Elements(owner, edit.Kind, edit.Operand).SingleOrDefault();
             if (element is null)
             {
@@ -143,9 +160,11 @@ public static class ProjectDocumentation
             if (!localized && edit.Language is not null && prior.Exists)
             {
                 if (edit.LegacyLanguage is null) throw new OperationException("documentation_legacy_language", "Assign the existing unlocalized text an explicit LegacyLanguage before adding localized text.");
+                promotions.Add(fieldKey, edit.LegacyLanguage);
                 var text = element.Value; element.ReplaceNodes(new XElement(shape.Localized, new XAttribute("Lang", edit.LegacyLanguage), new XText(text))); localized = true;
             }
-            else if (edit.LegacyLanguage is not null) throw new OperationException("documentation_legacy_language", "LegacyLanguage is only valid when promoting an existing unlocalized field.");
+            else if (edit.LegacyLanguage is not null && (!promotions.TryGetValue(fieldKey, out var originalLanguage) || !string.Equals(originalLanguage, edit.LegacyLanguage, StringComparison.OrdinalIgnoreCase)))
+                throw new OperationException("documentation_legacy_language", "LegacyLanguage must consistently name this batch's original unlocalized language; it cannot relabel existing localized content.");
             if (localized && edit.Language is null) throw new OperationException("documentation_language", "Choose an explicit language for a localized field.");
             if (edit.Language is null)
             {

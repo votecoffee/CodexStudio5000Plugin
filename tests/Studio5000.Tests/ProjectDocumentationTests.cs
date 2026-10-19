@@ -50,10 +50,17 @@ public sealed class ProjectDocumentationTests : IDisposable
     {
         var p = await service.RegisterAsync(path); var edit = new DocumentationEdit(Tag("Enabled"), "description", "es-ES", "Permiso");
         await Assert.ThrowsAsync<OperationException>(() => service.PreviewDocumentationAsync(p.Id, new(p.CurrentSha256, [edit])));
-        var next = await Update(p, edit with { LegacyLanguage = "en-US" }, edit with { Language = "zh-CN", Text = "运行许可" });
+        var next = await Update(p, edit with { LegacyLanguage = "en-US" }, edit with { Language = "zh-CN", Text = "运行许可", LegacyLanguage = "en-US" });
         var texts = Browse(next).Fields.Single(f => f.Name == "Enabled").Texts;
         Assert.Equal(3, texts.Length); Assert.Contains(texts, t => t.Language == "en-US" && t.Text == "Legacy description\nSecond line"); Assert.Contains(texts, t => t.Language == "zh-CN");
         await Assert.ThrowsAsync<OperationException>(() => service.PreviewDocumentationAsync(next.Id, new(next.CurrentSha256, [edit with { Language = null }])));
+    }
+    [Fact]
+    public async Task InconsistentLegacyAssignmentsAndLaterBatchErrorsNeverApplyPartialChanges()
+    {
+        var p = await service.RegisterAsync(path); var edit = new DocumentationEdit(Tag("Enabled"), "description", "es-ES", "Permiso", LegacyLanguage: "en-US");
+        await Assert.ThrowsAsync<OperationException>(() => Update(p, edit, edit with { Language = "ja-JP", LegacyLanguage = "de-DE" }));
+        Assert.Equal(0, service.Get(p.Id).Revision); Assert.Equal(p.CurrentSha256, service.Get(p.Id).CurrentSha256);
     }
     [Fact]
     public async Task CreatesMissingFieldsAndRemovesOnlyTheExplicitSelectedLanguage()
@@ -83,6 +90,18 @@ public sealed class ProjectDocumentationTests : IDisposable
             await Assert.ThrowsAsync<OperationException>(() => Update(p, edit));
         var one = new DocumentationEdit(Tag("Record"), "description", "en-US", "First");
         await Assert.ThrowsAsync<OperationException>(() => Update(p, one, one with { Language = "EN-us", Text = "Second" })); Assert.Equal(0, service.Get(p.Id).Revision);
+    }
+    [Fact]
+    public async Task ExistingEngineeringUnitsCanBeLocalizedButUnknownOwnersAndContainersAreNotCreated()
+    {
+        var p = await service.RegisterAsync(path);
+        var next = await Update(p, new DocumentationEdit(Tag("Record"), "engineering-unit", "es-ES", "ciclos", ".Count", LegacyLanguage: "en-US"));
+        var units = Browse(next).Fields.Single(f => f.Kind == "engineering-unit"); Assert.Contains(units.Texts, t => t.Language == "en-US" && t.Text == "cycles");
+        await Assert.ThrowsAsync<OperationException>(() => Update(next, new DocumentationEdit(Tag("Record"), "engineering-unit", "es-ES", "No", ".Unknown")));
+        var doc = XDocument.Load(path); doc.Root!.Element("Controller")!.Add(new XElement("CustomProperties", XElement.Parse("<Tag Name='Opaque'><Description>Opaque configuration</Description></Tag>")));
+        var other = Path.Combine(root, "opaque.l5x"); doc.Save(other); var q = await service.RegisterAsync(other);
+        Assert.False(Browse(q).Fields.Single(f => f.Name == "Opaque").Writable);
+        await Assert.ThrowsAsync<OperationException>(() => Update(q, new DocumentationEdit("//CustomProperties/Tag", "description", null, "No")));
     }
     [Fact]
     public async Task FullExportIgnoresPageOffsetAndExistingViewsLabelLanguagesWithoutConcatenatingThem()
