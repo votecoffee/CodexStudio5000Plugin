@@ -201,6 +201,9 @@ app.MapPost("/api/viewdesigner/projects/{id}/previews", (ProjectService service,
 app.MapPost("/api/viewdesigner/projects/{id}/previews/{previewId}/apply", (ProjectService service, string id, string previewId, ApplyRequest request, CancellationToken ct) => service.ApplyViewDesignerAsync(id, previewId, request, ct));
 app.MapPost("/api/viewdesigner/projects/{id}/imports", (ProjectService service, string id, ViewDesignerImportRequest request, CancellationToken ct) => service.PrepareViewDesignerImportAsync(id, request, ct));
 app.MapPost("/api/viewdesigner/imports/{planId}/verify", (ProjectService service, string planId, VerifyGraphicsImportRequest request, CancellationToken ct) => service.VerifyViewDesignerImportAsync(planId, request, ct));
+app.MapGet("/api/broker/capabilities", async (ExtensionHost host, CancellationToken ct) => BrokerPublication.Catalog(await host.CatalogAsync(ct)));
+app.MapGet("/api/broker/workflow", (string workflowId, string expectedRevision) => BrokerPublication.Workflow(workflowId, expectedRevision));
+app.MapGet("/api/broker/reference", (string workflowId, string expectedRevision, string referenceId, string expectedSha256) => BrokerPublication.Reference(workflowId, expectedRevision, referenceId, expectedSha256));
 app.MapGet("/api/extensions", async (ExtensionHost host, bool? includeSchemas, string? extensionId, CancellationToken ct) =>
 {
     var catalog = await host.CatalogAsync(ct);

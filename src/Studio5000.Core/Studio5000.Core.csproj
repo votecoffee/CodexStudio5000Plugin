@@ -1,5 +1,12 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <ItemGroup><ProjectReference Include="../../third_party/L5xploderLib/L5xploderLib.csproj" /></ItemGroup>
   <ItemGroup><EmbeddedResource Include="SdkSurface.json" /></ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="../../skills/rockwell-engineering/SKILL.md" LogicalName="Broker.engineering" />
+    <EmbeddedResource Include="../../skills/logix-online-edits/SKILL.md" LogicalName="Broker.online" />
+    <EmbeddedResource Include="../../skills/logix-online-edits/references/studio-workflow.md" LogicalName="Broker.online-reference" />
+    <EmbeddedResource Include="../../skills/factorytalk-studio/SKILL.md" LogicalName="Broker.factorytalk" />
+    <EmbeddedResource Include="../../skills/factorytalk-studio/references/native-workflow.md" LogicalName="Broker.factorytalk-reference" />
+  </ItemGroup>
   <ItemGroup><ProjectReference Include="../Studio5000.Extensibility/Studio5000.Extensibility.csproj" /></ItemGroup>
 </Project>

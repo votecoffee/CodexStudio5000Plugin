@@ -48,7 +48,8 @@ await using var mcp = await McpClient.CreateAsync(new StdioClientTransport(new S
 }));
 var tools = await mcp.ListToolsAsync();
 Console.WriteLine($"MCP server: {mcp.ServerInfo.Name} {mcp.ServerInfo.Version}");
-Check(tools.Count == 56, "Official MCP client discovers 46 compatible tools plus 10 stable extension tools");
+Check(tools.Count == 59, "Official MCP client discovers 46 compatible tools, 10 stable extension tools and 3 broker metadata readers");
+checks.AddRange(await BrokerIntegration.RunAsync(client, mcp));
 if (args.Length == 1 && args[0] == "--browser-recording-only")
 {
     checks.AddRange(await BrowserRecordingIntegration.RunAsync(root, client, mcp));
