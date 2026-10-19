@@ -5,3 +5,4 @@ $env:STUDIO5000_PLUGIN_ROOT = $repo
 $exe = Join-Path $repo 'artifacts/app/Desktop/Studio5000.Desktop.exe'
 if (!(Test-Path -LiteralPath $exe)) { throw 'Run scripts/Build.ps1 first.' }
 if ($ProjectPath) { & $exe --project $ProjectPath } else { & $exe }
+if ($LASTEXITCODE -ne 0) { throw "Desktop application exited with code $LASTEXITCODE." }

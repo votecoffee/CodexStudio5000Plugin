@@ -58,24 +58,26 @@ Exploded ZIPs use legacy schema 1. Newer layouts, protected AOIs and structured-
 
 Proprietary SDK binaries, schemas and activation files are not distributed in this repository.
 
-### Build and configure
+### Install and launch
 
 Run in PowerShell:
 
 ```powershell
 git clone https://github.com/votecoffee/RockwellMCPServer.git
 cd RockwellMCPServer
-.\scripts\Build.ps1
-.\scripts\Initialize.ps1
-.\scripts\Start-Service.ps1 -Background
-.\scripts\Start-Gui.ps1
+.\Install.cmd
+.\Run.cmd
 ```
 
-This starts with the generated inputs under `examples/`. Add an existing source directory with `.\scripts\Initialize.ps1 -AllowedRoot 'C:\Projects\Rockwell'`. Initialization preserves existing settings and protects local credentials/state for the current Windows user and SYSTEM.
+You can also double-click **Install.cmd**, then **Run.cmd** in File Explorer. Installation builds the shared service, MCP adapter, GUI and extensions, initializes local settings on first use and creates a **RockwellMCPServer** shortcut with the GUI executable's icon in the current user's Start Menu. No administrator access is needed. The shortcut starts the shared service and GUI with no console window; startup errors appear in a dialog.
 
-For optional native SDK support, use `Build.ps1 -WithSdk` and `Initialize.ps1 -EnableSdk` in place of the basic build/configure commands. This does not enable controller operations.
+Run **Install.cmd** again after updating the checkout. Finish jobs, stop watch polling, close clients and run `.\scripts\Stop-Service.ps1` first; the installer refuses to rebuild applications that are running from this checkout. Existing `service.local.json` is preserved. Use `Install.cmd -NoShortcut` to omit the shortcut, or `Install.cmd -SkipBuild` to configure an already published build and recreate its shortcut. Keep the checkout in place; rerun installation if you move it. Delete the Start Menu shortcut to remove that entry.
 
-For the optional read-only CIP watch backend, use `Build.ps1 -WithCip` and `Initialize.ps1 -EnableCip`, then configure an explicit target route. Existing watches default to the SDK backend. See [CIP reader setup, offline planning and validation limits](docs/CIP_READS.md).
+This starts with the generated inputs under `examples/`. Add an existing source directory with `.\scripts\Initialize.ps1 -AllowedRoot 'C:\Projects\Rockwell'`. Initialization protects local credentials/state for the current Windows user and SYSTEM. The lower-level `Build.ps1`, `Initialize.ps1`, `Start-Service.ps1` and `Start-Gui.ps1` scripts remain available under `scripts/`.
+
+For optional native SDK support, use `.\Install.cmd -WithSdk`. This builds/configures the installed SDK bridge and does not enable controller operations.
+
+For the optional read-only CIP watch backend, use `.\Install.cmd -WithCip`, then configure an explicit target route. Both optional switches can be combined. Existing watches default to the SDK backend. See [CIP reader setup, offline planning and validation limits](docs/CIP_READS.md).
 
 Use **Preflight draft…** in the watch window or **Preflight selection…** in the tag browser to inspect declarations and configuration before polling. The same read-only operation is available through REST and the extension catalog; see [watch preflight](docs/WATCH_PREFLIGHT.md).
 
@@ -92,10 +94,12 @@ Local settings are in ignored `service.local.json`; use [service.example.json](s
 After the initial build/configuration, start the shared service and GUI together:
 
 ```powershell
-.\scripts\Start.ps1
+.\Run.cmd
 ```
 
-Use `Start-Service.ps1 -Background` for the service alone, `Start-Gui.ps1` for another desktop client, and `Stop-Service.ps1` to stop the recorded background service. Finish active jobs and stop watch polling before replacing host binaries.
+Pass `-ProjectPath "C:\Projects\Rockwell\Example.L5X"` to open a project at launch. The Start Menu shortcut also starts the service and GUI together. Closing the GUI leaves the shared service running for other clients and watches.
+
+Use `scripts/Start.ps1` for the equivalent PowerShell entry point, `Start-Service.ps1 -Background` for the service alone, `Start-Gui.ps1` for another desktop client, and `Stop-Service.ps1` to stop the recorded background service. Finish active jobs and stop watch polling before replacing host binaries.
 
 ### Connect an MCP client
 
