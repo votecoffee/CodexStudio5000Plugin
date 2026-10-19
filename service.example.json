@@ -14,7 +14,9 @@
     "ViewDesignerPath": "C:\\Program Files (x86)\\Rockwell Software\\Studio 5000\\View Designer\\ENU\\V9\\ViewDesigner.exe",
     "ExtensionsDirectory": "extensions",
     "ExtensionWorkerPath": "artifacts/app/ExtensionWorker/Studio5000.ExtensionWorker.exe",
-    "ExtensionTimeoutSeconds": 240
+    "ExtensionTimeoutSeconds": 240,
+    "MaximumConcurrentMutations": 8,
+    "MaximumQueuedMutations": 256
   },
   "Logging": { "LogLevel": { "Default": "Information", "Microsoft.AspNetCore": "Warning" } }
 }
