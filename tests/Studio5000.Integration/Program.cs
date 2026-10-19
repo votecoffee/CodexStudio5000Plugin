@@ -146,6 +146,7 @@ checks.AddRange(await ComparisonReviewIntegration.RunAsync(root, client, mcp));
 checks.AddRange(await DiagnosticWorkflowsIntegration.RunAsync(root, client, mcp));
 checks.AddRange(await DocumentationIntegration.RunAsync(root, client, mcp));
 checks.AddRange(await HmiLanguageIntegration.RunAsync(root, client, mcp));
+checks.AddRange(await TransactionIntegration.RunAsync(root, client, mcp));
 checks.AddRange(await BrowserRecordingIntegration.RunAsync(root, client, mcp));
 Directory.CreateDirectory(Path.Combine(root, "artifacts", "test-results"));
 await File.WriteAllTextAsync(Path.Combine(root, "artifacts", "test-results", "integration.json"),

@@ -7,6 +7,18 @@ try
 {
     var root = ServiceClient.FindRoot();
     using var client = new ServiceClient(root);
+    if (args.Length == 2 && args[0] == "--self-test-transactions-workflow")
+    {
+        TransactionForm? transactionView = null; string[] checks = [];
+        WorkflowValidation.Run(async () =>
+        {
+            var project = await client.PostAsync<ProjectInfo>("/api/projects", new RegisterRequest(Path.Combine(root, "examples", "MultilingualDemo.L5X")));
+            transactionView = new TransactionForm(client, project); checks = await transactionView.ExerciseOfflineWorkflowForTestAsync(root);
+        });
+        using var view = transactionView ?? throw new InvalidOperationException("Missing transaction view."); view.StartPosition = FormStartPosition.Manual; view.Location = new(-30000, -30000); view.ShowInTaskbar = false; view.Show(); Application.DoEvents();
+        File.WriteAllText(args[1] + ".json", System.Text.Json.JsonSerializer.Serialize(new { checks, controllerConnectionAttempted = false, nativeBridgeExecuted = false }, ProjectService.Json));
+        using var bitmap = new Bitmap(view.Width, view.Height); view.DrawToBitmap(bitmap, new Rectangle(Point.Empty, view.Size)); bitmap.Save(args[1], System.Drawing.Imaging.ImageFormat.Png); view.Close(); return;
+    }
     if (args.Length == 2 && args[0] is "--self-test-hmi-languages-workflow" or "--self-test-viewdesigner-languages-workflow")
     {
         HmiLanguageForm? languageView = null; string[] checks = [];

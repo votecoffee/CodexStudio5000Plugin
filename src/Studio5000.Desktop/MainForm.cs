@@ -73,6 +73,7 @@ public sealed class MainForm : WorkspaceForm
         AddButton(graphicsToolbar, "Diagnostics & workflows…", () => { using var diagnostics = new DiagnosticsForm(client, project); diagnostics.ShowDialog(this); return Task.CompletedTask; });
         AddButton(graphicsToolbar, "Documentation…", () => { using var documentation = new DocumentationForm(client, project?.Kind == "logix" ? project : null); documentation.ShowDialog(this); return Task.CompletedTask; });
         AddButton(graphicsToolbar, "HMI languages…", () => { using var languages = new HmiLanguageForm(client, FactoryTalkGraphics.IsFactoryTalk(project?.Kind ?? "") ? project!.Kind : "ftview-me"); languages.ShowDialog(this); return Task.CompletedTask; });
+        AddButton(graphicsToolbar, "Transactions…", () => { using var transactions = new TransactionForm(client, project); transactions.ShowDialog(this); return Task.CompletedTask; });
         var layout = new SplitContainer { Dock = DockStyle.Fill, SplitterDistance = 240, FixedPanel = FixedPanel.Panel1 };
         layout.Panel1.Padding = new Padding(8);
         layout.Panel1.Controls.Add(projects);
