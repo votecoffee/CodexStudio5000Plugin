@@ -8,6 +8,7 @@ These inputs are small generated development fixtures. They contain no customer 
 | [ReviewDemo.L5X](ReviewDemo.L5X) | Structural comparison and bracket/keyword ladder previews; generated syntax fixture without native acceptance |
 | [WatchDemo.L5X](WatchDemo.L5X) | Tags, UDTs, arrays and offline watch-value decoding |
 | [DemoME.xml](DemoME.xml) / [DemoSE.xml](DemoSE.xml) | FactoryTalk graphics properties; matching installed version-17 schemas are needed for mutation |
+| [ReferenceDemoME.xml](ReferenceDemoME.xml) / [ReferenceDemoSE.xml](ReferenceDemoSE.xml) | Explicit-context references to `WatchDemo.L5X`: map `PLC` to that snapshot and bind `/gfx[1]` parameter `#1` to `{[PLC]Program:WatchProgram.Record}`; `Other` intentionally remains unmapped |
 | [ViewDesignerDemo](ViewDesignerDemo/) | Export-folder parsing, nested properties/bindings, assets and import packaging; native acceptance is unverified |
 | [online-test](online-test/README.md) | Program-local arithmetic import with placeholder context and a separate authorized validation procedure |
 

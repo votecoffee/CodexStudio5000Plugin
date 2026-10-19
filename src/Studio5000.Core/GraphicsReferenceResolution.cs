@@ -47,8 +47,9 @@ public static partial class GraphicsReferenceResolution
     {
         Validate(request);
         // Canonical selectors only: no executable/user-supplied XPath or accidental multi-object scopes.
-        var scopes = document.Descendants().Where(e => e == document.Root || e.Attribute("name") is not null &&
-            e.Name.LocalName is not ("connection" or "parameter")).ToDictionary(FactoryTalkGraphics.StablePath, StringComparer.Ordinal);
+        var elements = document.Descendants().ToDictionary(FactoryTalkGraphics.StablePath, StringComparer.Ordinal);
+        var scopes = elements.Where(p => p.Value == document.Root || p.Value.Attribute("name") is not null &&
+            p.Value.Name.LocalName is not ("connection" or "parameter")).ToDictionary(p => p.Key, p => p.Value, StringComparer.Ordinal);
         var parameters = new Dictionary<(string, string), string>();
         foreach (var binding in request.Parameters ?? [])
         {
@@ -63,7 +64,7 @@ public static partial class GraphicsReferenceResolution
         foreach (var source in scan.References)
         {
             var trace = new List<string>(); var steps = 0; string? failure = null;
-            var ancestry = scopes.TryGetValue(source.ObjectXPath, out var owner)
+            var ancestry = elements.TryGetValue(source.ObjectXPath, out var owner)
                 ? owner.AncestorsAndSelf().Select(FactoryTalkGraphics.StablePath).ToArray() : [];
             string Expand(string text, HashSet<(string, string)> active, int depth)
             {
@@ -105,7 +106,7 @@ public static partial class GraphicsReferenceResolution
                 result.Source.ObjectName?.Contains(request.Query, StringComparison.OrdinalIgnoreCase) == true) found.Add(result);
         }
         var page = found.Skip(request.Offset).Take(request.Limit).ToArray();
-        var pageScopes = page.SelectMany(r => scopes.TryGetValue(r.Source.ObjectXPath, out var owner)
+        var pageScopes = page.SelectMany(r => elements.TryGetValue(r.Source.ObjectXPath, out var owner)
             ? owner.AncestorsAndSelf().Where(e => scopes.ContainsKey(FactoryTalkGraphics.StablePath(e))).Select(FactoryTalkGraphics.StablePath) : [])
             .Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).ToArray();
         var report = new GraphicsResolutionReport(project, request.Shortcuts, found.Count, request.Offset, request.Limit,

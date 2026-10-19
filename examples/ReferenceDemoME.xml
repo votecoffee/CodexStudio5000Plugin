@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<gfx xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="Gfx-ME17.xsd">
+  <displaySettings width="800" height="600" backColor="white" />
+  <text name="Title" left="20" top="20" width="500" height="40" fontFamily="Arial" fontSize="18" foreColor="black" caption="Generated reference-resolution example" />
+  <numericDisplay name="RecordValue" left="20" top="90" width="350" height="30" fontFamily="Arial" fontSize="14" foreColor="black">
+    <connections><connection name="Value" expression="{#1.Inner.Count} + {[PLC]Program:WatchProgram.Records[1].Samples[2]} + {[Other]Tag}" /></connections>
+  </numericDisplay>
+</gfx>

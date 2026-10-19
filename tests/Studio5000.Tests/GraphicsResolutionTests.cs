@@ -154,5 +154,36 @@ public sealed class GraphicsResolutionTests : IDisposable
         Assert.All(page.References, r => Assert.Equal("matched_in_snapshot", r.Status));
         Assert.Contains("/gfx[1]", page.ParameterScopes);
     }
+    [Fact]
+    public async Task ScopesWithQuotesAndSlashesUseCanonicalIdentityAndUnnamedExpressionsInheritDisplayBindings()
+    {
+        var document = XDocument.Parse(Graphics("{#1.Count}"));
+        var group = document.Root!.Element("group")!; group.SetAttributeValue("name", "Mixer's / \"detail\"");
+        document.Root.Add(new XElement("connection", new XAttribute("expression", "{#2}")));
+        var gfx = await Register(document.ToString(), ".xml"); var plc = await Register(Plc, ".l5x");
+        var groupPath = FactoryTalkGraphics.StablePath(group);
+        var result = service.ResolveGraphicsReferences(gfx.Id, Request(gfx, plc, new(groupPath, "#1", "[PLC]Records[0]"), new("/gfx[1]", "#2", "[PLC]Bits")));
+        Assert.All(result.References, r => Assert.Equal("matched_in_snapshot", r.Status)); Assert.Contains(groupPath, result.ParameterScopes);
+    }
+    [Fact]
+    public async Task ContextAndExpansionSizeLimitsAreEnforced()
+    {
+        var gfx = await Register(Graphics("{#1}"), ".xml"); var plc = await Register(Plc, ".l5x"); var request = Request(gfx, plc);
+        Assert.Equal("invalid_resolution_context", Assert.Throws<OperationException>(() => service.ResolveGraphicsReferences(gfx.Id, request with { Limit = 201 })).Code);
+        Assert.Equal("invalid_resolution_context", Assert.Throws<OperationException>(() => service.ResolveGraphicsReferences(gfx.Id, request with { Parameters = [new("/gfx[1]", "#1", new string('x', 1025))] })).Code);
+        Assert.Equal("invalid_resolution_context", Assert.Throws<OperationException>(() => service.ResolveGraphicsReferences(gfx.Id, request with { Shortcuts = Enumerable.Range(0,65).Select(n => new GraphicsShortcutBinding("S" + n, plc.Id, plc.CurrentSha256)).ToArray() })).Code);
+        var tooLong = service.ResolveGraphicsReferences(gfx.Id, request with { Parameters = [new("/gfx[1]", "#1", "#2#2#2#2#2"), new("/gfx[1]", "#2", new string('x', 1000))] });
+        Assert.Equal("parameter_expansion_limit", Assert.Single(tooLong.References).Status);
+    }
+    [Fact]
+    public async Task EncodedResponseBudgetRejectsLargePagesAndAllowsSmallerOnes()
+    {
+        var document = XDocument.Parse(Graphics("{[PLC]Bits} + \"" + new string('<', 10000) + "\""));
+        var group = document.Root!.Element("group")!; var template = group.Element("numericDisplay")!;
+        for (var i = 1; i < 100; i++) { var copy = new XElement(template); copy.SetAttributeValue("name", "Value" + i); group.Add(copy); }
+        var gfx = await Register(document.ToString(), ".xml"); var plc = await Register(Plc, ".l5x"); var request = Request(gfx, plc);
+        Assert.Equal("reference_page_too_large", Assert.Throws<OperationException>(() => service.ResolveGraphicsReferences(gfx.Id, request)).Code);
+        var page = service.ResolveGraphicsReferences(gfx.Id, request with { Limit = 1 }); Assert.Single(page.References); Assert.Equal(100, page.Total);
+    }
     public void Dispose() => service.Dispose();
 }

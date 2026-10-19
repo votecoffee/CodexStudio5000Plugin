@@ -37,10 +37,7 @@ internal static class ExtensionIntegration
         var restReferences = await client.PostAsync<GraphicsReferenceReport>($"/api/projects/{graphics.Id}/graphics-references", new GraphicsReferenceRequest(graphics.CurrentSha256, "missing"));
         Check(restReferences.Total == 0 && restReferences.Project.CurrentSha256 == graphics.CurrentSha256,
             "REST reference filtering preserves snapshot identity without connecting to a controller");
-        var resolutionPath = Path.Combine(root, "artifacts", "ReferenceFixture.xml");
-        var resolutionDocument = System.Xml.Linq.XDocument.Load(Path.Combine(root, "examples", "DemoME.xml"));
-        resolutionDocument.Descendants("connection").Single().SetAttributeValue("expression", "{#1.Inner.Count} + {[PLC]Program:WatchProgram.Records[1].Samples[2]} + {[Other]Tag}");
-        resolutionDocument.Save(resolutionPath);
+        var resolutionPath = Path.Combine(root, "examples", "ReferenceDemoME.xml");
         var resolutionDisplay = await client.PostAsync<ProjectInfo>("/api/projects", new RegisterRequest(resolutionPath));
         var resolutionPlc = await client.PostAsync<ProjectInfo>("/api/projects", new RegisterRequest(Path.Combine(root, "examples", "WatchDemo.L5X")));
         var resolutionRequest = new GraphicsResolveRequest(resolutionDisplay.CurrentSha256, [new("PLC", resolutionPlc.Id, resolutionPlc.CurrentSha256)],
@@ -57,6 +54,10 @@ internal static class ExtensionIntegration
             request = resolutionRequest with { Shortcuts = [new("PLC", resolutionPlc.Id, "stale")] } }, ProjectService.Json) };
         Check((await mcp.CallToolAsync("studio_extensions_read", new Dictionary<string, object?> { ["call"] = staleResolution })).IsError == true,
             "Reference resolution rejects a stale PLC mapping through the MCP worker and shared service");
+        var seDisplay = await client.PostAsync<ProjectInfo>("/api/projects", new RegisterRequest(Path.Combine(root, "examples", "ReferenceDemoSE.xml")));
+        var seResolved = await client.PostAsync<GraphicsResolutionReport>($"/api/projects/{seDisplay.Id}/graphics-reference-resolution", resolutionRequest with { ExpectedSha256 = seDisplay.CurrentSha256 });
+        Check(seResolved.Project.Kind == "ftview-se" && seResolved.References.Select(r => r.Status).SequenceEqual(resolved.References.Select(r => r.Status)),
+            "SE reference resolution shares the ME operation and preserves unresolved-context statuses");
         var reviewSource = Path.Combine(root, "examples", "ReviewDemo.L5X");
         var sourceHash = ProjectService.Hash(File.ReadAllBytes(reviewSource));
         var baseline = await client.PostAsync<ProjectInfo>("/api/projects", new RegisterRequest(reviewSource));
