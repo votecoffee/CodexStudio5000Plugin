@@ -71,7 +71,9 @@ public sealed partial class ProjectService
         if (readback.Records.Length != before.Length || readback.Records.Any(r => !expected.TryGetValue(r.Key, out var values) || values.Count != r.Texts.Length || r.Texts.Any(t => !values.TryGetValue(t.Language, out var value) || value != t.Text)))
             throw new OperationException("hmi_language_readback", "Edited export failed independent identity/translation readback.");
         var review = Hash(JsonSerializer.SerializeToUtf8Bytes(new { id, p.Revision, p.CurrentSha256, request, resultHash }, Json));
-        return (new(id, p.Revision, p.CurrentSha256, review, resultHash, update.Changes, update.Added, HmiLanguageFile.Boundary), update.Bytes, p);
+        var preview = new HmiLanguagePreview(id, p.Revision, p.CurrentSha256, review, resultHash, update.Changes, update.Added, HmiLanguageFile.Boundary);
+        if (JsonSerializer.SerializeToUtf8Bytes(preview, Json).Length > 4 * 1024 * 1024) throw new OperationException("hmi_language_limit", "Review exceeds 4 MiB; split the edits into smaller batches.");
+        return (preview, update.Bytes, p);
     }
     public async Task<HmiLanguagePreview> PreviewHmiLanguageAsync(string id, HmiLanguagePreviewRequest request, CancellationToken ct = default)
     { await gate.WaitAsync(ct); try { return BuildHmiLanguagePreview(id, request).Preview; } finally { gate.Release(); } }

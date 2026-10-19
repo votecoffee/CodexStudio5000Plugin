@@ -294,8 +294,11 @@ internal sealed class HmiLanguageFile
         }
         if (Format == "unicode-text")
         {
-            foreach (var replacement in replacements.OrderByDescending(r => r.Start).ThenByDescending(r => r.End)) text = text[..replacement.Start] + replacement.Value + text[replacement.End..];
-            return ([..preamble, ..encoding.GetBytes(text)], changes.ToArray(), added);
+            foreach (var item in replacements.Select((r, i) => (Replacement: r, Index: i)).OrderByDescending(r => r.Replacement.Start).ThenByDescending(r => r.Replacement.End).ThenByDescending(r => r.Index))
+            { var replacement = item.Replacement; text = text[..replacement.Start] + replacement.Value + text[replacement.End..]; }
+            var textBytes = encoding.GetBytes(text);
+            if (textBytes.Length + preamble.Length > MaximumBytes) throw Error("Updated export exceeds the 16 MiB limit.");
+            return ([..preamble, ..textBytes], changes.ToArray(), added);
         }
         foreach (var table in dirty)
         {

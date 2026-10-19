@@ -78,6 +78,14 @@ public sealed class HmiLanguageTests : IDisposable
     private static void Mutate(string path, string part, Action<XDocument> action)
     { using var zip = ZipFile.Open(path, ZipArchiveMode.Update); var entry = zip.GetEntry(part)!; XDocument xml; using (var stream = entry.Open()) xml = XDocument.Load(stream); action(xml); entry.Delete(); using var output = zip.CreateEntry(part).Open(); xml.Save(output); }
     [Fact]
+    public async Task EmptyFinalTextCellCanBeUpdatedInTheSameBatchAsAddingALanguage()
+    {
+        var path = Path.Combine(root, "empty.txt"); File.WriteAllText(path, "KEY\ten-US\tes-ES\r\n#Prompt\tReady\t\r\n", new UTF8Encoding(true));
+        var p = await service.RegisterHmiLanguageAsync(new(path, "view-designer")); var key = Browse(p).Records[0].Key;
+        p = await Apply(p, new(p.CurrentSha256, [new(key, "es-ES", "Listo"), new(key, "fr-FR", "Prêt")], ["fr-FR"]));
+        var row = Browse(p).Records[0]; Assert.Equal("#Prompt", row.Context[0]); Assert.Equal("Listo", row.Texts.Single(t => t.Language == "es-ES").Text); Assert.Equal("Prêt", row.Texts.Single(t => t.Language == "fr-FR").Text);
+    }
+    [Fact]
     public async Task FormulaRichMergedProtectedAndDuplicateCellsCannotBeFlattened()
     {
         XNamespace s = "http://schemas.openxmlformats.org/spreadsheetml/2006/main";
