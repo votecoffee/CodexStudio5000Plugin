@@ -9,7 +9,7 @@ internal sealed record ReviewProjectChoice(ProjectInfo Project)
     public override string ToString() => $"{Project.Name} · r{Project.Revision} · {Project.Id[..Math.Min(8, Project.Id.Length)]}";
 }
 
-public sealed class ProjectCompareForm : Form
+public sealed class ProjectCompareForm : WorkspaceForm
 {
     private readonly ServiceClient client;
     private readonly ProjectInfo? initial;

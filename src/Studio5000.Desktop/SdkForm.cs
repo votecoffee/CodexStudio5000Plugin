@@ -4,7 +4,7 @@ using Studio5000.Core;
 
 namespace Studio5000.Desktop;
 
-public sealed class SdkForm : Form
+public sealed class SdkForm : WorkspaceForm
 {
     private readonly ServiceClient client;
     private readonly ProjectInfo? project;
@@ -131,7 +131,7 @@ public sealed class SdkForm : Form
     {
         var job = await client.GetAsync<SdkJob>("/api/sdk/jobs/" + jobId.Text.Trim());
         if (job.Artifacts.Length == 0) throw new ArgumentException("This job has no published artifacts.");
-        using var chooser = new Form { Text = "Choose SDK output", Size = new(900, 280), StartPosition = FormStartPosition.CenterParent };
+        using var chooser = new WorkspaceForm { Text = "Choose SDK output", Size = new(900, 280), StartPosition = FormStartPosition.CenterParent };
         var list = new ListBox { Dock = DockStyle.Fill, DataSource = job.Artifacts, DisplayMember = "Validation" };
         var select = new Button { Text = "Save selected output…", Dock = DockStyle.Bottom, DialogResult = DialogResult.OK, Height = 36 };
         chooser.Controls.Add(list); chooser.Controls.Add(select); chooser.AcceptButton = select;

@@ -3,6 +3,8 @@
     <OutputType>WinExe</OutputType><TargetFramework>net8.0-windows</TargetFramework>
     <UseWindowsForms>true</UseWindowsForms>
     <Product>RockwellMCPServer</Product><Title>RockwellMCPServer Desktop</Title>
+    <ApplicationIcon>../../assets/icons/RockwellMCPServer.ico</ApplicationIcon>
   </PropertyGroup>
   <ItemGroup><ProjectReference Include="../Studio5000.Client/Studio5000.Client.csproj" /></ItemGroup>
+  <ItemGroup><EmbeddedResource Include="../../assets/icons/RockwellMCPServer.ico" LogicalName="Studio5000.Desktop.Application.ico" /></ItemGroup>
 </Project>

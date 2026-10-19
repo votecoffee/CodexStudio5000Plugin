@@ -7,6 +7,7 @@ Questions, bug reports and focused pull requests are welcome through [GitHub iss
 | Directory | Contents |
 |---|---|
 | `src/` | Shared operations, service, clients, native bridge and extension hosts |
+| `assets/` | Application artwork and reproducible icon packaging instructions |
 | `tests/` | Unit/integration checks and generated extension fixtures |
 | `scripts/` | Build, launch, extension packaging and verification commands |
 | `docs/` | Reusable architecture, API, feature and verification guides |

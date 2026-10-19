@@ -6,7 +6,7 @@ using Studio5000.Extensibility;
 
 namespace Studio5000.Desktop;
 
-public sealed class ExtensionsForm : Form
+public sealed class ExtensionsForm : WorkspaceForm
 {
     private readonly ServiceClient client;
     private readonly ComboBox modules = new() { Width = 200, DropDownStyle = ComboBoxStyle.DropDown, DisplayMember = "Id" };

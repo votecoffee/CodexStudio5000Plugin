@@ -4,7 +4,7 @@ using Studio5000.Core;
 
 namespace Studio5000.Desktop;
 
-public sealed class TagBrowserForm : Form
+public sealed class TagBrowserForm : WorkspaceForm
 {
     private readonly ServiceClient client;
     private readonly ProjectInfo? initial;

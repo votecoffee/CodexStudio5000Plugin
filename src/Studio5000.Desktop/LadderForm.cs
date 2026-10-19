@@ -4,7 +4,7 @@ using Studio5000.Core;
 
 namespace Studio5000.Desktop;
 
-public sealed class LadderForm : Form
+public sealed class LadderForm : WorkspaceForm
 {
     private readonly ServiceClient client;
     private readonly ProjectInfo? initial;

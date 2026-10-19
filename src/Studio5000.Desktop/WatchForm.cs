@@ -5,7 +5,7 @@ using Studio5000.Core;
 
 namespace Studio5000.Desktop;
 
-public sealed class WatchForm : Form
+public sealed class WatchForm : WorkspaceForm
 {
     private readonly ServiceClient client;
     private readonly ProjectInfo? project;

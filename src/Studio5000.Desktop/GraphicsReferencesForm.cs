@@ -4,7 +4,7 @@ using Studio5000.Core;
 
 namespace Studio5000.Desktop;
 
-public sealed class GraphicsReferencesForm : Form
+public sealed class GraphicsReferencesForm : WorkspaceForm
 {
     private sealed record ShortcutRow(GraphicsShortcutBinding Binding, string Snapshot)
     {

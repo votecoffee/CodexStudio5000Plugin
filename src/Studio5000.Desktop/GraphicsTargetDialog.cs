@@ -1,6 +1,6 @@
 namespace Studio5000.Desktop;
 
-internal sealed class GraphicsTargetDialog : Form
+internal sealed class GraphicsTargetDialog : WorkspaceForm
 {
     private readonly TextBox application = new() { Dock = DockStyle.Fill };
     private readonly TextBox display = new() { Dock = DockStyle.Fill };

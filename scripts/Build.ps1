@@ -3,6 +3,7 @@ $ErrorActionPreference = 'Stop'
 $repo = Split-Path -Parent $PSScriptRoot
 Push-Location -LiteralPath $repo
 try {
+    & (Join-Path $PSScriptRoot 'New-AppIcon.ps1')
     dotnet build RockwellMCPServer.sln -c Release --nologo
     if ($LASTEXITCODE -ne 0) { throw 'Solution build failed.' }
     foreach ($name in @('Service','Mcp','Desktop','ExtensionWorker')) {

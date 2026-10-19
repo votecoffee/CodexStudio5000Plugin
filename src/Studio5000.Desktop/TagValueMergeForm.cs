@@ -4,7 +4,7 @@ using Studio5000.Core;
 
 namespace Studio5000.Desktop;
 
-public sealed class TagValueMergeForm : Form
+public sealed class TagValueMergeForm : WorkspaceForm
 {
     private readonly ServiceClient client;
     private readonly ProjectInfo? initial;

@@ -3,7 +3,7 @@ using Studio5000.Core;
 
 namespace Studio5000.Desktop;
 
-public sealed class TrendForm : Form
+public sealed class TrendForm : WorkspaceForm
 {
     private readonly ServiceClient client;
     private readonly WatchStatus watch;

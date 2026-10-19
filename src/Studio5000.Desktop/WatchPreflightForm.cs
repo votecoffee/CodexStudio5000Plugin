@@ -2,7 +2,7 @@ using Studio5000.Core;
 
 namespace Studio5000.Desktop;
 
-public sealed class WatchPreflightForm : Form
+public sealed class WatchPreflightForm : WorkspaceForm
 {
     private readonly DataGridView selections = new() { Dock = DockStyle.Fill, ReadOnly = true, AutoGenerateColumns = false,
         AllowUserToAddRows = false, RowHeadersVisible = false, MultiSelect = false, SelectionMode = DataGridViewSelectionMode.FullRowSelect };

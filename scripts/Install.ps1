@@ -33,6 +33,8 @@ if (!(Test-Path -LiteralPath $configPath)) {
 }
 
 if (!$NoShortcut) {
+    $iconPath = Join-Path $repo 'assets/icons/RockwellMCPServer.ico'
+    if (!(Test-Path -LiteralPath $iconPath -PathType Leaf)) { throw 'The application icon is missing. Run Install.cmd without -SkipBuild.' }
     $programs = [Environment]::GetFolderPath('Programs')
     if (!$programs) { throw 'The current-user Start Menu folder is unavailable. Use -NoShortcut to install without a shortcut.' }
     New-Item -ItemType Directory -Path $programs -Force | Out-Null
@@ -45,7 +47,7 @@ if (!$NoShortcut) {
         $shortcut.TargetPath = Join-Path $env:SystemRoot 'System32/WindowsPowerShell/v1.0/powershell.exe'
         $shortcut.Arguments = '-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "' + (Join-Path $PSScriptRoot 'Start.ps1') + '" -ShowErrorDialog'
         $shortcut.WorkingDirectory = $repo
-        $shortcut.IconLocation = (Join-Path $repo 'artifacts/app/Desktop/Studio5000.Desktop.exe') + ',0'
+        $shortcut.IconLocation = $iconPath + ',0'
         $shortcut.Description = 'Start the RockwellMCPServer shared service and desktop GUI'
         $shortcut.Save()
     } finally {

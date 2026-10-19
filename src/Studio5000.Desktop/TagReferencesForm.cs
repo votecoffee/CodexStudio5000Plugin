@@ -4,7 +4,7 @@ using Studio5000.Core;
 
 namespace Studio5000.Desktop;
 
-public sealed class TagReferencesForm : Form
+public sealed class TagReferencesForm : WorkspaceForm
 {
     private sealed record ScopeChoice(string? Name) { public override string ToString() => Name ?? "(controller tags)"; }
     private readonly ServiceClient client;

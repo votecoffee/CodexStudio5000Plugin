@@ -4,7 +4,7 @@ using System.Text.Json;
 
 namespace Studio5000.Desktop;
 
-public sealed class OnlineEditDialog : Form
+public sealed class OnlineEditDialog : WorkspaceForm
 {
     private readonly ServiceClient client;
     private readonly TextBox source = new() { Dock = DockStyle.Fill };

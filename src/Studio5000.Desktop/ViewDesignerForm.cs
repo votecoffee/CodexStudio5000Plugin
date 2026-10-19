@@ -4,7 +4,7 @@ using Studio5000.Core;
 
 namespace Studio5000.Desktop;
 
-public sealed class ViewDesignerForm : Form
+public sealed class ViewDesignerForm : WorkspaceForm
 {
     private readonly ServiceClient client;
     private readonly ComboBox projects = new() { Width = 260, DropDownStyle = ComboBoxStyle.DropDownList, DisplayMember = "Name" };

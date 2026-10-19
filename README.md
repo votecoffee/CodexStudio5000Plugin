@@ -1,5 +1,7 @@
 # RockwellMCPServer
 
+<img src="assets/icons/rockwell_plc_hmi_icon_128x128.png" alt="RockwellMCPServer PLC and HMI icon" width="96" height="96">
+
 Shared Rockwell engineering service with MCP, REST, a desktop GUI and reloadable extensions.
 
 Inspect and edit **Studio 5000 Logix Designer**, **FactoryTalk View Studio ME/SE** and **Studio 5000 View Designer** project exports from a Codex chat or the desktop workspace. Browse tags and UDTs, create watch lists, record values and export trends. Optional Logix Designer SDK jobs provide native project and configured controller operations.
@@ -69,7 +71,7 @@ cd RockwellMCPServer
 .\Run.cmd
 ```
 
-You can also double-click **Install.cmd**, then **Run.cmd** in File Explorer. Installation builds the shared service, MCP adapter, GUI and extensions, initializes local settings on first use and creates a **RockwellMCPServer** shortcut with the GUI executable's icon in the current user's Start Menu. No administrator access is needed. The shortcut starts the shared service and GUI with no console window; startup errors appear in a dialog.
+You can also double-click **Install.cmd**, then **Run.cmd** in File Explorer. Installation builds the shared service, MCP adapter, GUI and extensions, initializes local settings on first use and creates a **RockwellMCPServer** shortcut in the current user's Start Menu. The executable, application windows and shortcut use the bundled PLC/HMI artwork, with eight exact-size Windows icon frames for different display scales. No administrator access is needed. The shortcut starts the shared service and GUI with no console window; startup errors appear in a dialog.
 
 Run **Install.cmd** again after updating the checkout. Finish jobs, stop watch polling, close clients and run `.\scripts\Stop-Service.ps1` first; the installer refuses to rebuild applications that are running from this checkout. Existing `service.local.json` is preserved. Use `Install.cmd -NoShortcut` to omit the shortcut, or `Install.cmd -SkipBuild` to configure an already published build and recreate its shortcut. Keep the checkout in place; rerun installation if you move it. Delete the Start Menu shortcut to remove that entry.
 

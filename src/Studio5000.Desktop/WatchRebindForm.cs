@@ -3,7 +3,7 @@ using Studio5000.Core;
 
 namespace Studio5000.Desktop;
 
-public sealed class WatchRebindForm : Form
+public sealed class WatchRebindForm : WorkspaceForm
 {
     private readonly ServiceClient client;
     private readonly WatchStatus watch;

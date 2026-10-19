@@ -4,7 +4,7 @@ using Studio5000.Core;
 
 namespace Studio5000.Desktop;
 
-public sealed class MainForm : Form
+public sealed class MainForm : WorkspaceForm
 {
     private readonly ServiceClient client;
     private readonly ListBox projects = new() { Dock = DockStyle.Fill, DisplayMember = "Name" };
