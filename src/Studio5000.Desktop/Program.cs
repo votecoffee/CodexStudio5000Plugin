@@ -1,4 +1,5 @@
 using Studio5000.Client;
+using Studio5000.Core;
 using Studio5000.Desktop;
 
 ApplicationConfiguration.Initialize();
@@ -6,6 +7,20 @@ try
 {
     var root = ServiceClient.FindRoot();
     using var client = new ServiceClient(root);
+    if (args.Length == 2 && args[0] == "--self-test-watch-template")
+    {
+        var portable = new WatchTemplate(1, "Reusable process watch", [new("count", "Record", "WatchProgram", "Inner.Count")], 1000, 100);
+        var proposed = new BrowserWatchRequest("fixture", new string('a', 64), portable.Name, portable.Tags);
+        var preflight = new WatchPreflightReport("Sdk", "Offline", null, null, proposed.ExpectedSha256, true, "blocked",
+            [new("source_hash", "passed"), new("reader_configuration", "blocked", new("native_unavailable", "SDK reader is not configured; this does not prevent saving a stopped list."))],
+            [new(portable.Tags[0], "supported", "DINT", [], null, [])], null, "Generated declarations only; no connection.");
+        var preview = new WatchTemplatePreviewReport(new string('b', 64), new string('c', 64), proposed, true, [], preflight,
+            "Import creates a NEW stopped list. Source paths, target routes, mode, live values and recordings are not carried by the template.");
+        using var templateForm = new WatchTemplateForm(client, null); templateForm.LoadForTest(System.Text.Json.JsonSerializer.SerializeToElement(portable, ProjectService.Json), preview);
+        templateForm.StartPosition = FormStartPosition.Manual; templateForm.Location = new(-30000, -30000); templateForm.ShowInTaskbar = false;
+        templateForm.Show(); Application.DoEvents(); using var bitmap = new Bitmap(templateForm.Width, templateForm.Height);
+        templateForm.DrawToBitmap(bitmap, new Rectangle(Point.Empty, templateForm.Size)); bitmap.Save(args[1], System.Drawing.Imaging.ImageFormat.Png); templateForm.Close(); return;
+    }
     if (args.Length == 2 && args[0] == "--self-test-watch-preflight")
     {
         var fixture = new Studio5000.Core.WatchPreflightReport("LibPlcTag", "Online", null, null, new string('a', 64), true, "blocked",

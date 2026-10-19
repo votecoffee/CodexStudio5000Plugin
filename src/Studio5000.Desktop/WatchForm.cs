@@ -40,6 +40,7 @@ public sealed class WatchForm : Form
         Button(toolbar, "Refresh lists", RefreshAsync); Button(toolbar, "New", () => { New(); return Task.CompletedTask; });
         Button(toolbar, "Save list", SaveAsync); Button(toolbar, "Preflight draft…", PreflightAsync); Button(toolbar, "Start polling", () => ActionAsync("start")); Button(toolbar, "Stop polling", () => ActionAsync("stop"));
         Button(toolbar, "Delete stopped list", DeleteAsync); Button(toolbar, "History", HistoryAsync);
+        Button(toolbar, "Export saved template…", ExportTemplateAsync); Button(toolbar, "Import template…", ImportTemplateAsync);
         Button(toolbar, "Tag / UDT browser…", BrowserAsync); Button(toolbar, "Trends & recording…", () =>
         {
             if (selected is null) throw new ArgumentException("Save or select a watch list first.");
@@ -143,6 +144,24 @@ public sealed class WatchForm : Form
     {
         using var browser = new TagBrowserForm(client, project); browser.ShowDialog(this);
         if (browser.CreatedWatch is { } created) { LoadWatch(created); await RefreshAsync(); tabs.SelectedIndex = 0; }
+    }
+    private async Task ExportTemplateAsync()
+    {
+        if (selected is null) throw new ArgumentException("Save or select a list first; export uses its saved definition.");
+        var caps = await client.GetAsync<JsonElement>("/api/capabilities");
+        var outputRoot = caps.GetProperty("outputRoots").EnumerateArray().Select(r => r.GetString()).FirstOrDefault()
+            ?? throw new ArgumentException("Configure an OutputRoots directory before saving a template.");
+        using var dialog = new SaveFileDialog { Filter = "Watch template JSON|*.json", FileName = "watch-template.json",
+            InitialDirectory = outputRoot };
+        if (dialog.ShowDialog(this) != DialogResult.OK) return;
+        var artifact = await client.PostAsync<Artifact>($"/api/watches/{selected.Definition.Id}/template", new WatchTemplateExportRequest(selected.Definition.Revision));
+        var saved = await client.PostAsync<SavedArtifact>($"/api/artifacts/{artifact.Id}/save", new SaveArtifactRequest(dialog.FileName));
+        status.Text = "Saved portable template: " + saved.Path + ". Names and tag selections remain; review them before sharing.";
+    }
+    private async Task ImportTemplateAsync()
+    {
+        using var form = new WatchTemplateForm(client, project); form.ShowDialog(this);
+        if (form.ImportedWatch is { } imported) { LoadWatch(imported); await RefreshAsync(); tabs.SelectedIndex = 0; }
     }
     private async Task ExtractAsync()
     {

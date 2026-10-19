@@ -22,6 +22,7 @@ The checks cover:
 - View Designer nested properties, bindings, encoding preservation, unchanged assets and import packages using generated fixtures.
 - Tag/UDT browsing, paged arrays, watch scheduling/decoding, journal recovery/retention, CSV quality rows and graph gaps.
 - Read-only watch preflight for drafts, saved definitions and managed browser snapshots: per-row diagnostics, stale hashes, configuration gates, deferred ACD/templates and combined CIP budgets. Generated GUI rendering covers the preflight viewer.
+- Portable watch templates: strict schema/field limits, omission of runtime/source/target fields, exact scope mappings, review/source hash rejection, settings preservation and independent stopped imports. REST/MCP exercise export/preview/import and JSON artifact save; a generated GUI fixture renders the mapping/review window.
 - Extension package hashes/contracts, generation pinning, reload over the same MCP connection, old-job completion, rejected reloads and rollback.
 
 `scripts/Verify.ps1` instead uses the configured running service and conditionally exercises its native bridge. Choose the isolated script for ordinary development without native execution.

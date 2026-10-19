@@ -33,6 +33,7 @@ RockwellMCPServer gives agents and engineers a shared workspace for project insp
 | View Designer | Edit existing properties in exported `.hmi` folders, preserve assets, prepare import ZIPs and compare re-exports. |
 | Tag/UDT browser and watches | Search snapshot structures, expand members/arrays, create stopped watch lists, poll authorized tags and extract structures as JSON. |
 | Watch preflight | Check drafts, saved lists and browser selections; report each unsupported tag, source changes, configuration failures and combined CIP read budgets without connecting. |
+| Portable watch templates | Export selections/settings, preview explicit project/program bindings and import a new stopped list with a checked review hash. |
 | Optional CIP reader | Read bounded scalar/UDT/array symbols through an isolated libplctag worker; plan reads offline and share watch recording/trends. Live validation pending. |
 | Trending and recording | Persist history across restarts, graph numeric/BOOL values, show quality/stale gaps and export CSV. |
 | Reloadable extensions | Discover operation schemas and reload compatible modules through MCP or the GUI while the host and chat remain running. |
@@ -75,6 +76,8 @@ For optional native SDK support, use `Build.ps1 -WithSdk` and `Initialize.ps1 -E
 For the optional read-only CIP watch backend, use `Build.ps1 -WithCip` and `Initialize.ps1 -EnableCip`, then configure an explicit target route. Existing watches default to the SDK backend. See [CIP reader setup, offline planning and validation limits](docs/CIP_READS.md).
 
 Use **Preflight draft…** in the watch window or **Preflight selection…** in the tag browser to inspect declarations and configuration before polling. The same read-only operation is available through REST and the extension catalog; see [watch preflight](docs/WATCH_PREFLIGHT.md).
+
+Use **Export saved template…** and **Import template…** in the watch window to reuse selections/settings with another snapshot. Templates omit source paths, controller routes and live data; import previews exact program mappings and creates a stopped list. See [portable watch templates](docs/WATCH_TEMPLATES.md).
 
 Local settings are in ignored `service.local.json`; use [service.example.json](service.example.json) as the portable reference. `AllowedRoots` controls source access, `OutputRoots` controls new saved exports, and the default output directory is `artifacts/exports`. Restart the service after configuration changes.
 
@@ -148,6 +151,7 @@ XML checks, file comparisons and successful SDK calls do not establish native HM
 | [View Designer](docs/VIEW_DESIGNER.md) | Export syntax, property editing and native handoff |
 | [Watches and UDTs](docs/WATCHES.md) | Polling, value extraction and controller structure snapshots |
 | [Watch preflight](docs/WATCH_PREFLIGHT.md) | Draft/saved/browser diagnostics, source hashes and combined read budgets |
+| [Watch templates](docs/WATCH_TEMPLATES.md) | Portable JSON export, exact program mappings and reviewed stopped-list import |
 | [Optional CIP reader](docs/CIP_READS.md) | Symbolic read plans, configured routes, supported types and offline-only validation |
 | [Browser and recording](docs/BROWSER_RECORDING.md) | Search, watch creation, trends, retention and CSV |
 | [PLC where-used](docs/TAG_REFERENCES.md) | Scoped lexical references, source locations, indirect indices and desktop navigation |
