@@ -49,3 +49,5 @@ Alternatively omit `tags` and specify `sourceProgram`/`destinationProgram` to di
 The `logix` extension exposes `studio_value_merge_capture` (`control` effect), `studio_value_merge_preview` (`read`) and `studio_value_merge_apply` (`apply`) through the existing fixed MCP dispatch tools. Each receives `{ "request": { ...REST body... } }`.
 
 Generated unit and REST/MCP tests cover nested values, declaration failures, stale hashes, preservation, offline export and rejected capture without controller access. They do not establish live upload or native import/runtime acceptance.
+
+For a focused native offline check, run `scripts/Verify-ValueMergeNative.ps1` with the licensed installed SDK and Logix v38 support. It merges generated scalar/STRING/nested UDT/UDT-array values, exports a new ACD, reopens/builds it in a fresh offline SDK job and compares native re-exported values. Controller operations are disabled with no configured targets. This establishes only that fixture's offline round trip; retain the local evidence and validate intended projects separately.
