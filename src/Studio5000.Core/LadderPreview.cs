@@ -195,7 +195,7 @@ public static class LadderPreview
         var all = routine.Elements("RLLContent").SelectMany(e => e.Elements("Rung")).ToArray();
         var rows = all.Skip(request.Offset).Take(request.Limit).Select((rung, i) =>
         {
-            var text = (string?)rung.Element("Text") ?? ""; var comment = (string?)rung.Element("Comment") ?? "";
+            var text = (string?)rung.Element("Text") ?? ""; var comment = ProjectDocumentation.DisplayText(rung.Element("Comment")) ?? "";
             LadderDiagram? diagram = null; string[] diagnostics = []; var status = "rendered";
             try { diagram = Render(text); }
             catch (OperationException ex) { status = ex.Code == "ladder_limit" ? "unsupported" : "invalid"; diagnostics = [ex.Message]; }

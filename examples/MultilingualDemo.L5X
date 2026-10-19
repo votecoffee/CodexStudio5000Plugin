@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RSLogix5000Content SchemaRevision="1.0" SoftwareRevision="38.00" TargetType="Controller" ContainsContext="false">
+  <Controller Name="DocumentationDemo" MajorRev="38" CurrentProjectLanguage="en-US" DefaultProjectLanguage="en-US" ControllerLanguage="en-US">
+    <Description><LocalizedDescription Lang="en-US"><![CDATA[Generated documentation example]]></LocalizedDescription><LocalizedDescription Lang="es-ES"><![CDATA[Ejemplo de documentación generado]]></LocalizedDescription></Description>
+    <DataTypes><DataType Name="DocRecord"><Members><Member Name="Count" DataType="DINT"><Description><LocalizedDescription Lang="en-US">Cycle count</LocalizedDescription><LocalizedDescription Lang="fr-FR">Nombre de cycles</LocalizedDescription></Description></Member></Members></DataType></DataTypes>
+    <Tags>
+      <Tag Name="Record" TagType="Base" DataType="DocRecord">
+        <Description><LocalizedDescription Lang="en-US">Production record</LocalizedDescription><LocalizedDescription Lang="es-ES">Registro de producción</LocalizedDescription></Description>
+        <Comments><Comment Operand=".Count"><LocalizedComment Lang="en-US">Completed cycles</LocalizedComment><LocalizedComment Lang="de-DE">Abgeschlossene Zyklen</LocalizedComment></Comment></Comments>
+        <EngineeringUnits><EngineeringUnit Operand=".Count">cycles</EngineeringUnit></EngineeringUnits>
+        <Data Format="Decorated"><Structure DataType="DocRecord"><DataValueMember Name="Count" DataType="DINT" Value="8" /></Structure></Data>
+      </Tag>
+      <Tag Name="Enabled" TagType="Base" DataType="BOOL"><Description><![CDATA[Legacy description
+Second line]]></Description><Data Format="Decorated"><DataValue DataType="BOOL" Value="1" /></Data></Tag>
+    </Tags>
+    <AddOnInstructionDefinitions><AddOnInstructionDefinition Name="DocInstruction"><Description>Generated AOI description</Description><Parameters><Parameter Name="Input" DataType="BOOL" Usage="Input"><Description>Input permission</Description></Parameter></Parameters><LocalTags><LocalTag Name="Memory" DataType="BOOL"><Description>Retained state</Description></LocalTag></LocalTags><Routines /></AddOnInstructionDefinition></AddOnInstructionDefinitions>
+    <Programs><Program Name="Demo"><Description>Generated program</Description><Tags><Tag Name="Input" TagType="Base" DataType="BOOL"><Data Format="Decorated"><DataValue DataType="BOOL" Value="1" /></Data></Tag><Tag Name="Output" TagType="Base" DataType="BOOL"><Data Format="Decorated"><DataValue DataType="BOOL" Value="0" /></Data></Tag></Tags><Routines><Routine Name="main" Type="RLL"><Description>Generated routine</Description><RLLContent><Rung Number="0"><Comment><LocalizedComment Lang="en-US">Output permission</LocalizedComment><LocalizedComment Lang="es-ES">Permiso de salida</LocalizedComment></Comment><Text>XIC(Input)OTE(Output);</Text></Rung><Rung Number="1"><Text>NOP();</Text></Rung></RLLContent></Routine></Routines></Program></Programs>
+    <Tasks><Task Name="MainTask"><Description>Generated task</Description></Task></Tasks>
+  </Controller>
+</RSLogix5000Content>

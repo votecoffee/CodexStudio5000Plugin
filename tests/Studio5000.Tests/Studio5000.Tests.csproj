@@ -2,6 +2,7 @@
   <PropertyGroup><IsPackable>false</IsPackable><IsTestProject>true</IsTestProject></PropertyGroup>
   <ItemGroup>
     <None Include="../../examples/WatchDemo.L5X" Link="WatchDemo.L5X" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../../examples/MultilingualDemo.L5X" Link="MultilingualDemo.L5X" CopyToOutputDirectory="PreserveNewest" />
     <ProjectReference Include="../../src/Studio5000.Core/Studio5000.Core.csproj" />
     <ProjectReference Include="../../src/Studio5000.Extensions.Rockwell/Studio5000.Extensions.Rockwell.csproj" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.11.1" />

@@ -70,7 +70,7 @@ public sealed partial class ProjectService
                 .Select(t => new TagBrowserNode((string)t.Attribute("Name")!, "tag", (string?)t.Attribute("DataType") ?? "Unknown",
                     LogixStructures.Dimensions((string?)t.Attribute("Dimensions")), (string?)t.Ancestors("Program").FirstOrDefault()?.Attribute("Name"),
                     (string)t.Attribute("Name")!, null, Expandable((string?)t.Attribute("DataType") ?? "Unknown", LogixStructures.Dimensions((string?)t.Attribute("Dimensions"))),
-                    (string?)t.Attribute("TagType") == "Base", t.Element("Description")?.Value ?? ((string?)t.Attribute("AliasFor") is { } alias ? "Alias for " + alias : null)))
+                    (string?)t.Attribute("TagType") == "Base", ProjectDocumentation.DisplayText(t.Element("Description")) ?? ((string?)t.Attribute("AliasFor") is { } alias ? "Alias for " + alias : null)))
                 .Where(n => request.ProgramName is null || n.ProgramName == request.ProgramName);
         }
         if (!string.IsNullOrWhiteSpace(request.Query)) nodes = nodes.Where(n => string.Join(' ', n.Name, n.DataType, n.ProgramName, n.Description).Contains(request.Query, StringComparison.OrdinalIgnoreCase));

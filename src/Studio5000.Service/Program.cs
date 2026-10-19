@@ -63,6 +63,10 @@ app.Use(async (context, next) =>
 });
 app.MapGet("/health", () => new { status = "ok", name = WorkspaceIdentity.Name, version = WorkspaceIdentity.Version });
 app.MapGet("/api/capabilities", (ProjectService service) => service.Capabilities());
+app.MapPost("/api/projects/{id}/documentation/browse", (ProjectService service, string id, DocumentationQuery request) => service.BrowseDocumentation(id, request));
+app.MapPost("/api/projects/{id}/documentation/preview", (ProjectService service, string id, DocumentationPreviewRequest request, CancellationToken ct) => service.PreviewDocumentationAsync(id, request, ct));
+app.MapPost("/api/projects/{id}/documentation/apply", (ProjectService service, string id, DocumentationApplyRequest request, CancellationToken ct) => service.ApplyDocumentationAsync(id, request, ct));
+app.MapPost("/api/projects/{id}/documentation/export", (ProjectService service, string id, DocumentationExportRequest request, CancellationToken ct) => service.ExportDocumentationAsync(id, request, ct));
 app.MapGet("/api/projects", (ProjectService service) => service.Projects());
 app.MapPost("/api/projects/compare", (ProjectService service, ProjectCompareRequest request) => service.CompareProjects(request));
 app.MapPost("/api/projects/compare/routines", (ProjectService service, ProjectCompareRequest request) => service.CompareRoutines(request));
