@@ -4,7 +4,7 @@ These read-only operations use registered Logix snapshots. They preserve source 
 
 ## Desktop views
 
-Open **Compare projects…** to choose left/right snapshots, refresh their hashes, compare, filter component paths and page results. The **XML differences** tab shows normalized before/after XML for the selected change. Snippets are explicitly marked when truncated. Changing a snapshot clears the old result; comparison never migrates or applies components. The implementation does not invoke the Studio 5000 compare tool.
+Open **Compare projects…** to open left/right ACD/L5X files or choose registered snapshots, refresh their hashes, compare, filter component paths and page results. The **XML differences** tab shows normalized before/after XML for the selected change. Snippets are explicitly marked when truncated. Changing a snapshot clears the old result; comparison never migrates or applies components. The implementation does not invoke the Studio 5000 compare tool.
 
 The **Ladder comparison browser** tab groups routine pairs by program/AOI, including unchanged, added and removed routines. Filter routine names/owners and page the routine tree. Select an RLL pair, then use **Previous rung** / **Next rung** to browse aligned occurrences side by side. **Changed rungs only** hides equal pairs. Insertions/deletions leave an explicit empty side; following matching rungs retain their own original source positions. Each side has an independently scrollable drawing and raw source/comments/diagnostics. Non-RLL routines remain available in the XML comparison. Unknown or malformed ladder keeps its text/diagnostics even when a drawing cannot be made.
 

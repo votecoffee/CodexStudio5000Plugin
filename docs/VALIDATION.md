@@ -11,13 +11,15 @@ dotnet test tests/Studio5000.Tests/Studio5000.Tests.csproj -c Release
 .\scripts\Verify-Isolated.ps1
 ```
 
-The isolated script publishes a separate service, MCP adapter, desktop application and extension worker under `artifacts/isolated-validation/<run-id>/`. It selects its own loopback port and state, leaves the normal service configuration alone, unconfigures the native bridge and disables controller operations. It runs core tests, REST/MCP integration checks through an official MCP client, extension reload checks and sixteen off-screen desktop renders. It stops its temporary service when finished.
+The isolated script publishes a separate service, MCP adapter, desktop application and extension worker under `artifacts/isolated-validation/<run-id>/`. It selects its own loopback port and state, leaves the normal service configuration alone, unconfigures the native bridge and disables controller operations. It runs core tests, REST/MCP integration checks through an official MCP client, extension reload checks and eighteen off-screen desktop renders. It stops its temporary service when finished.
 
 Results are under that run's `artifacts/test-results/`, including `core.trx`, `integration.json`, `extensions.json` and desktop PNGs. FactoryTalk schema-dependent checks require the matching installed ME/SE schemas; inspect skipped checks rather than treating them as passes. Rendering a desktop view checks layout, not every button or native Studio workflow.
 
 The checks cover:
 
 - Logix XML editing, source preservation, stale hashes and component/scope validation, plus structural comparison, lexical tag where-used and passive ladder previews.
+- Whole-tag value merging: exact UDT/array layout checks, malformed/incomplete values, explicit mappings, stale review/hash rejection, original/metadata/logic preservation and separate offline L5X export. Online capture is rejected with no job/connection in isolated validation.
+- Independent routine/ladder comparison: program/AOI identity, changed/unchanged/one-sided routines, aligned insertion gaps, changed-row filtering, both diagrams and retained parse diagnostics. Generated GUI renders cover the merge window and integrated ladder browser.
 - FactoryTalk existing-property edits, installed-schema validation and simulated re-export mismatches; explicit shortcut/scoped-parameter resolution, saved UDT/array/bit checks, missing context, cycles, hash rejection and response budgets.
 - View Designer nested properties, bindings, encoding preservation, unchanged assets and import packages using generated fixtures.
 - Tag/UDT browsing, paged arrays, watch scheduling/decoding, journal recovery/retention, CSV quality rows and graph gaps.
@@ -31,6 +33,8 @@ The checks cover:
 Add `-WithCip` to isolated verification for the optional symbolic reader's generated read/reconstruction self-test, native library load/version check and rejected-startup protocol test. No tag handle or controller connection is created. The [CIP reader guide](CIP_READS.md) describes this offline evidence and the pending live acceptance boundary.
 
 ## Optional offline Logix SDK checks
+
+`scripts/Verify-ValueMergeNative.ps1` publishes a separate native bridge/verifier, merges generated v38 scalar/STRING/nested UDT/UDT-array values, exports a new ACD, reopens/builds it in a fresh offline SDK job and compares native re-exported values. It disables controller operations and configures no targets; the normal service is untouched. Run evidence stays under ignored `artifacts/test-results/value-merge-native-*`. This checks the generated fixture and installed SDK, not live upload or general native/runtime acceptance.
 
 For a focused **v38** check that publishes a separate native bridge and uses an isolated shared-service instance with no controller targets, run `scripts/Verify-LogixVersion.ps1 -Revision 38`. It checks generated native creation/build/save, edited L5X-to-ACD conversion, local DINT/LREAL/ULINT values and reopening. It does not use or restart the normal service. See [version support and detailed boundaries](LOGIX_VERSIONS.md).
 

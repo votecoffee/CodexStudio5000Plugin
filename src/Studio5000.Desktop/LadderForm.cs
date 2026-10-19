@@ -104,7 +104,7 @@ public sealed class LadderForm : Form
             [new(0, "0", null, text, false, "Generated display fixture; no controller connection.", false, "rendered", [], LadderPreview.Render(text))], "Structural preview only"));
     }
 
-    private sealed class LadderCanvas : ScrollableControl
+    internal sealed class LadderCanvas : ScrollableControl
     {
         private LadderDiagram? diagram;
         public LadderCanvas() { DoubleBuffered = true; AutoScroll = true; BackColor = Color.White; }

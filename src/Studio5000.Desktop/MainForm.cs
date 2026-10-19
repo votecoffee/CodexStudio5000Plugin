@@ -49,6 +49,7 @@ public sealed class MainForm : Form
         AddButton(toolbar, "Watch lists…", () => { using var watches = new WatchForm(client, project); watches.ShowDialog(this); return Task.CompletedTask; });
         AddButton(toolbar, "Tag / UDT browser…", () => { using var browser = new TagBrowserForm(client, project); browser.ShowDialog(this); return Task.CompletedTask; });
         AddButton(toolbar, "Compare projects…", () => { using var comparison = new ProjectCompareForm(client, project); comparison.ShowDialog(this); return Task.CompletedTask; });
+        AddButton(toolbar, "Merge tag values…", () => { using var merge = new TagValueMergeForm(client, project?.Kind == "logix" ? project : null); merge.ShowDialog(this); return Task.CompletedTask; });
         AddButton(toolbar, "Ladder preview…", () => { using var ladder = new LadderForm(client, project); ladder.ShowDialog(this); return Task.CompletedTask; });
         AddButton(toolbar, "PLC where used…", () => { using var references = new TagReferencesForm(client, project?.Kind == "logix" ? project : null); references.ShowDialog(this); return Task.CompletedTask; });
         AddButton(toolbar, "Capabilities", async () => MessageBox.Show((await client.GetAsync<JsonElement>("/api/capabilities")).ToString(), "Service capabilities"));

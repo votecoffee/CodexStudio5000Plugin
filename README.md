@@ -35,6 +35,7 @@ RockwellMCPServer gives agents and engineers a shared workspace for project insp
 | Watch preflight | Check drafts, saved lists and browser selections; report each unsupported tag, source changes, configuration failures and combined CIP read budgets without connecting. |
 | Portable watch templates | Export selections/settings, preview explicit project/program bindings and import a new stopped list with a checked review hash. |
 | Watch source rebinding | Preview declaration/scope changes and move a stopped list to a new snapshot while retaining its ID, settings and recording revisions. |
+| Tag value merge | Preview selected values from saved or uploaded PLC snapshots, check UDT/array layouts and merge into a different offline project. GUI supports capture and new L5X/ACD exports. |
 | Optional CIP reader | Read bounded scalar/UDT/array symbols through an isolated libplctag worker; plan reads offline and share watch recording/trends. Live validation pending. |
 | Trending and recording | Persist history across restarts, graph numeric/BOOL values, show quality/stale gaps and export CSV. |
 | Reloadable extensions | Discover operation schemas and reload compatible modules through MCP or the GUI while the host and chat remain running. |
@@ -122,7 +123,9 @@ Inspect/read before editing. Preview binds the requested changes to a source has
 
 Open a Logix or FactoryTalk export, inspect a component, then **Preview edit**, **Apply preview** and export a new file. **View Designer…** opens the exported-project workspace.
 
-**Compare projects…** shows paged structural changes between two Logix snapshots with before/after XML and rung alignment. **Ladder preview…** displays scrollable branches, instruction blocks and raw-code diagnostics from the same shared service. Both are read-only; see [project review](docs/PROJECT_REVIEW.md).
+**Compare projects…** opens two ACD/L5X files or registered snapshots and shows structural changes, XML differences and a program/AOI routine tree with side-by-side aligned ladder browsing. Inserted/deleted rungs retain explicit gaps, and a changed-rung filter supports focused review. This uses the app's own comparison engine. **Ladder preview…** also browses a single routine. See [project review](docs/PROJECT_REVIEW.md).
+
+**Merge tag values…** reads a saved project or captures an authorized online upload, previews selected tag values and merges them into a different offline working copy. Declaration/layout mismatches block apply. Export a separate L5X/ACD after merging; see [value merge](docs/VALUE_MERGE.md).
 
 For FactoryTalk displays, **Tag references** shows extracted occurrences and source expressions. **Resolve references…** maps shortcuts to saved Logix snapshots, binds parameters to exact objects/groups and searches the resulting tag/UDT/array checks. The read-only `ftview_tag_references` and `ftview_resolve_references` extension operations expose these features through the live catalog. Missing context, unavailable metadata and absence in a potentially partial snapshot have separate statuses. These checks do not connect to a PLC. See [FactoryTalk reference resolution](docs/FACTORYTALK.md#plchmi-reference-resolution).
 
@@ -149,6 +152,7 @@ XML checks, file comparisons and successful SDK calls do not establish native HM
 | [Architecture](docs/ARCHITECTURE.md) | Shared service, storage, authentication and process boundaries |
 | [Logix SDK](docs/SDK.md) | Bound catalog, native jobs and controller target policies |
 | [Project review](docs/PROJECT_REVIEW.md) | Structural comparison, rung alignment and read-only ladder previews |
+| [Tag value merge](docs/VALUE_MERGE.md) | Offline value transfer, online source capture, layout checks and new L5X/ACD exports |
 | [Online edits](docs/ONLINE_EDITS.md) | Planning, import dispositions and native lifecycle |
 | [FactoryTalk View](docs/FACTORYTALK.md) | ME/SE graphics editing and native import handoff |
 | [View Designer](docs/VIEW_DESIGNER.md) | Export syntax, property editing and native handoff |
