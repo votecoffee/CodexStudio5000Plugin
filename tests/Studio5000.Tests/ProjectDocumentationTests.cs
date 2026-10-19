@@ -35,14 +35,14 @@ public sealed class ProjectDocumentationTests : IDisposable
     public async Task PreviewAndApplyPreserveOtherLanguagesLogicValuesAttributesAndOriginalBytes()
     {
         var p = await service.RegisterAsync(path); var before = Current(p); var original = File.ReadAllBytes(path);
-        var request = new DocumentationPreviewRequest(p.CurrentSha256, [new(Tag("Record"), "description", "es-ES", "Producción 零\n<texto> & ]]>"), new(Rung(0), "rung-comment", "ja-JP", "出力許可"), new(Tag("Record"), "tag-comment", "de-DE", "Neue Zyklen", ".Count")]);
+        var request = new DocumentationPreviewRequest(p.CurrentSha256, [new(Tag("Record"), "description", "es-ES", "Producción 零\r\n<texto> & ]]>"), new(Rung(0), "rung-comment", "ja-JP", "出力許可"), new(Tag("Record"), "tag-comment", "de-DE", "Neue Zyklen", ".Count")]);
         var preview = await service.PreviewDocumentationAsync(p.Id, request); Assert.Equal(0, service.Get(p.Id).Revision);
         await Assert.ThrowsAsync<OperationException>(() => service.ApplyDocumentationAsync(p.Id, new(request, "wrong")));
         var next = await service.ApplyDocumentationAsync(p.Id, new(request, preview.ReviewSha256)); Assert.Equal(1, next.Revision); Assert.Equal(preview.ResultSha256, next.CurrentSha256);
         var after = Current(next); Assert.Equal(before.Descendants("Data").Select(e => e.ToString()), after.Descendants("Data").Select(e => e.ToString()));
         Assert.Equal(before.Descendants("Text").Select(e => e.Value), after.Descendants("Text").Select(e => e.Value)); Assert.Equal(before.Root!.Element("Controller")!.Attributes().Select(a => a.ToString()), after.Root!.Element("Controller")!.Attributes().Select(a => a.ToString()));
         Assert.Equal("Production record", after.Descendants("Tag").First().Element("Description")!.Elements().Single(e => (string?)e.Attribute("Lang") == "en-US").Value);
-        Assert.Contains(Browse(next).Fields.SelectMany(f => f.Texts), t => t.Language == "es-ES" && t.Text == "Producción 零\n<texto> & ]]>"); Assert.Equal(original, File.ReadAllBytes(path));
+        Assert.Contains(Browse(next).Fields.SelectMany(f => f.Texts), t => t.Language == "es-ES" && t.Text == "Producción 零\r\n<texto> & ]]>"); Assert.Equal(original, File.ReadAllBytes(path));
         await Assert.ThrowsAsync<OperationException>(() => service.ApplyDocumentationAsync(p.Id, new(request, preview.ReviewSha256)));
     }
     [Fact]

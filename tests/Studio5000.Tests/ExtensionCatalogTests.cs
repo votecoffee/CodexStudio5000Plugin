@@ -20,6 +20,10 @@ public sealed class ExtensionCatalogTests
         Assert.Equal("read", operations.Single(o => o.Name == "ftview_tag_references").Effect);
         Assert.Equal("read", operations.Single(o => o.Name == "ftview_resolve_references").Effect);
         Assert.Equal("read", operations.Single(o => o.Name == "studio_compare_projects").Effect);
+        Assert.Equal("read", operations.Single(o => o.Name == "studio_documentation_browse").Effect);
+        Assert.Equal("read", operations.Single(o => o.Name == "studio_documentation_preview").Effect);
+        Assert.Equal("apply", operations.Single(o => o.Name == "studio_documentation_apply").Effect);
+        Assert.Equal("apply", operations.Single(o => o.Name == "studio_documentation_export").Effect);
         Assert.Equal("read", operations.Single(o => o.Name == "studio_merge_mapping_bind").Effect);
         Assert.Equal("apply", operations.Single(o => o.Name == "studio_merge_mapping_save").Effect);
         Assert.Equal("apply", operations.Single(o => o.Name == "studio_comparison_session_save").Effect);

@@ -180,7 +180,7 @@ public static class ProjectDocumentation
             changes.Add(new(edit, prior.Texts, after.Texts));
         }
         XmlProjects.Validate(doc); using var stream = new MemoryStream();
-        using (var writer = XmlWriter.Create(stream, new XmlWriterSettings { Encoding = new UTF8Encoding(false), Indent = false, NewLineHandling = NewLineHandling.None, OmitXmlDeclaration = doc.Declaration is null })) doc.Save(writer);
+        using (var writer = XmlWriter.Create(stream, new XmlWriterSettings { Encoding = new UTF8Encoding(false), Indent = false, NewLineHandling = NewLineHandling.Entitize, OmitXmlDeclaration = doc.Declaration is null })) doc.Save(writer);
         if (stream.Length > 64 * 1024 * 1024) throw new OperationException("documentation_limit", "Updated project exceeds 64 MiB.");
         return (stream.ToArray(), changes.ToArray());
     }

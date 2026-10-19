@@ -72,6 +72,8 @@ public sealed partial class ProjectService : IDisposable
             maximumNoteLength = ComparisonAnnotations.MaximumNoteLength, maximumBatch = ComparisonAnnotations.MaximumBatch, maximumStateBytes = ComparisonAnnotations.MaximumStateBytes,
             requiresReportHashAndRevision = true, modifiesReport = false, connectsToController = false },
         sdk = SdkCapabilities(),
+        documentation = new { browse = "/api/projects/{id}/documentation/browse", preview = "/api/projects/{id}/documentation/preview", apply = "/api/projects/{id}/documentation/apply", export = "/api/projects/{id}/documentation/export",
+            maximumEdits = 200, maximumLanguagesPerField = 64, unlocalizedLanguage = (string?)null, implicitLanguageFallback = false, connectsToController = false },
         diagnostics = new { trace = "/api/projects/{id}/logic/trace", captures = "/api/diagnostics/captures", evaluate = "/api/diagnostics/evaluate", triggers = "/api/diagnostics/triggers",
             savedTrends = "/api/trends", trendResults = "/api/trends/analyze", logicValueMerge = "/api/logic-value-merge/preview", versionCompatibility = "/api/version-compatibility/preview",
             automaticPolling = false, automaticNativeConversion = false, matchingRevisionRequired = true, rungExecutionSimulated = false },
