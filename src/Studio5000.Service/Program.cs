@@ -63,6 +63,14 @@ app.Use(async (context, next) =>
 });
 app.MapGet("/health", () => new { status = "ok", name = WorkspaceIdentity.Name, version = WorkspaceIdentity.Version });
 app.MapGet("/api/capabilities", (ProjectService service) => service.Capabilities());
+app.MapGet("/api/hmi-languages", (ProjectService service) => service.HmiLanguages());
+app.MapPost("/api/hmi-languages", (ProjectService service, HmiLanguageRegisterRequest request, CancellationToken ct) => service.RegisterHmiLanguageAsync(request, ct));
+app.MapGet("/api/hmi-languages/{id}", (ProjectService service, string id) => service.HmiLanguage(id));
+app.MapPost("/api/hmi-languages/{id}/browse", (ProjectService service, string id, HmiLanguageQuery request) => service.BrowseHmiLanguage(id, request));
+app.MapPost("/api/hmi-languages/{id}/preview", (ProjectService service, string id, HmiLanguagePreviewRequest request, CancellationToken ct) => service.PreviewHmiLanguageAsync(id, request, ct));
+app.MapPost("/api/hmi-languages/{id}/apply", (ProjectService service, string id, HmiLanguageApplyRequest request, CancellationToken ct) => service.ApplyHmiLanguageAsync(id, request, ct));
+app.MapPost("/api/hmi-languages/{id}/export", (ProjectService service, string id, HmiLanguageExportRequest request, CancellationToken ct) => service.ExportHmiLanguageAsync(id, request, ct));
+app.MapPost("/api/hmi-languages/{id}/verify", (ProjectService service, string id, HmiLanguageVerifyRequest request) => service.VerifyHmiLanguage(id, request));
 app.MapPost("/api/projects/{id}/documentation/browse", (ProjectService service, string id, DocumentationQuery request) => service.BrowseDocumentation(id, request));
 app.MapPost("/api/projects/{id}/documentation/preview", (ProjectService service, string id, DocumentationPreviewRequest request, CancellationToken ct) => service.PreviewDocumentationAsync(id, request, ct));
 app.MapPost("/api/projects/{id}/documentation/apply", (ProjectService service, string id, DocumentationApplyRequest request, CancellationToken ct) => service.ApplyDocumentationAsync(id, request, ct));

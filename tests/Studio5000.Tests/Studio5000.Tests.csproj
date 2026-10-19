@@ -1,6 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup><IsPackable>false</IsPackable><IsTestProject>true</IsTestProject></PropertyGroup>
   <ItemGroup>
+    <None Include="../../examples/*LanguagesDemo.*" Link="%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
     <None Include="../../examples/WatchDemo.L5X" Link="WatchDemo.L5X" CopyToOutputDirectory="PreserveNewest" />
     <None Include="../../examples/MultilingualDemo.L5X" Link="MultilingualDemo.L5X" CopyToOutputDirectory="PreserveNewest" />
     <ProjectReference Include="../../src/Studio5000.Core/Studio5000.Core.csproj" />

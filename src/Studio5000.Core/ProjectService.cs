@@ -60,6 +60,8 @@ public sealed partial class ProjectService : IDisposable
         projectKinds = new[] { "logix", "ftview-me", "ftview-se" },
         factoryTalk = FactoryTalkStatus(),
         viewDesigner = ViewDesignerStatus(),
+        hmiLanguages = new { path = "/api/hmi-languages", platforms = new[] { "ftview-me", "ftview-se", "view-designer" }, formats = new[] { "OpenXML .xls/.xlsx by signature", "Unicode tab-delimited .txt" },
+            maximumBytes = HmiLanguageFile.MaximumBytes, maximumEdits = 200, preservesNativeKeys = true, nativeImportAutomatic = false, connectsToController = false },
         extensions = new { protocolVersion = 1, catalog = "/api/extensions", reload = "/api/extensions/reload", fixedMcpTools = "studio_extensions_*", activation = "Versioned trusted local packages; existing calls retain their generation" },
         savedReviews = new { comparisonSessions = "/api/comparison-sessions", mergeMappings = "/api/merge-mappings", maximumPerKind = 200,
             maximumMappingTags = 256, maximumMappingBytes = MergeMappingTemplates.MaximumBytes, portableMappings = true,
@@ -340,7 +342,8 @@ public sealed partial class ProjectService : IDisposable
             File.Copy(source, path, overwrite: false);
             if (artifact.Format is "csv" or "json" or "html") return new(path, artifact.Sha256, artifact.Bytes); // Watch/review exports have no project/SDK job owner.
             var info = File.Exists(ProjectMeta(artifact.ProjectId)) ? Get(artifact.ProjectId) :
-                File.Exists(VdMeta(artifact.ProjectId)) ? ViewDesignerProject(artifact.ProjectId) : SdkAuditProject(SdkJob(artifact.ProjectId));
+                File.Exists(VdMeta(artifact.ProjectId)) ? ViewDesignerProject(artifact.ProjectId) :
+                File.Exists(HmiLanguageMeta(artifact.ProjectId)) ? HmiLanguageAuditProject(HmiLanguage(artifact.ProjectId)) : SdkAuditProject(SdkJob(artifact.ProjectId));
             Audit("save_artifact", info, null, artifact.Sha256, path);
             return new(path, artifact.Sha256, artifact.Bytes);
         }

@@ -76,6 +76,7 @@ public sealed class FactoryTalkExtension : ProxyExtension
 {
     public FactoryTalkExtension()
     {
+        HmiLanguages("ftview");
         Get("ftview_status", "FactoryTalk ME/SE installation/schema status.", _ => "/api/factorytalk/status");
         Post<RegisterRequest>("ftview_register_display", "apply", "Snapshot an allowed ME/SE graphics XML export.", _ => "/api/projects");
         Get("ftview_inspect_display", "Inspect graphics objects with exact selectors.", a => Query(a, $"/api/projects/{E(a, "projectId")}/elements", "kind", "query", "offset", "limit"), F<string>("projectId"), F<string>("kind", true), F<string>("query", true), F<int>("offset", true), F<int>("limit", true));
@@ -93,6 +94,7 @@ public sealed class ViewDesignerExtension : ProxyExtension
 {
     public ViewDesignerExtension()
     {
+        HmiLanguages("viewdesigner");
         Get("viewdesigner_status", "View Designer installation and export-editing boundaries.", _ => "/api/viewdesigner/status");
         Get("viewdesigner_list_projects", "List preserved View Designer exported workspaces.", _ => "/api/viewdesigner/projects");
         Post<RegisterRequest>("viewdesigner_register_export", "apply", "Snapshot a folder containing ViewApplication.hmi and preserve all assets.", _ => "/api/viewdesigner/projects");
