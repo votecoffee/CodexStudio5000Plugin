@@ -28,6 +28,9 @@ internal sealed class HmiLanguageFile
         internal Dictionary<string, int> Languages = new(StringComparer.OrdinalIgnoreCase);
         internal Dictionary<int, Dictionary<int, Cell>> Rows = [];
         internal XDocument? Xml;
+        internal Dictionary<int, XElement> XmlRows = [];
+        internal Dictionary<(int Row, int Column), XElement> XmlCells = [];
+        internal Dictionary<XElement, int> XmlColumns = [];
         internal Dictionary<int, TextRow> TextRows = [];
         internal bool Protected;
         internal int Width;
@@ -43,7 +46,7 @@ internal sealed class HmiLanguageFile
     internal string Format { get; private set; } = "";
     internal string[] Languages => tables.SelectMany(t => t.Languages.Keys).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
     internal HmiLanguageRecord[] Records => entries.Select(e => new HmiLanguageRecord(e.Key, e.Table.Name, e.Context,
-        e.Table.Languages.Select(l => { var c = Get(e.Table, e.Row, l.Value); return new HmiLanguageText(l.Key, c.Text, c.Writable && !e.Table.Protected); }).ToArray())).ToArray();
+        e.Table.Languages.Select(l => { var c = Get(e.Table, e.Row, l.Value); return new HmiLanguageText(l.Key, c.Text, c.Writable && !e.Table.Protected && !e.Table.Identity.Contains(l.Value)); }).ToArray())).ToArray();
     internal static string Language(string? value)
     {
         if (value is null || value.Length > 64 || !Locale.IsMatch(value)) throw Error("Use an explicit RFC/BCP language code such as en-US or zh-CN.");
@@ -106,23 +109,27 @@ internal sealed class HmiLanguageFile
             if (path.Split('/').Contains("..") || !sheetPaths.Add(path)) throw Error("Ambiguous worksheet relationship.");
             var xml = Xml(Part(path));
             if (xml.Root?.Name != S + "worksheet") throw Error("Unsupported worksheet type.");
-            var rows = new Dictionary<int, Dictionary<int, Cell>>();
+            var rows = new Dictionary<int, Dictionary<int, Cell>>(); var xmlRows = new Dictionary<int, XElement>(); var xmlCells = new Dictionary<(int, int), XElement>(); var previousRow = 0;
             foreach (var row in xml.Root.Element(S + "sheetData")?.Elements(S + "row") ?? [])
             {
-                var rowNumber = (int?)row.Attribute("r") ?? throw Error("Worksheet row numbers must be explicit.");
-                if (rowNumber is < 1 or > 1048576 || !rows.TryAdd(rowNumber, [])) throw Error("Invalid or duplicate worksheet row.");
+                var rowNumber = (int?)row.Attribute("r") ?? previousRow + 1;
+                if (rowNumber is < 1 or > 1048576 || rowNumber <= previousRow || !rows.TryAdd(rowNumber, [])) throw Error("Invalid, duplicate or out-of-order worksheet row.");
+                previousRow = rowNumber; xmlRows.Add(rowNumber, row); var previousColumn = -1;
                 foreach (var cell in row.Elements(S + "c"))
                 {
-                    var reference = (string?)cell.Attribute("r") ?? ""; var (col, cellRow) = Address(reference);
-                    if (cellRow != rowNumber || !rows[rowNumber].TryAdd(col, ReadCell(cell, shared))) throw Error("Invalid or duplicate cell address.");
+                    var reference = (string?)cell.Attribute("r"); var (col, cellRow) = reference is null ? (previousColumn + 1, rowNumber) : Address(reference);
+                    if (cellRow != rowNumber || col <= previousColumn || col >= 16384 || !rows[rowNumber].TryAdd(col, ReadCell(cell, shared))) throw Error("Invalid, duplicate or out-of-order cell address.");
+                    previousColumn = col; xmlCells.Add((rowNumber, col), cell);
                 }
             }
             if (rows.Sum(r => r.Value.Count) > 1000000) throw Error("Too many worksheet cells.");
-            var candidate = rows.OrderBy(r => r.Key).FirstOrDefault(r => r.Value.Values.Any(c => c.Text.Length != 0));
+            var candidate = rows.OrderBy(r => r.Key).FirstOrDefault(r => r.Value.Values.Any(c => c.Text.Length != 0) && !(platform == "view-designer" && Metadata(r.Value.OrderBy(c => c.Key).Select(c => c.Value.Text).ToArray())));
             if (candidate.Value is null) continue; // Preserve empty sheets without inventing a language table.
             var headers = Enumerable.Range(0, candidate.Value.Keys.DefaultIfEmpty(0).Max() + 1).Select(i => candidate.Value.GetValueOrDefault(i)?.Text ?? "").ToArray();
             var table = Header(name, path, headers, candidate.Key, platform);
-            table.Rows = rows; table.Xml = xml; table.Protected = xml.Root.Element(S + "sheetProtection") is not null || xml.Root.Element(S + "mergeCells") is not null;
+            table.Rows = rows; table.Xml = xml; table.XmlRows = xmlRows; table.XmlCells = xmlCells;
+            table.XmlColumns = xmlCells.ToDictionary(c => c.Value, c => c.Key.Item2);
+            table.Protected = xml.Root.Element(S + "sheetProtection") is not null || xml.Root.Element(S + "mergeCells") is not null;
             tables.Add(table); AddEntries(table);
         }
     }
@@ -155,11 +162,20 @@ internal sealed class HmiLanguageFile
     }
     private static Table Header(string name, string path, string[] headers, int headerRow, string platform)
     {
-        int[] identity;
+        int[] identity; string? sourceLanguage = null;
         if (platform == "view-designer")
         {
-            identity = headers.Select((h, i) => (h, i)).Where(x => x.h == "KEY").Select(x => x.i).ToArray();
-            if (identity.Length != 1) throw Error("View Designer language files require exactly one KEY column.");
+            if (headers.Length >= 4 && headers.Take(3).SequenceEqual(new[] { "Container", "Element", "Property" }))
+            {
+                identity = [0, 1, 2, 3];
+                if (headers[3].StartsWith("Key:", StringComparison.OrdinalIgnoreCase)) sourceLanguage = Language(headers[3][4..].Split(' ', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault());
+                else if (headers[3] != "KEY") throw Error("View Designer context exports require an immutable KEY or Key:<source language> column.");
+            }
+            else
+            {
+                identity = headers.Select((h, i) => (h, i)).Where(x => x.h == "KEY").Select(x => x.i).ToArray();
+                if (identity.Length != 1) throw Error("View Designer language files require an immutable KEY or Container/Element/Property/Key:<source language> layout.");
+            }
         }
         else
         {
@@ -167,6 +183,7 @@ internal sealed class HmiLanguageFile
             identity = [0, 1, 2, 3];
         }
         var table = new Table(name, path, identity, headerRow) { Width = headers.Length };
+        if (sourceLanguage is not null) table.Languages.Add(sourceLanguage, 3);
         for (var i = 0; i < headers.Length; i++)
         {
             if (identity.Contains(i)) continue;
@@ -176,6 +193,7 @@ internal sealed class HmiLanguageFile
         }
         return table;
     }
+    private static bool Metadata(string[] values) => values.Length != 0 && values[0].StartsWith('#') && values.Skip(1).All(string.IsNullOrEmpty);
     private static Cell Get(Table table, int row, int col) => table.Rows.GetValueOrDefault(row)?.GetValueOrDefault(col) ?? new("", true);
     private void AddEntries(Table table)
     {
@@ -208,7 +226,9 @@ internal sealed class HmiLanguageFile
         if (platform == "view-designer")
         {
             if (parsed.Count == 0) throw Error("Empty language file.");
-            table = Header("Text", "", parsed[0].Cells.Select(c => c.Value).ToArray(), 0, platform); dataStart = 1;
+            var header = parsed.FindIndex(r => !Metadata(r.Cells.Select(c => c.Value).ToArray()));
+            if (header < 0) throw Error("View Designer language header is missing.");
+            table = Header("Text", "", parsed[header].Cells.Select(c => c.Value).ToArray(), header, platform); dataStart = header + 1;
         }
         else
         {
@@ -216,7 +236,7 @@ internal sealed class HmiLanguageFile
         }
         for (var i = 0; i < parsed.Count; i++)
         {
-            if (i >= dataStart && parsed[i].Cells.Length != table.Width) throw Error("Unexpected tab-delimited column count; keys and context must remain unambiguous.");
+            if (i >= dataStart && parsed[i].Cells.Any(c => c.Value.Length != 0) && parsed[i].Cells.Length != table.Width) throw Error("Unexpected tab-delimited column count; keys and context must remain unambiguous.");
             table.Rows[i] = parsed[i].Cells.Select((c, col) => (col, c)).ToDictionary(x => x.col, x => new Cell(x.c.Value, true)); table.TextRows[i] = parsed[i];
         }
         tables.Add(table); AddEntries(table);
@@ -266,7 +286,13 @@ internal sealed class HmiLanguageFile
         foreach (var table in tables)
         foreach (var l in added)
         {
-            var col = table.Width++; table.Languages.Add(l, col); if (table.Xml is not null) SetCell(table, table.HeaderRow, col, l); dirty.Add(table);
+            var col = table.Width++; table.Languages.Add(l, col);
+            if (table.Xml is not null)
+            {
+                SetCell(table, table.HeaderRow, col, l);
+                foreach (var entry in entries.Where(e => e.Table == table)) SetCell(table, entry.Row, col, "");
+            }
+            dirty.Add(table);
         }
         foreach (var edit in request.Edits)
         {
@@ -277,7 +303,7 @@ internal sealed class HmiLanguageFile
             var entry = entries.SingleOrDefault(e => e.Key == edit.Key) ?? throw Error("String key not found in this exact export.");
             if (!entry.Table.Languages.TryGetValue(edit.Language, out var column)) throw Error("Language is absent. Add its column explicitly first.");
             var cell = Get(entry.Table, entry.Row, column);
-            if (!cell.Writable || entry.Table.Protected) throw Error("Formula, rich/typed, protected or merged language cells are read-only.");
+            if (!cell.Writable || entry.Table.Protected || entry.Table.Identity.Contains(column)) throw Error("Native identity/source KEY, formula, rich/typed, protected or merged language cells are read-only.");
             changes.Add(new(edit.Key, edit.Language, added.Contains(edit.Language, StringComparer.OrdinalIgnoreCase) ? null : cell.Text, edit.Text));
             if (entry.Table.Xml is not null) SetCell(entry.Table, entry.Row, column, edit.Text);
             else if (column < oldWidths[entry.Table])
@@ -287,10 +313,13 @@ internal sealed class HmiLanguageFile
             entry.Table.Rows[entry.Row][column] = new(edit.Text, true); dirty.Add(entry.Table);
         }
         foreach (var table in tables.Where(t => t.Xml is null && added.Length != 0))
-        foreach (var (rowIndex, row) in table.TextRows)
         {
-            var values = added.Select(l => rowIndex == table.HeaderRow ? l : Get(table, rowIndex, table.Languages[l]).Text);
-            replacements.Add((row.End, row.End, "\t" + string.Join('\t', values.Select(Quote))));
+            var dataRows = entries.Where(e => e.Table == table).Select(e => e.Row).ToHashSet();
+            foreach (var (rowIndex, row) in table.TextRows.Where(r => r.Key == table.HeaderRow || dataRows.Contains(r.Key)))
+            {
+                var values = added.Select(l => rowIndex == table.HeaderRow ? l : Get(table, rowIndex, table.Languages[l]).Text);
+                replacements.Add((row.End, row.End, "\t" + string.Join('\t', values.Select(Quote))));
+            }
         }
         if (Format == "unicode-text")
         {
@@ -320,14 +349,14 @@ internal sealed class HmiLanguageFile
     private static string Quote(string value) => "\"" + value.Replace("\"", "\"\"") + "\"";
     private static void SetCell(Table table, int rowNumber, int column, string value)
     {
-        var data = table.Xml!.Root!.Element(S + "sheetData")!;
-        var row = data.Elements(S + "row").Single(r => (int?)r.Attribute("r") == rowNumber);
-        var cell = row.Elements(S + "c").SingleOrDefault(c => Address((string)c.Attribute("r")!).Col == column);
+        var row = table.XmlRows[rowNumber];
+        var cell = table.XmlCells.GetValueOrDefault((rowNumber, column));
         if (cell is null)
         {
             cell = new XElement(S + "c", new XAttribute("r", Column(column) + rowNumber));
-            var following = row.Elements(S + "c").FirstOrDefault(c => Address((string)c.Attribute("r")!).Col > column);
+            var following = row.Elements(S + "c").FirstOrDefault(c => table.XmlColumns[c] > column);
             if (following is null) row.Add(cell); else following.AddBeforeSelf(cell);
+            table.XmlCells.Add((rowNumber, column), cell); table.XmlColumns.Add(cell, column);
         }
         cell.SetAttributeValue("t", "inlineStr"); cell.Elements(S + "v").Remove(); cell.Elements(S + "is").Remove();
         cell.Add(new XElement(S + "is", new XElement(S + "t", new XAttribute(XNamespace.Xml + "space", "preserve"), Encode(value))));
