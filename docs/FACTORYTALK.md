@@ -33,6 +33,8 @@ Limits: 200 rows per page, 256 query characters, 16 KiB per expression, 10000 re
 
 `POST /api/projects/{id}/graphics-reference-resolution` and the `factorytalk` read operation `ftview_resolve_references` use explicit context to check extracted references against registered Logix snapshots. The shared service preserves the original occurrence and expression, expanded reference, parameter trace, target project/hash, resolved program/tag, selected type and remaining array dimensions. These reads preserve source files and managed revisions and never connect to a controller.
 
+In the desktop, open **Resolve references…** and select a registered ME/SE display. Resolve initially without context to see occurrences and available exact scopes. On **PLC shortcuts**, enter a shortcut name, select a registered Logix snapshot and set the mapping. On **Scoped parameters**, choose/paste the exact scope, enter `#number` and its literal value, and set the binding. Resolve again to update the results. Select a row for source selectors, hashes, expansion trace and diagnostics. Search and Previous/Next page the results; removal buttons remove the selected context entry. Changing display or refreshing snapshots clears context so old scopes/hashes cannot carry over silently.
+
 ```json
 {
   "expectedSha256": "CURRENT_DISPLAY_SHA256",

@@ -51,7 +51,7 @@ public sealed class MainForm : Form
         AddButton(toolbar, "Compare projects…", () => { using var comparison = new ProjectCompareForm(client, project); comparison.ShowDialog(this); return Task.CompletedTask; });
         AddButton(toolbar, "Ladder preview…", () => { using var ladder = new LadderForm(client, project); ladder.ShowDialog(this); return Task.CompletedTask; });
         AddButton(toolbar, "Capabilities", async () => MessageBox.Show((await client.GetAsync<JsonElement>("/api/capabilities")).ToString(), "Service capabilities"));
-        var graphicsToolbar = new FlowLayoutPanel { Dock = DockStyle.Top, Height = 44, Padding = new Padding(8, 3, 8, 3) };
+        var graphicsToolbar = new FlowLayoutPanel { Dock = DockStyle.Top, Height = 84, Padding = new Padding(8, 3, 8, 3) };
         graphicsToolbar.Controls.Add(new Label { Text = "FACTORYTALK", AutoSize = true, Padding = new Padding(0, 7, 5, 0) });
         AddButton(graphicsToolbar, "Studio status", async () => ShowJson(await client.GetAsync<JsonElement>("/api/factorytalk/status")));
         AddButton(graphicsToolbar, "Open Studio", async () => ShowJson(await client.PostAsync<JsonElement>("/api/factorytalk/launch", new { })));
@@ -62,6 +62,7 @@ public sealed class MainForm : Form
                 throw new InvalidOperationException("Select an ME or SE display XML working copy first.");
             ShowJson(await client.PostAsync<GraphicsReferenceReport>($"/api/projects/{project.Id}/graphics-references", new GraphicsReferenceRequest(project.CurrentSha256)));
         });
+        AddButton(graphicsToolbar, "Resolve references…", () => { using var resolver = new GraphicsReferencesForm(client, project); resolver.ShowDialog(this); return Task.CompletedTask; });
         AddButton(graphicsToolbar, "Prepare import…", PrepareGraphicsAsync);
         graphicsToolbar.Controls.Add(graphicsPlanId);
         AddButton(graphicsToolbar, "Verify re-export", VerifyGraphicsAsync);

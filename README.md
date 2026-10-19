@@ -29,7 +29,7 @@ RockwellMCPServer gives agents and engineers a shared workspace for project insp
 | Logix project editing | Inspect and preview/apply L5X component changes; export L5X or exploded ZIP. Optional SDK conversion supports ACD files. |
 | Project review | Compare two hash-bound Logix snapshots with aligned rung differences; preview ladder branches as drawing geometry and passive SVG. |
 | Logix SDK jobs | Ordered native calls for projects, builds, imports, typed/raw tags and other operations in the bound SDK version. Availability depends on the installed Logix version and project. |
-| FactoryTalk View ME/SE | Edit existing graphics XML properties using matching installed schemas; extract tag references with source selectors, prepare import packages and compare re-exports. |
+| FactoryTalk View ME/SE | Edit existing graphics XML properties using matching installed schemas; resolve tag references against saved PLC metadata using explicit shortcut/parameter context, prepare import packages and compare re-exports. |
 | View Designer | Edit existing properties in exported `.hmi` folders, preserve assets, prepare import ZIPs and compare re-exports. |
 | Tag/UDT browser and watches | Search snapshot structures, expand members/arrays, create stopped watch lists, poll authorized tags and extract structures as JSON. |
 | Trending and recording | Persist history across restarts, graph numeric/BOOL values, show quality/stale gaps and export CSV. |
@@ -110,7 +110,7 @@ Open a Logix or FactoryTalk export, inspect a component, then **Preview edit**, 
 
 **Compare projects…** shows paged structural changes between two Logix snapshots with before/after XML and rung alignment. **Ladder preview…** displays scrollable branches, instruction blocks and raw-code diagnostics from the same shared service. Both are read-only; see [project review](docs/PROJECT_REVIEW.md).
 
-For FactoryTalk displays, **Tag references** shows the current snapshot's extracted references and source expressions. The read-only `ftview_tag_references` extension operation adds search and pagination through the live catalog. Shortcut and parameter resolution remain explicit pending context; extraction does not connect to a PLC or declare tags missing.
+For FactoryTalk displays, **Tag references** shows extracted occurrences and source expressions. **Resolve references…** maps shortcuts to saved Logix snapshots, binds parameters to exact objects/groups and searches the resulting tag/UDT/array checks. The read-only `ftview_tag_references` and `ftview_resolve_references` extension operations expose these features through the live catalog. Missing context, unavailable metadata and absence in a potentially partial snapshot have separate statuses. These checks do not connect to a PLC. See [FactoryTalk reference resolution](docs/FACTORYTALK.md#plchmi-reference-resolution).
 
 Use **Tag / UDT browser…** to search tags, expand structures/arrays and create a watch list from selected values. **Watch lists…** provides polling controls and extracted values; **Trends & recording…** provides graphs, retention and CSV. Saving a watch list does not connect. Lists restart stopped; closing a viewer does not stop already active shared polling.
 
