@@ -111,10 +111,11 @@ internal static class ExtensionIntegration
             Check(savedTemplate.Sha256 == templateArtifact.Sha256 && ProjectService.Hash(await File.ReadAllBytesAsync(savedTemplate.Path)) == templateArtifact.Sha256 &&
                 (await client.GetAsync<WatchStatus>($"/api/watches/{templateSource.Definition.Id}")).Definition.Revision == 0,
                 "Portable JSON saves through the shared output-root guard and preserves the source list");
-            var rebindProject = await client.PostAsync<ProjectInfo>("/api/projects", new RegisterRequest(preflightSource));
-            var scopePreview = await client.PostAsync<ChangePreview>($"/api/projects/{rebindProject.Id}/previews", new PreviewRequest(rebindProject.CurrentSha256,
-                [new("set_attribute", "//Program[@Name='WatchProgram']", "ReboundProgram", "Name")]));
-            rebindProject = await client.PostAsync<ProjectInfo>($"/api/projects/{rebindProject.Id}/previews/{scopePreview.Id}/apply", new ApplyRequest(rebindProject.CurrentSha256));
+            var rebindDocument = XmlProjects.Parse(await File.ReadAllBytesAsync(preflightSource));
+            rebindDocument.Descendants("Program").Single().SetAttributeValue("Name", "ReboundProgram");
+            var rebindSource = Path.Combine(root, "examples", "RebindDestination.L5X");
+            rebindDocument.Save(rebindSource);
+            var rebindProject = await client.PostAsync<ProjectInfo>("/api/projects", new RegisterRequest(rebindSource));
             var rebindRequest = new WatchRebindPreviewRequest(0, rebindProject.Id, rebindProject.CurrentSha256, [new("WatchProgram", "ReboundProgram")]);
             var rebindCall = new ExtensionCall(watches.Id, "studio_watch_rebind_preview", watches.Generation,
                 JsonSerializer.SerializeToElement(new { watchId = templateImported.Definition.Id, request = rebindRequest }, ProjectService.Json));
