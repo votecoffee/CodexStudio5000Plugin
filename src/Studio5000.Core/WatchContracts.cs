@@ -5,15 +5,16 @@ namespace Studio5000.Core;
 
 public sealed record WatchTag(string Key, string TagName, string? ProgramName = null, string? MemberPath = null);
 public sealed record WatchListRequest(string Name, WatchTag[] Tags, string ExpectedSha256, string? SourcePath = null,
-    string? SourceArtifactId = null, string? ControllerTargetId = null, string Mode = "Online", int IntervalMs = 1000, int HistoryLimit = 100);
+    string? SourceArtifactId = null, string? ControllerTargetId = null, string Mode = "Online", int IntervalMs = 1000, int HistoryLimit = 100, string Backend = "Sdk");
 public sealed record WatchDefinition(string Id, int Revision, DateTimeOffset CreatedAt, WatchListRequest Settings);
 public sealed record WatchUpdateRequest(WatchListRequest Settings, int ExpectedRevision);
 public sealed record WatchValue(string Key, string TagName, string? ProgramName, string DataType, JsonNode? Value, string Quality, string? Error = null);
 public sealed record WatchSnapshot(long Sequence, DateTimeOffset StartedAt, DateTimeOffset CompletedAt, string Mode, WatchValue[] Values);
 public sealed record WatchStatus(WatchDefinition Definition, string State, WatchSnapshot? Latest, bool Stale, string? Error, StructureType[] Types);
-public sealed record WatchBridgeOpen(string WorkDirectory, string SourcePath, string? CommunicationsPath, string Mode);
+public sealed record WatchBridgeOpen(string WorkDirectory, string SourcePath, string? CommunicationsPath, string Mode,
+    string Backend = "Sdk", CipReadTarget? CipTarget = null, WatchTag[]? AllowedTags = null);
 public sealed record WatchBridgeCommand(WatchTag[] Tags);
-public sealed record WatchBridgeReply(bool Success, StructuredTag[] Tags, string? Error = null);
+public sealed record WatchBridgeReply(bool Success, StructuredTag[] Tags, string? Error = null, WatchValue[]? SelectedValues = null);
 public interface IWatchSession : IAsyncDisposable
 {
     Task<WatchBridgeReply> ReadAsync(WatchTag[] tags, CancellationToken ct);
@@ -43,6 +44,8 @@ public static class WatchValidation
     }
     public static void Validate(WatchListRequest request)
     {
+        if (request.Backend is not ("Sdk" or "LibPlcTag") || request.Backend == "LibPlcTag" && request.Mode != "Online")
+            throw new OperationException("watch_backend", "Use Sdk (Online/Offline) or LibPlcTag (Online only).");
         if (string.IsNullOrWhiteSpace(request.Name) || request.Name.Length > 100 || request.Tags is null || request.Tags.Length is < 1 or > 64 ||
             request.Tags.Any(t => t is null || string.IsNullOrWhiteSpace(t.Key) || t.Key.Length > 100) || request.Tags.Select(t => t.Key).Distinct(StringComparer.Ordinal).Count() != request.Tags.Length)
             throw new OperationException("watch_invalid", "Supply a name and 1–64 tags with unique nonempty keys (100 characters maximum).");

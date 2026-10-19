@@ -1,4 +1,4 @@
-param([string]$PackageRoot = (Join-Path (Split-Path -Parent $PSScriptRoot) 'extensions'), [string]$Version = '0.12.0')
+param([string]$PackageRoot = (Join-Path (Split-Path -Parent $PSScriptRoot) 'extensions'), [string]$Version = '0.13.0')
 $ErrorActionPreference = 'Stop'
 $repo = Split-Path -Parent $PSScriptRoot
 $published = Join-Path $repo ('artifacts/extension-builds/' + [guid]::NewGuid().ToString('N'))

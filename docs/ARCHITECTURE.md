@@ -55,6 +55,8 @@ Controller entry points and `mode=Online` require both `EnableControllerOperatio
 
 The native bridge's `--watch` protocol opens a private source snapshot and a separate offline decoder project once per run. Only the source session goes online and only reads whole base tags. Raw bytes are applied to the offline decoder, which exports the selected tag as decorated XML. `LogixStructures` extracts nested objects/arrays from this representation without inferring byte offsets, padding or BOOL packing. Native operations share the conversion/job semaphore; idle watch sessions do not hold it. Pipe EOF ends the reader when the service exits. Stop/cancellation disposes or terminates the read-only native child.
 
+The optional [CIP reader](CIP_READS.md) is a separate process with its own pinned dependencies. Core plans bounded symbolic scalar leaves against saved L5X metadata before handle initialization. The worker checks live primitive types, reads sequentially and reconstructs selected JSON structures. It has no controller write path. Both backends use the shared watch policy, scheduler, recording and stale/fault lifecycle. No backend fallback occurs after a failed read.
+
 `ProjectService.Structures` extracts definitions/values from managed hash-checked revisions. A fresh live pull reuses the configured, gated SDK upload-to-new-project operation; extraction of that successful job is labeled an uploaded snapshot. The service does not describe ordinary saved data as live or assume a watch's saved schema updates after controller edits. Limits and API contracts are in [WATCHES.md](WATCHES.md).
 
 ## FactoryTalk ME/SE

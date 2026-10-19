@@ -1,4 +1,4 @@
-param([Alias('SkipBuild')][switch]$SkipUnitTests)
+param([Alias('SkipBuild')][switch]$SkipUnitTests, [switch]$WithCip)
 $ErrorActionPreference = 'Stop'
 $repo = Split-Path -Parent $PSScriptRoot
 $fixtureRoot = Join-Path $repo ('artifacts/isolated-validation/' + [guid]::NewGuid().ToString('N'))
@@ -17,6 +17,12 @@ try {
         dotnet publish "src/Studio5000.$name/Studio5000.$name.csproj" -c Release -o (Join-Path $fixtureRoot "artifacts/app/$name") --nologo
         if ($LASTEXITCODE -ne 0) { throw "$name publish failed." }
     }
+    if ($WithCip) {
+        $cipOutput = Join-Path $fixtureRoot 'artifacts/app/CipBridge'
+        dotnet publish src/Studio5000.CipBridge/Studio5000.CipBridge.csproj -c Release -o $cipOutput --nologo
+        if ($LASTEXITCODE -ne 0) { throw 'CIP worker publish failed.' }
+        & (Join-Path $PSScriptRoot 'Verify-CipOffline.ps1') -BridgePath (Join-Path $cipOutput 'Studio5000.CipBridge.exe') -ResultsDirectory (Join-Path $fixtureRoot 'artifacts/test-results')
+    }
     & (Join-Path $PSScriptRoot 'Build-Extensions.ps1') -PackageRoot (Join-Path $fixtureRoot 'extensions')
     foreach ($fixtureVersion in @('1', '2')) {
         $fixtureOutput = Join-Path $fixtureRoot "fixture-build-$fixtureVersion"
@@ -32,6 +38,7 @@ try {
     $config.Studio5000.EnableControllerOperations = $false
     $config.Studio5000.ControllerTargets = @()
     $config.Studio5000.NativeBridgePath = $null
+    $config.Studio5000.CipBridgePath = $null
     $config | ConvertTo-Json -Depth 10 | Set-Content -LiteralPath (Join-Path $fixtureRoot 'service.local.json') -Encoding utf8
     $env:STUDIO5000_PLUGIN_ROOT = $fixtureRoot
     $process = Start-Process -FilePath (Join-Path $fixtureRoot 'artifacts/app/Service/Studio5000.Service.exe') -WorkingDirectory $fixtureRoot -WindowStyle Hidden -PassThru -RedirectStandardOutput (Join-Path $fixtureRoot 'service.log') -RedirectStandardError (Join-Path $fixtureRoot 'service-error.log')

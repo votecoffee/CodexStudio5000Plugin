@@ -73,6 +73,7 @@ public sealed class WatchesExtension : ProxyExtension
 {
     public WatchesExtension()
     {
+        Post<CipWatchPlanRequest>("studio_cip_watch_plan", "read", "Plan bounded symbolic scalar reads and extracted UDT/array structures against a hash-bound L5X snapshot. Never connects; no inferred packing or live discovery. Strings/unavailable templates require the SDK backend.", a => $"/api/projects/{E(a, "projectId")}/cip-watch-plan", F<string>("projectId"));
         Add("studio_watch_save", "apply", "Save/update a stopped watch list; saving never starts polling.", [F<WatchListRequest>("request"), F<string>("watchId", true), F<int>("expectedRevision", true)], (a, client, ct) =>
             a.TryGetProperty("watchId", out var id) ? client.PostAsync<JsonElement>("/api/watches/" + Uri.EscapeDataString(id.GetString()!),
                 new { settings = a.GetProperty("request"), expectedRevision = a.TryGetProperty("expectedRevision", out var rev) ? rev.GetInt32() : -1 }, ct) : client.PostAsync<JsonElement>("/api/watches", a.GetProperty("request"), ct));

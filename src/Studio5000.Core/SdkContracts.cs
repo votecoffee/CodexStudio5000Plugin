@@ -2,7 +2,7 @@ using System.Text.Json;
 
 namespace Studio5000.Core;
 
-public sealed record ControllerTarget(string Id, string CommunicationsPath, SdkTargetPolicy? Policy = null)
+public sealed record ControllerTarget(string Id, string CommunicationsPath, SdkTargetPolicy? Policy = null, CipReadTarget? CipRead = null)
 {
     public ControllerTarget() : this("", "") { } // Configuration binder must not bind constructor arrays twice.
 }

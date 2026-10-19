@@ -91,6 +91,7 @@ app.MapPost("/api/sdk/jobs", (ProjectService service, SdkRunRequest request, Can
 app.MapGet("/api/sdk/jobs/{id}", (ProjectService service, string id) => service.SdkJob(id));
 app.MapPost("/api/sdk/jobs/{id}/cancel", (ProjectService service, string id) => service.CancelSdkJob(id));
 app.MapGet("/api/watches", (ProjectService service) => service.WatchLists());
+app.MapPost("/api/projects/{id}/cip-watch-plan", (ProjectService service, string id, CipWatchPlanRequest request) => service.PlanCipWatch(id, request));
 app.MapPost("/api/watches", (ProjectService service, WatchListRequest request, CancellationToken ct) => service.SaveWatchAsync(request, ct: ct));
 app.MapGet("/api/watches/{id}", (ProjectService service, string id) => service.GetWatch(id));
 app.MapPost("/api/watches/{id}", (ProjectService service, string id, WatchUpdateRequest request, CancellationToken ct) => service.SaveWatchAsync(request.Settings, id, request.ExpectedRevision, ct));

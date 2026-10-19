@@ -37,6 +37,7 @@ Exploded import/export compatibility and stable rejection codes are documented i
 | GET | `/api/sdk/jobs/{id}` | Per-call results, diagnostics, status and output artifacts |
 | POST | `/api/sdk/jobs/{id}/cancel` | Request cancellation; poll completion; no rollback |
 | GET/POST | `/api/watches` | List saved watch lists / create a stopped list |
+| POST | `/api/projects/{id}/cip-watch-plan` | Hash-bound offline symbolic read plan; never connects |
 | GET/POST | `/api/watches/{id}` | Read status/latest/types / update stopped settings with expectedRevision |
 | POST | `/api/watches/{id}/start` | Start interval reads; online access requires an enabled allowed target |
 | POST | `/api/watches/{id}/stop` | Stop polling and retain stale cached values |

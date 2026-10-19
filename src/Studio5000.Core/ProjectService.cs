@@ -28,7 +28,11 @@ public sealed partial class ProjectService : IDisposable
         if (options.ControllerTargets.Any(t => string.IsNullOrWhiteSpace(t.Id) || string.IsNullOrWhiteSpace(t.CommunicationsPath)) ||
             options.ControllerTargets.Select(t => t.Id).Distinct(StringComparer.Ordinal).Count() != options.ControllerTargets.Length)
             throw new ArgumentException("ControllerTargets must have unique nonempty IDs and communications paths.");
-        foreach (var target in options.ControllerTargets) SdkTargetPolicies.ValidateConfiguration(target);
+        foreach (var target in options.ControllerTargets)
+        {
+            SdkTargetPolicies.ValidateConfiguration(target);
+            if (target.CipRead is not null) CipWatchPlanning.ValidateTarget(target.CipRead);
+        }
         state = Path.GetFullPath(options.StateDirectory);
         roots = options.AllowedRoots.Select(Path.GetFullPath).ToArray();
         outputRoots = options.OutputRoots.Select(Path.GetFullPath).ToArray();
@@ -39,7 +43,7 @@ public sealed partial class ProjectService : IDisposable
         Directory.CreateDirectory(Path.Combine(state, "projects"));
         Directory.CreateDirectory(Path.Combine(state, "artifacts"));
         native = new(options);
-        this.watchFactory = watchFactory ?? native;
+        this.watchFactory = watchFactory ?? new WatchBackendRouter(native, new CipWatchSessionFactory(options));
         try { InitializeSdkJobs(); InitializeWatches(); }
         catch { instanceLock.Dispose(); gate.Dispose(); throw; }
     }
@@ -59,6 +63,7 @@ public sealed partial class ProjectService : IDisposable
         extensions = new { protocolVersion = 1, catalog = "/api/extensions", reload = "/api/extensions/reload", fixedMcpTools = "studio_extensions_*", activation = "Versioned trusted local packages; existing calls retain their generation" },
         sdk = SdkCapabilities(),
         watches = new { minimumIntervalMs = 100, maximumTags = 64, maximumActiveLists = 4, autoStartAfterRestart = false, structures = "SDK-native decorated XML; no inferred memory offsets",
+            backends = new[] { "Sdk", "LibPlcTag" }, cipBridgeConfigured = File.Exists(options.CipBridgePath), cipPlan = "/api/projects/{id}/cip-watch-plan",
             browser = "/api/tags/browse", recording = "Durable segmented journal, default 7 days/64 MiB per list; explicit gaps, revision/time queries and CSV" },
         validation = "XML checks and installed SDK operations have distinct evidence levels. Live controller operations require an enabled, configured target; validation is operation/version-specific."
     };

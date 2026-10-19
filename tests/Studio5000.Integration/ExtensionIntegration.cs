@@ -26,7 +26,7 @@ internal static class ExtensionIntegration
         { ["extensionId"] = view.Id, ["operation"] = "viewdesigner_screen_summary", ["generation"] = view.Generation });
         Check(view.Operations.All(o => o.InputSchema.ValueKind == JsonValueKind.Undefined) && descriptor.InputSchema.GetProperty("properties").TryGetProperty("file", out _),
             "Compact live catalog omits schemas and describe returns the selected exact schema");
-        Check(catalog.Extensions.Where(x => x.Id != "fixture").Sum(x => x.Operations.Length) == 58, "Live catalog exposes PLC where-used, FactoryTalk reference resolution, project comparison and ladder previews");
+        Check(catalog.Extensions.Where(x => x.Id != "fixture").Sum(x => x.Operations.Length) == 59, "Live catalog exposes PLC where-used, FactoryTalk reference resolution, project comparison and ladder previews");
         var graphics = await client.PostAsync<ProjectInfo>("/api/projects", new RegisterRequest(Path.Combine(root, "examples", "DemoME.xml")));
         var factoryTalk = catalog.Extensions.Single(x => x.Id == "factorytalk" && x.State == "active");
         var referenceCall = new ExtensionCall(factoryTalk.Id, "ftview_tag_references", factoryTalk.Generation,
@@ -40,6 +40,19 @@ internal static class ExtensionIntegration
         var resolutionPath = Path.Combine(root, "examples", "ReferenceDemoME.xml");
         var resolutionDisplay = await client.PostAsync<ProjectInfo>("/api/projects", new RegisterRequest(resolutionPath));
         var resolutionPlc = await client.PostAsync<ProjectInfo>("/api/projects", new RegisterRequest(Path.Combine(root, "examples", "WatchDemo.L5X")));
+        var watches = catalog.Extensions.Single(x => x.Id == "watches" && x.State == "active");
+        var cipRequest = new CipWatchPlanRequest(resolutionPlc.CurrentSha256, [new("record", "Record", "WatchProgram"), new("count", "Record", "WatchProgram", "Inner.Count")]);
+        var cipCall = new ExtensionCall(watches.Id, "studio_cip_watch_plan", watches.Generation,
+            JsonSerializer.SerializeToElement(new { projectId = resolutionPlc.Id, request = cipRequest }, ProjectService.Json));
+        var cipPlan = await Tool<CipWatchPlanReport>("studio_extensions_read", new() { ["call"] = cipCall });
+        Check(cipPlan.UniqueLeafReads == 6 && cipPlan.Selections[1].Value.Address == "Program:WatchProgram.Record.Inner.Count",
+            "Stable MCP read operation plans symbolic UDT leaves without a configured reader or controller");
+        var restCipPlan = await client.PostAsync<CipWatchPlanReport>($"/api/projects/{resolutionPlc.Id}/cip-watch-plan", cipRequest);
+        Check(JsonSerializer.Serialize(restCipPlan) == JsonSerializer.Serialize(cipPlan) && restCipPlan.SourceSha256 == resolutionPlc.CurrentSha256,
+            "REST and MCP use the same hash-bound symbolic plan");
+        var staleCipCall = cipCall with { Arguments = JsonSerializer.SerializeToElement(new { projectId = resolutionPlc.Id, request = cipRequest with { ExpectedSha256 = "stale" } }, ProjectService.Json) };
+        Check((await mcp.CallToolAsync("studio_extensions_read", new Dictionary<string, object?> { ["call"] = staleCipCall })).IsError == true,
+            "Symbolic read planning rejects stale source hashes through the extension worker");
         var resolutionRequest = new GraphicsResolveRequest(resolutionDisplay.CurrentSha256, [new("PLC", resolutionPlc.Id, resolutionPlc.CurrentSha256)],
             [new("/gfx[1]", "#1", "{[PLC]Program:WatchProgram.Record}")]);
         var resolutionCall = new ExtensionCall(factoryTalk.Id, "ftview_resolve_references", factoryTalk.Generation,

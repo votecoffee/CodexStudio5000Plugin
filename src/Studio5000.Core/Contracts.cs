@@ -6,6 +6,7 @@ public sealed class ServiceOptions
     public string[] AllowedRoots { get; set; } = ["examples"];
     public string[] OutputRoots { get; set; } = ["artifacts/exports"];
     public string? NativeBridgePath { get; set; }
+    public string? CipBridgePath { get; set; }
     public int NativeTimeoutSeconds { get; set; } = 180;
     public bool EnableControllerOperations { get; set; }
     public ControllerTarget[] ControllerTargets { get; set; } = [];

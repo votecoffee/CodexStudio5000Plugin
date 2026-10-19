@@ -1,4 +1,4 @@
-param([string[]]$AllowedRoot = @(), [switch]$EnableSdk, [int]$Port = 5487)
+param([string[]]$AllowedRoot = @(), [switch]$EnableSdk, [switch]$EnableCip, [int]$Port = 5487)
 $ErrorActionPreference = 'Stop'
 $repo = Split-Path -Parent $PSScriptRoot
 $configPath = Join-Path $repo 'service.local.json'
@@ -16,6 +16,11 @@ if ($EnableSdk) {
     $bridge = Join-Path $repo 'artifacts/app/NativeBridge/Studio5000.NativeBridge.exe'
     if (!(Test-Path -LiteralPath $bridge)) { throw 'Run Build.ps1 -WithSdk first.' }
     $config.Studio5000.NativeBridgePath = $bridge
+}
+if ($EnableCip) {
+    $cipBridge = Join-Path $repo 'artifacts/app/CipBridge/Studio5000.CipBridge.exe'
+    if (!(Test-Path -LiteralPath $cipBridge)) { throw 'Run Build.ps1 -WithCip first.' }
+    $config.Studio5000 | Add-Member -NotePropertyName CipBridgePath -NotePropertyValue $cipBridge -Force
 }
 $config | ConvertTo-Json -Depth 10 | Set-Content -LiteralPath $configPath -Encoding utf8
 New-Item -ItemType Directory -Force -Path (Join-Path $repo '.local') | Out-Null

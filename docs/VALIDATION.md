@@ -25,6 +25,8 @@ The checks cover:
 
 `scripts/Verify.ps1` instead uses the configured running service and conditionally exercises its native bridge. Choose the isolated script for ordinary development without native execution.
 
+Add `-WithCip` to isolated verification for the optional symbolic reader's generated read/reconstruction self-test, native library load/version check and rejected-startup protocol test. No tag handle or controller connection is created. The [CIP reader guide](CIP_READS.md) describes this offline evidence and the pending live acceptance boundary.
+
 ## Optional offline Logix SDK checks
 
 For a focused **v38** check that publishes a separate native bridge and uses an isolated shared-service instance with no controller targets, run `scripts/Verify-LogixVersion.ps1 -Revision 38`. It checks generated native creation/build/save, edited L5X-to-ACD conversion, local DINT/LREAL/ULINT values and reopening. It does not use or restart the normal service. See [version support and detailed boundaries](LOGIX_VERSIONS.md).

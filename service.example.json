@@ -5,6 +5,7 @@
     "AllowedRoots": ["examples"],
     "OutputRoots": ["artifacts/exports"],
     "NativeBridgePath": null,
+    "CipBridgePath": null,
     "NativeTimeoutSeconds": 180,
     "EnableControllerOperations": false,
     "ControllerTargets": [],

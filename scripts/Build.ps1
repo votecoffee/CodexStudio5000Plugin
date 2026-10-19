@@ -1,4 +1,4 @@
-param([switch]$WithSdk, [string]$ExtensionVersion = '0.12.0')
+param([switch]$WithSdk, [switch]$WithCip, [string]$ExtensionVersion = '0.13.0')
 $ErrorActionPreference = 'Stop'
 $repo = Split-Path -Parent $PSScriptRoot
 Push-Location -LiteralPath $repo
@@ -13,5 +13,9 @@ try {
     if ($WithSdk) {
         dotnet publish src/Studio5000.NativeBridge/Studio5000.NativeBridge.csproj -c Release -o artifacts/app/NativeBridge --nologo
         if ($LASTEXITCODE -ne 0) { throw 'Native bridge build failed. Install the Logix Designer SDK local NuGet package.' }
+    }
+    if ($WithCip) {
+        dotnet publish src/Studio5000.CipBridge/Studio5000.CipBridge.csproj -c Release -o artifacts/app/CipBridge --nologo
+        if ($LASTEXITCODE -ne 0) { throw 'Optional CIP bridge build failed.' }
     }
 } finally { Pop-Location }

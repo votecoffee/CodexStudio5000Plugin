@@ -55,6 +55,7 @@ public sealed partial class ProjectService
         var source = WatchSource(request);
         if (!string.Equals(await SdkFileHashAsync(source, ct), request.ExpectedSha256, StringComparison.OrdinalIgnoreCase))
             throw new OperationException("stale_revision", "Watch source hash changed.");
+        ValidateCipWatch(request, target, source);
         lock (watchLock)
         {
             WatchRuntime runtime;
@@ -96,6 +97,16 @@ public sealed partial class ProjectService
         return path;
     }
 
+    private static void ValidateCipWatch(WatchListRequest request, ControllerTarget? target, string source)
+    {
+        if (request.Backend != "LibPlcTag") return;
+        if (target?.CipRead is null) throw new OperationException("cip_target", "The configured controller target needs an explicit CipRead gateway/route.");
+        CipWatchPlanning.ValidateTarget(target.CipRead);
+        if (!Path.GetExtension(source).Equals(".l5x", StringComparison.OrdinalIgnoreCase))
+            throw new OperationException("cip_source", "LibPlcTag requires a saved L5X declaration snapshot; export an ACD through the SDK first.");
+        _ = CipWatchPlanning.Build(XmlProjects.Parse(File.ReadAllBytes(source)), request.ExpectedSha256, request.Tags);
+    }
+
     public Task<WatchStatus> StartWatchAsync(string id)
     {
         lock (watchLock)
@@ -105,6 +116,7 @@ public sealed partial class ProjectService
             var target = WatchTarget(request); ValidateWatchPolicy(request, target);
             if (request.Mode == "Online" && (!options.EnableControllerOperations || target is null))
                 throw new OperationException("sdk_controller_disabled", "Online watch polling requires enabled controller access and a configured target.");
+            ValidateCipWatch(request, target, WatchSource(request));
             if (watches.Values.Count(w => w.Task is { IsCompleted: false }) >= 4) throw new OperationException("watch_limit", "Maximum four active watch lists.");
             watch.Cancel?.Dispose(); watch.Cancel = new(); watch.State = "starting"; watch.Error = null;
             watch.Session = Guid.NewGuid().ToString("N");
@@ -123,7 +135,9 @@ public sealed partial class ProjectService
             var dir = Path.Combine(WatchDir(watch.Definition.Id), "runs", Guid.NewGuid().ToString("N")); Directory.CreateDirectory(dir);
             var input = WatchSource(settings); var snapshot = Path.Combine(dir, "input" + Path.GetExtension(input));
             await SnapshotSdkFileAsync(input, snapshot, settings.ExpectedSha256, ct);
-            await using var session = await watchFactory.OpenAsync(new(dir, snapshot, settings.Mode == "Online" ? target?.CommunicationsPath : null, settings.Mode), ct);
+            ValidateCipWatch(settings, target, snapshot);
+            await using var session = await watchFactory.OpenAsync(new(dir, snapshot, settings.Mode == "Online" ? target?.CommunicationsPath : null,
+                settings.Mode, settings.Backend, target?.CipRead, settings.Tags), ct);
             var metadata = XmlProjects.Parse(await File.ReadAllBytesAsync(Path.Combine(dir, "metadata.l5x"), ct));
             foreach (var tag in settings.Tags)
             {
@@ -136,7 +150,7 @@ public sealed partial class ProjectService
                 ct.ThrowIfCancellationRequested(); var clock = Stopwatch.StartNew(); var start = DateTimeOffset.UtcNow;
                 var reply = await session.ReadAsync(settings.Tags, ct);
                 if (!reply.Success) throw new OperationException("watch_reader", reply.Error ?? "Reader failed.");
-                var values = settings.Tags.Select(t =>
+                var values = settings.Backend == "LibPlcTag" ? CipWatchPlanning.ValidateValues(settings.Tags, reply.SelectedValues) : settings.Tags.Select(t =>
                 {
                     var result = reply.Tags.SingleOrDefault(v => v.Name == t.TagName && v.ProgramName == t.ProgramName);
                     if (result is null) return new WatchValue(t.Key, t.TagName, t.ProgramName, "Unknown", null, "bad", "Reader omitted this tag.");

@@ -2,6 +2,8 @@
 
 Watch lists are shared service resources. REST, Codex MCP tools and **Watch lists…** in the desktop use the same saved definitions, reader sessions, latest values and history. A GUI/chat client does not need to remain open. Closing the watch window leaves polling running; use **Stop polling** to end it. Lists never start merely because they were saved, viewed or restored after service restart.
 
+Definitions default to `backend: "Sdk"`. The optional `backend: "LibPlcTag"` shares these resources with a symbolic scalar reader and saved-declaration UDT reconstruction. It requires Online mode, an L5X source and an explicit configured CIP route. See [CIP reader coverage and setup](CIP_READS.md); the whole-tag SDK decoding details below apply to the default backend.
+
 ## Create and poll
 
 `POST /api/watches` or `studio_watch_save` creates a stopped list. Example online definition:
@@ -26,7 +28,7 @@ Watch lists are shared service resources. REST, Codex MCP tools and **Watch list
 
 Get the source hash with `studio_sdk_inspect_source`. Choose one `sourcePath` or `sourceArtifactId`; hashes are checked when saving and again when starting. Use a matching saved project or a fresh uploaded ACD. Use `mode: "Offline"` and a saved ACD/L5X for local validation. `examples/WatchDemo.L5X` contains a nested UDT, an array of UDTs, BOOL and STRING fixtures. An offline sample's mode remains Offline even when its read quality is good.
 
-Tag names identify exact base tags. A null/omitted `programName` selects controller scope only where the configured policy permits it. Member selection happens after the whole base tag has been extracted, so it cannot escape that tag or its program. Supported selectors include `Inner.Count`, `Samples[1]`, `[1].Setpoint` and `[0][1].Count`. Wildcards, XPath fragments, negative indices and aliases are rejected. Select the authorized base of an alias explicitly.
+Tag names identify exact base tags. A null/omitted `programName` selects controller scope only where the configured policy permits it. With the default SDK reader, member selection happens after the whole base tag has been extracted, so it cannot escape that tag or its program. The optional CIP reader plans exact scalar leaves within the same authorized tag/program. Supported selectors include `Inner.Count`, `Samples[1]`, `[1].Setpoint` and `[0][1].Count`. Wildcards, XPath fragments, negative indices and aliases are rejected. Select the authorized base of an alias explicitly.
 
 Start with `POST /api/watches/{id}/start` or `studio_watch_start`. Online starts require `EnableControllerOperations`, the configured target, actual monitoring authorization and allowed `GoOnlineAsync`/`GetTagValueAsync` methods. Program policies apply to every base tag. This feature does not broaden an existing target's method/program policy. Controller operations remain disabled by default.
 
