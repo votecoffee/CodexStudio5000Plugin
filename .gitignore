@@ -12,3 +12,8 @@ work/
 examples/NativeFixture.acd
 examples/sdk-*.l5x
 extensions/*/
+__pycache__/
+.pytest_cache/
+*.py[cod]
+framework/build/
+*.egg-info/
