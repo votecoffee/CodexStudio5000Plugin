@@ -45,5 +45,8 @@ public sealed class ExtensionCatalogTests
         Assert.Equal("apply", operations.Single(o => o.Name == "studio_watch_template_import").Effect);
         Assert.Equal("read", operations.Single(o => o.Name == "studio_watch_rebind_preview").Effect);
         Assert.Equal("apply", operations.Single(o => o.Name == "studio_watch_rebind_apply").Effect);
+        foreach (var name in new[] { "studio_logic_trace", "studio_rung_evaluate", "studio_trend_analyze", "studio_logic_value_merge_preview", "studio_version_compatibility_preview" }) Assert.Equal("read", operations.Single(o => o.Name == name).Effect);
+        foreach (var name in new[] { "studio_diagnostic_capture", "studio_diagnostic_trigger_arm", "studio_trend_view_save", "studio_trend_export", "studio_logic_value_merge_apply" }) Assert.Equal("apply", operations.Single(o => o.Name == name).Effect);
+        foreach (var name in new[] { "studio_version_compatibility_start", "studio_version_compatibility_readback" }) Assert.Equal("control", operations.Single(o => o.Name == name).Effect);
     }
 }

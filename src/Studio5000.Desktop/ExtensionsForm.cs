@@ -23,10 +23,13 @@ public sealed class ExtensionsForm : WorkspaceForm
     private readonly Dictionary<string, (TextBox Editor, JsonElement Schema, bool Required)> inputs = new();
     private ExtensionSummary? module;
     private ExtensionOperation? operation;
+    private string? preferredOperation;
+    private readonly JsonObject? initialArguments;
     private bool busy, loading, selfTest;
-    public ExtensionsForm(ServiceClient client)
+    public ExtensionsForm(ServiceClient client, string? preferredOperation = null, JsonObject? initialArguments = null)
     {
-        this.client = client; Text = "Rockwell extensions — live catalog and reload"; Size = new(1400, 930); MinimumSize = new(1080, 740); Font = new("Segoe UI", 10);
+        this.client = client; this.preferredOperation = preferredOperation; this.initialArguments = initialArguments;
+        Text = preferredOperation is null ? "Rockwell extensions — live catalog and reload" : "Rockwell workflow — " + preferredOperation; Size = new(1400, 930); MinimumSize = new(1080, 740); Font = new("Segoe UI", 10);
         var heading = new Label { Text = "EXTENSIONS  /  LIVE OPERATIONS", Dock = DockStyle.Top, Height = 52, Padding = new(14),
             BackColor = Color.FromArgb(24, 40, 61), ForeColor = Color.White, Font = new("Segoe UI", 13, FontStyle.Bold) };
         var toolbar = new FlowLayoutPanel { Dock = DockStyle.Top, Height = 48, Padding = new(7) };
@@ -71,6 +74,7 @@ public sealed class ExtensionsForm : WorkspaceForm
     {
         var catalog = await client.GetAsync<ExtensionCatalog>("/api/extensions"); var id = module?.Id;
         loading = true; modules.DataSource = catalog.Extensions.Where(x => x.State == "active").ToArray();
+        if (preferredOperation is not null) id = ((ExtensionSummary[])modules.DataSource).FirstOrDefault(x => x.Operations.Any(o => o.Name == preferredOperation))?.Id;
         if (id is not null) modules.SelectedItem = ((ExtensionSummary[])modules.DataSource).FirstOrDefault(x => x.Id == id);
         loading = false; SelectModule();
         status.Text = $"{catalog.Extensions.Count(x => x.State == "active")} active extensions • {catalog.Extensions.Count(x => x.State == "draining")} draining versions • protocol {catalog.ProtocolVersion}";
@@ -80,6 +84,8 @@ public sealed class ExtensionsForm : WorkspaceForm
     {
         module = modules.SelectedItem as ExtensionSummary;
         loading = true; operations.DataSource = module?.Operations; loading = false;
+        if (preferredOperation is not null && module?.Operations.FirstOrDefault(o => o.Name == preferredOperation) is { } selected)
+        { loading = true; operations.SelectedItem = selected; loading = false; }
         version.Text = module?.Version ?? ""; SelectOperation();
     }
     private void SelectOperation()
@@ -98,10 +104,13 @@ public sealed class ExtensionsForm : WorkspaceForm
             var editor = new TextBox { Dock = DockStyle.Fill, Multiline = complex, ScrollBars = complex ? ScrollBars.Both : ScrollBars.None,
                 Font = complex ? new("Consolas", 10) : Font, Height = complex ? 190 : 30, Margin = new(4, 6, 4, 6) };
             if (complex && needed) editor.Text = Template(property.Value).ToJsonString(new() { WriteIndented = true });
+            if (operation.Name == preferredOperation && initialArguments?.TryGetPropertyValue(property.Name, out var value) == true && value is not null)
+                editor.Text = kind == "string" ? value.GetValue<string>() : value.ToJsonString(new() { WriteIndented = true });
             fields.RowCount++; fields.RowStyles.Add(new(SizeType.AutoSize));
             fields.Controls.Add(new Label { Text = property.Name + (needed ? " *" : " (optional)") + "\r\n" + (kind == "string" ? "plain text" : "JSON " + kind), AutoSize = true, Padding = new(0, 8, 0, 0) }, 0, fields.RowCount - 1);
             fields.Controls.Add(editor, 1, fields.RowCount - 1); inputs.Add(property.Name, (editor, property.Value, needed));
         }
+        if (operation.Name == preferredOperation) preferredOperation = null;
     }
     private static string Kind(JsonElement schema) => !schema.TryGetProperty("type", out var type) ? "object" :
         type.ValueKind == JsonValueKind.String ? type.GetString()! : type.EnumerateArray().Select(x => x.GetString()).FirstOrDefault(x => x != "null") ?? "null";
@@ -120,14 +129,7 @@ public sealed class ExtensionsForm : WorkspaceForm
     private async Task ExecuteAsync()
     {
         if (module is null || operation is null) return;
-        var arguments = new JsonObject();
-        foreach (var input in inputs)
-        {
-            var (editor, schema, required) = input.Value;
-            if (!required && string.IsNullOrWhiteSpace(editor.Text)) continue;
-            arguments[input.Key] = Kind(schema) == "string" ? JsonValue.Create(editor.Text) : JsonNode.Parse(editor.Text);
-        }
-        var args = JsonSerializer.SerializeToElement(arguments); ExtensionSchema.Validate(operation.InputSchema, args);
+        var args = BuildArguments(); ExtensionSchema.Validate(operation.InputSchema, args);
         var call = new ExtensionCall(module.Id, operation.Name, module.Generation, args);
         if (background.Checked)
         {
@@ -135,6 +137,19 @@ public sealed class ExtensionsForm : WorkspaceForm
         }
         else Show(await client.PostAsync<JsonElement>("/api/extensions/invoke/" + operation.Effect, call));
     }
+    private JsonElement BuildArguments()
+    {
+        var arguments = new JsonObject();
+        foreach (var input in inputs)
+        {
+            var (editor, schema, required) = input.Value;
+            if (!required && string.IsNullOrWhiteSpace(editor.Text)) continue;
+            arguments[input.Key] = Kind(schema) == "string" ? JsonValue.Create(editor.Text) : JsonNode.Parse(editor.Text);
+        }
+        return JsonSerializer.SerializeToElement(arguments);
+    }
+    internal async Task<string> ValidatePreparedForTestAsync()
+    { selfTest = true; await RefreshAsync(); ExtensionSchema.Validate(operation!.InputSchema, BuildArguments()); return operation.Name; }
     private async Task ReloadAsync()
     {
         var id = modules.Text.Trim(); if (id.Length == 0) return;

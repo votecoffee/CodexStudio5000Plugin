@@ -7,6 +7,25 @@ try
 {
     var root = ServiceClient.FindRoot();
     using var client = new ServiceClient(root);
+    if (args.Length == 2 && args[0] is "--self-test-diagnostics-workflow" or "--self-test-trend-views-workflow")
+    {
+        Form? view = null; string[] checks = [];
+        WorkflowValidation.Run(async () =>
+        {
+            var project = await client.PostAsync<ProjectInfo>("/api/projects", new RegisterRequest(Path.Combine(root, "examples", "WatchDemo.L5X")));
+            var watch = await client.PostAsync<WatchStatus>("/api/tags/watch", new BrowserWatchRequest(project.Id, project.CurrentSha256, "Generated desktop diagnostic watch", [new("count", "Record", "WatchProgram", "Inner.Count")]));
+            if (args[0] == "--self-test-diagnostics-workflow")
+            { var diagnostics = new DiagnosticsForm(client, project, watch); view = diagnostics; checks = await diagnostics.ExerciseOfflineWorkflowForTestAsync(); }
+            else { var trends = new TrendForm(client, watch); view = trends; checks = await trends.ExerciseSavedViewsForTestAsync(root); }
+        });
+        using (var renderedView = view ?? throw new InvalidOperationException("Missing generated workflow view."))
+        {
+            renderedView.StartPosition = FormStartPosition.Manual; renderedView.Location = new(-30000, -30000); renderedView.ShowInTaskbar = false; renderedView.Show(); Application.DoEvents();
+            File.WriteAllText(args[1] + ".json", System.Text.Json.JsonSerializer.Serialize(new { checks, controllerConnectionAttempted = false, nativeBridgeExecuted = false }, ProjectService.Json));
+            using var bitmap = new Bitmap(renderedView.Width, renderedView.Height); renderedView.DrawToBitmap(bitmap, new Rectangle(Point.Empty, renderedView.Size)); bitmap.Save(args[1], System.Drawing.Imaging.ImageFormat.Png); renderedView.Close();
+        }
+        return;
+    }
     if (args.Length == 2 && args[0] is "--self-test-comparison-annotations" or "--self-test-comparison-annotations-workflow")
     {
         var workflow = args[0].EndsWith("-workflow", StringComparison.Ordinal);

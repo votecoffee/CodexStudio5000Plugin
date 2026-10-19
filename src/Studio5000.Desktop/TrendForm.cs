@@ -3,7 +3,7 @@ using Studio5000.Core;
 
 namespace Studio5000.Desktop;
 
-public sealed class TrendForm : WorkspaceForm
+public sealed partial class TrendForm : WorkspaceForm
 {
     private readonly ServiceClient client;
     private readonly WatchStatus watch;
@@ -28,7 +28,7 @@ public sealed class TrendForm : WorkspaceForm
         this.client = client; this.watch = watch;
         Text = "Trends and recording — " + watch.Definition.Settings.Name; Size = new(1380, 900); MinimumSize = new(1160, 730); Font = new("Segoe UI", 10);
         revision.Value = watch.Definition.Revision;
-        var header = new Label { Text = "TRENDS & RECORDING  /  " + watch.Definition.Settings.Name + "  /  " + watch.Definition.Settings.Mode.ToUpperInvariant(), Dock = DockStyle.Top,
+        var header = new Label { Text = "TRENDS & RECORDING  /  " + watch.Definition.Settings.Name + "  /  " + watch.Definition.Settings.Mode.ToUpperInvariant(), UseMnemonic = false, Dock = DockStyle.Top,
             Height = 48, BackColor = Color.FromArgb(24, 40, 61), ForeColor = Color.White, Padding = new(12) };
         var controls = new FlowLayoutPanel { Dock = DockStyle.Top, Height = 90, Padding = new(8) };
         controls.Controls.Add(new Label { Text = "From (local)", AutoSize = true }); controls.Controls.Add(from);
@@ -41,14 +41,16 @@ public sealed class TrendForm : WorkspaceForm
         var split = new SplitContainer { Dock = DockStyle.Fill, FixedPanel = FixedPanel.Panel1 };
         split.Panel1.Controls.Add(series); split.Panel1.Controls.Add(new Label { Text = "SERIES  •  common value axis\nBOOL = 0/1 step trace", Dock = DockStyle.Top, Height = 52, Padding = new(6) });
         var right = new SplitContainer { Dock = DockStyle.Fill, Orientation = Orientation.Horizontal };
-        right.Panel1.Controls.Add(plot); right.Panel2.Controls.Add(events); right.Panel2.Controls.Add(new Label { Text = "GAPS & QUALITY  •  shaded areas are missing, stale or interrupted data", Dock = DockStyle.Top, Height = 30, Padding = new(4) });
-        split.Panel2.Controls.Add(right); Controls.Add(split); Controls.Add(status); Controls.Add(controls); Controls.Add(header);
+        right.Panel1.Controls.Add(plot);
+        var resultTabs = new TabControl { Dock = DockStyle.Fill }; var gapsTab = new TabPage("Gaps & quality"); gapsTab.Controls.Add(events); var statsTab = new TabPage("Gathered statistics"); statsTab.Controls.Add(statistics); resultTabs.TabPages.AddRange([gapsTab, statsTab]);
+        right.Panel2.Controls.Add(resultTabs);
+        split.Panel2.Controls.Add(right); Controls.Add(split); Controls.Add(status); Controls.Add(controls); Controls.Add(SavedTrendControls()); Controls.Add(header);
         series.ItemCheck += (_, _) => { if (IsHandleCreated) BeginInvoke(() => UpdatePlot()); };
         days.ValueChanged += (_, _) => editingRetention = true; maxMiB.ValueChanged += (_, _) => editingRetention = true;
         from.Value = DateTime.Now.AddMinutes(-15); to.Value = DateTime.Now;
         follow.CheckedChanged += (_, _) => { from.Enabled = to.Enabled = !follow.Checked; }; from.Enabled = to.Enabled = false;
         timer.Tick += async (_, _) => { if (follow.Checked) await RunAsync(RefreshAsync); };
-        Shown += async (_, _) => { split.SplitterDistance = 260; right.SplitterDistance = Math.Max(300, right.Height * 3 / 4); if (!fixture) { await RunAsync(RefreshAsync); timer.Start(); } };
+        Shown += async (_, _) => { split.SplitterDistance = 260; right.SplitterDistance = Math.Max(200, right.Height * 3 / 4); if (!fixture) { await RunAsync(async () => { await RefreshViewsAsync(); await RefreshAsync(); }); timer.Start(); } };
         FormClosed += (_, _) => timer.Dispose();
     }
     private void Button(Control parent, string text, Func<Task> action)
@@ -62,6 +64,7 @@ public sealed class TrendForm : WorkspaceForm
     }
     private async Task RefreshAsync()
     {
+        analysis = null; analysisRequest = null;
         var query = Query(); var page = await client.PostAsync<WatchRecordingPage>($"/api/watches/{watch.Definition.Id}/recording/query", query);
         config = page.Recording;
         if (!editingRetention) { days.Value = config.Settings.RetentionDays; maxMiB.Value = config.Settings.MaxMiB; editingRetention = false; }
