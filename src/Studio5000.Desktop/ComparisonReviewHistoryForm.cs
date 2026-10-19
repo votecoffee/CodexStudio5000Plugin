@@ -33,7 +33,7 @@ public sealed class ComparisonReviewHistoryForm : WorkspaceForm
         reviews.SelectionChanged += (_, _) => ShowDetails();
         var split = new SplitContainer { Dock = DockStyle.Fill, Orientation = Orientation.Horizontal }; split.Panel1.Controls.Add(reviews); split.Panel2.Controls.Add(details);
         var actions = new FlowLayoutPanel { Dock = DockStyle.Bottom, Height = 48, Padding = new(8) };
-        Button(actions, "Save report copy…", SaveAsync); Button(actions, "Compare recorded snapshots", UseAsync); Button(actions, "Forget history entry", ForgetAsync);
+        Button(actions, "Save report copy…", SaveAsync); Button(actions, "Review changes / notes…", AnnotationsAsync); Button(actions, "Compare recorded snapshots", UseAsync); Button(actions, "Forget history entry", ForgetAsync);
         Controls.Add(split); Controls.Add(actions); Controls.Add(top); Controls.Add(status);
         Shown += async (_, _) => { split.SplitterDistance = Math.Max(100, split.Height / 2); if (!fixture) await Run(() => LoadAsync()); };
     }
@@ -79,6 +79,8 @@ public sealed class ComparisonReviewHistoryForm : WorkspaceForm
     private async Task<SavedArtifact> SaveFileAsync(string path)
     { var entry = await VerifiedAsync(); return await client.PostAsync<SavedArtifact>($"/api/artifacts/{entry.ArtifactId}/save", new SaveArtifactRequest(path)); }
     private async Task UseAsync() { Selection = await VerifiedAsync(); DialogResult = DialogResult.OK; Close(); }
+    private async Task AnnotationsAsync()
+    { var selected = await VerifiedAsync(); using var form = new ComparisonAnnotationsForm(client, selected); form.ShowDialog(this); }
     private async Task ForgetAsync()
     {
         var entry = Selected() ?? throw new InvalidOperationException("Select a recorded report.");

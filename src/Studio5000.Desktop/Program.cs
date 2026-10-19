@@ -7,6 +7,19 @@ try
 {
     var root = ServiceClient.FindRoot();
     using var client = new ServiceClient(root);
+    if (args.Length == 2 && args[0] is "--self-test-comparison-annotations" or "--self-test-comparison-annotations-workflow")
+    {
+        var workflow = args[0].EndsWith("-workflow", StringComparison.Ordinal);
+        var a = new ComparisonSnapshot(new string('a', 32), "Baseline example", 0, new string('a', 64)); var b = new ComparisonSnapshot(new string('b', 32), "Edited example", 1, new string('b', 64));
+        var entry = new ComparisonReviewEntry(new string('c', 32), DateTimeOffset.UnixEpoch, "html", new string('c', 32), new string('d', 64), 1024, a, b, null, false, false, true, 3, 3);
+        using var annotations = new ComparisonAnnotationsForm(client, entry); annotations.LoadForTest(workflow);
+        annotations.StartPosition = FormStartPosition.Manual; annotations.Location = new(-30000, -30000); annotations.ShowInTaskbar = false;
+        annotations.Show(); Application.DoEvents();
+        if (workflow) File.WriteAllText(args[1] + ".json", System.Text.Json.JsonSerializer.Serialize(
+            new { checks = annotations.ExerciseOfflineWorkflowForTest(root), controllerConnectionAttempted = false }, ProjectService.Json));
+        using var bitmap = new Bitmap(annotations.Width, annotations.Height); annotations.DrawToBitmap(bitmap, new Rectangle(Point.Empty, annotations.Size));
+        bitmap.Save(args[1], System.Drawing.Imaging.ImageFormat.Png); annotations.Close(); return;
+    }
     if (args.Length == 2 && args[0] is "--self-test-comparison-history" or "--self-test-comparison-history-workflow")
     {
         var workflow = args[0].EndsWith("-workflow", StringComparison.Ordinal);
