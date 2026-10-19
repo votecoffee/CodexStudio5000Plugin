@@ -4,6 +4,8 @@ Version 0.8 provides a shared snapshot browser and durable watch recordings. RES
 
 Version 0.13 adds a reader choice to browser watch creation and watch settings. `Sdk` remains the default. **Plan CIP reads (offline)** shows bounded symbolic reads for selected saved tags/UDT members without connecting. `LibPlcTag` watches require Online mode, an L5X source and a configured CIP route; see [CIP reader setup and limitations](CIP_READS.md).
 
+Version 0.14 adds **Preflight selection…** in the browser and **Preflight draft…** in watch settings. These inspect all rows, source hashes, target/controller/reader configuration and combined CIP budgets without creating an artifact, saving a list or opening a reader. See [watch preflight](WATCH_PREFLIGHT.md).
+
 ## Desktop workflow
 
 1. Open **Tag / UDT browser…** from the main workspace or watch window. Choose a registered Logix project, open an ACD/L5X, or enter a completed SDK upload job ID. ACD conversion needs the installed native bridge; L5X browsing does not. Loading an upload result reads its saved metadata; it does not perform another upload.

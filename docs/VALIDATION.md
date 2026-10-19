@@ -21,6 +21,7 @@ The checks cover:
 - FactoryTalk existing-property edits, installed-schema validation and simulated re-export mismatches; explicit shortcut/scoped-parameter resolution, saved UDT/array/bit checks, missing context, cycles, hash rejection and response budgets.
 - View Designer nested properties, bindings, encoding preservation, unchanged assets and import packages using generated fixtures.
 - Tag/UDT browsing, paged arrays, watch scheduling/decoding, journal recovery/retention, CSV quality rows and graph gaps.
+- Read-only watch preflight for drafts, saved definitions and managed browser snapshots: per-row diagnostics, stale hashes, configuration gates, deferred ACD/templates and combined CIP budgets. Generated GUI rendering covers the preflight viewer.
 - Extension package hashes/contracts, generation pinning, reload over the same MCP connection, old-job completion, rejected reloads and rollback.
 
 `scripts/Verify.ps1` instead uses the configured running service and conditionally exercises its native bridge. Choose the isolated script for ordinary development without native execution.

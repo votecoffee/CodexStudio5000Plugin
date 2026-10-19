@@ -6,6 +6,22 @@ try
 {
     var root = ServiceClient.FindRoot();
     using var client = new ServiceClient(root);
+    if (args.Length == 2 && args[0] == "--self-test-watch-preflight")
+    {
+        var fixture = new Studio5000.Core.WatchPreflightReport("LibPlcTag", "Online", null, null, new string('a', 64), true, "blocked",
+            [new("source_hash", "passed"), new("controller_access", "blocked", new("sdk_controller_disabled", "Controller access is disabled.")),
+             new("reader_configuration", "blocked", new("cip_unavailable", "The optional reader is not configured.")),
+             new("read_budget", "deferred", new("cip_partial_budget", "Counts cover supported rows only."))],
+            [new(new("record", "Record", "WatchProgram"), "supported", "WatchRecord", [], 6, []),
+             new(new("count", "Record", "WatchProgram", "Inner.Count"), "supported", "DINT", [], 1, []),
+             new(new("message", "Message", "WatchProgram"), "blocked", null, [], null, [new("cip_type_unsupported", "STRING requires the SDK backend.")])],
+            new(2, 6, 9, 18, 6, false, true), "Generated local inspection fixture; no controller connection or native verification.");
+        using var preflight = new WatchPreflightForm(fixture, "Generated process watch");
+        preflight.StartPosition = FormStartPosition.Manual; preflight.Location = new(-30000, -30000); preflight.ShowInTaskbar = false;
+        preflight.Show(); Application.DoEvents(); using var bitmap = new Bitmap(preflight.Width, preflight.Height);
+        preflight.DrawToBitmap(bitmap, new Rectangle(Point.Empty, preflight.Size)); bitmap.Save(args[1], System.Drawing.Imaging.ImageFormat.Png);
+        preflight.Close(); return;
+    }
     if (args.Length == 2 && args[0] is "--self-test-comparison" or "--self-test-ladder" or "--self-test-references" or "--self-test-reference-parameters" or "--self-test-tag-references")
     {
         using Form review = args[0] switch { "--self-test-comparison" => new ProjectCompareForm(client, null), "--self-test-references" or "--self-test-reference-parameters" => new GraphicsReferencesForm(client, null), "--self-test-tag-references" => new TagReferencesForm(client, null), _ => new LadderForm(client, null) };

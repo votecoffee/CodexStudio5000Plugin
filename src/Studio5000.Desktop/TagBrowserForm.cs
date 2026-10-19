@@ -58,7 +58,7 @@ public sealed class TagBrowserForm : Form
         bottom.Controls.Add(new Label { Text = "Interval ms", AutoSize = true }); bottom.Controls.Add(interval);
         mode.Items.AddRange(["Offline", "Online"]); mode.SelectedIndex = 0; bottom.Controls.Add(mode); bottom.Controls.Add(target);
         backend.Items.AddRange(["Sdk", "LibPlcTag"]); backend.SelectedIndex = 0; bottom.Controls.Add(backend);
-        bottom.SetFlowBreak(backend, true); Button(bottom, "Plan CIP reads (offline)", PlanAsync);
+        bottom.SetFlowBreak(backend, true); Button(bottom, "Preflight selection…", PreflightAsync); Button(bottom, "Plan CIP reads (offline)", PlanAsync);
         Button(bottom, "Create watch list", CreateAsync); Button(bottom, "Clear selection", () => { selected.Clear(); UpdateBasket(); Uncheck(tree.Nodes); return Task.CompletedTask; });
         Controls.Add(split); Controls.Add(bottom); Controls.Add(status); Controls.Add(top); Controls.Add(title);
         tree.BeforeExpand += async (_, e) =>
@@ -192,9 +192,18 @@ public sealed class TagBrowserForm : Form
     }
     private async Task CreateAsync()
     {
-        if (project is null || page is null) throw new ArgumentException("Open a Logix snapshot first.");
-        CreatedWatch = await client.PostAsync<WatchStatus>("/api/tags/watch", new BrowserWatchRequest(project.Id, page.SourceSha256, name.Text.Trim(), SelectedTags(), mode.Text, string.IsNullOrWhiteSpace(target.Text) ? null : target.Text, (int)interval.Value, backend.Text));
+        CreatedWatch = await client.PostAsync<WatchStatus>("/api/tags/watch", ReadWatchDraft());
         DialogResult = DialogResult.OK; Close();
+    }
+    private BrowserWatchRequest ReadWatchDraft()
+    {
+        if (project is null || page is null) throw new ArgumentException("Open a Logix snapshot first.");
+        return new(project.Id, page.SourceSha256, name.Text.Trim(), SelectedTags(), mode.Text, string.IsNullOrWhiteSpace(target.Text) ? null : target.Text, (int)interval.Value, backend.Text);
+    }
+    private async Task PreflightAsync()
+    {
+        var report = await client.PostAsync<WatchPreflightReport>("/api/watches/preflight", new WatchPreflightRequest(Browser: ReadWatchDraft()));
+        using var form = new WatchPreflightForm(report, name.Text); form.ShowDialog(this);
     }
     public void LoadForTest(TagBrowserPage value)
     {

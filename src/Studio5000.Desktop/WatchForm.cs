@@ -38,7 +38,7 @@ public sealed class WatchForm : Form
         Text = "Watch lists and UDT structures"; Size = new(1280, 850); MinimumSize = new(1050, 650); Font = new("Segoe UI", 10);
         var toolbar = new FlowLayoutPanel { Dock = DockStyle.Top, Height = 84, Padding = new(6) };
         Button(toolbar, "Refresh lists", RefreshAsync); Button(toolbar, "New", () => { New(); return Task.CompletedTask; });
-        Button(toolbar, "Save list", SaveAsync); Button(toolbar, "Start polling", () => ActionAsync("start")); Button(toolbar, "Stop polling", () => ActionAsync("stop"));
+        Button(toolbar, "Save list", SaveAsync); Button(toolbar, "Preflight draft…", PreflightAsync); Button(toolbar, "Start polling", () => ActionAsync("start")); Button(toolbar, "Stop polling", () => ActionAsync("stop"));
         Button(toolbar, "Delete stopped list", DeleteAsync); Button(toolbar, "History", HistoryAsync);
         Button(toolbar, "Tag / UDT browser…", BrowserAsync); Button(toolbar, "Trends & recording…", () =>
         {
@@ -112,13 +112,23 @@ public sealed class WatchForm : Form
         var info = await client.PostAsync<JsonElement>("/api/sdk/source", new RegisterRequest(dialog.FileName));
         sourcePath = dialog.FileName; artifactId = null; sourceHash = info.GetProperty("sha256").GetString(); source.Text = sourcePath;
     }
-    private async Task SaveAsync()
+    private WatchListRequest ReadDraft()
     {
         tags.EndEdit();
         string Cell(DataGridViewRow row, string column) => Convert.ToString(row.Cells[column].Value)?.Trim() ?? "";
         string? Optional(string value) => value.Length == 0 ? null : value;
         var items = tags.Rows.Cast<DataGridViewRow>().Where(r => !r.IsNewRow).Select(r => new WatchTag(Cell(r, "Key"), Cell(r, "Tag"), Optional(Cell(r, "Program")), Optional(Cell(r, "Member")))).ToArray();
-        var request = new WatchListRequest(name.Text.Trim(), items, sourceHash ?? "", sourcePath, artifactId, Optional(target.Text), mode.Text, (int)interval.Value, Backend: backend.Text);
+        return new(name.Text.Trim(), items, sourceHash ?? "", sourcePath, artifactId, Optional(target.Text), mode.Text, (int)interval.Value,
+            HistoryLimit: selected?.Definition.Settings.HistoryLimit ?? 100, Backend: backend.Text);
+    }
+    private async Task PreflightAsync()
+    {
+        var report = await client.PostAsync<WatchPreflightReport>("/api/watches/preflight", new WatchPreflightRequest(Settings: ReadDraft()));
+        using var form = new WatchPreflightForm(report, name.Text); form.ShowDialog(this);
+    }
+    private async Task SaveAsync()
+    {
+        var request = ReadDraft();
         var result = selected is null ? await client.PostAsync<WatchStatus>("/api/watches", request) :
             await client.PostAsync<WatchStatus>("/api/watches/" + selected.Definition.Id, new WatchUpdateRequest(request, selected.Definition.Revision));
         LoadWatch(result); await RefreshAsync();
