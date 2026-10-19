@@ -5,14 +5,16 @@ The shared service transfers selected whole-tag values between two different reg
 ## Desktop workflow
 
 1. Select **Merge tag values…** in the main window. Use **Open source…** and **Open destination…**, or select previously registered snapshots. Opening ACD files requires the configured native SDK converter; L5X does not.
-2. Choose a source scope and destination scope. Controller scope is explicit; a program selection uses only its local tags. **Find matching tags** pairs exact tag names in those scopes and reports incompatible/missing destinations.
-3. Select the rows to merge, then choose **Preview selected values**. Review before/after values, diagnostics and source/destination/review hashes. Displayed large values are abbreviated; the result hash binds the full output. Every selected row must be supported. Remove failed rows and preview again.
+2. Choose a source scope and destination scope. Controller scope is explicit; a program selection uses only its local tags. **Find tags** searches source tag names/types and reports exact same-name pairs with incompatible/missing-destination diagnostics. **Previous tags** / **Next tags** browse pages of 50, including scopes larger than 256 tags.
+3. Check individual rows or use **Select ready on page**. Up to 256 selected mappings persist across pages/searches within the same project/scope pair; **Clear selection** resets them. Choose **Preview selected values** to review every selected mapping together. Review before/after values, diagnostics and source/destination/review hashes. Displayed large values are abbreviated; the result hash binds the full output. Every selected row must be supported. Remove failed rows and preview again. Changing either project/scope or refreshing snapshots clears the old mappings and review. Changing search/selection invalidates the review; search preserves selections until explicitly cleared or the context changes.
 4. Choose **Apply reviewed offline merge**. The destination advances one revision; no other registered project changes. A changed source, destination, selection or review hash is rejected. Repeating an applied request fails the destination hash check.
 5. Use **Export destination L5X…** or **Export destination ACD…** to save a new file under an allowed output root. Existing files cannot be overwritten. ACD export requires the native SDK. Native import/build and runtime acceptance remain separate checks.
 
 The online source controls use an explicitly configured target. **Upload online source** queues an upload-only SDK job, then loads its completed project as the source. Controller operations must be enabled, the native bridge must be configured, and the target policy must allow `UploadToNewProjectAsync`. A program-scoped policy that excludes controller-wide uploads remains enforced. Capturing a source does not preview or apply a merge. No indeterminate/failed capture is retried automatically. **Cancel upload** requests cancellation; inspect the terminal job status. Closing this window leaves a shared job running; its ID can be loaded later with **Load upload job**.
 
 Uploaded values are a point-in-time saved snapshot, not an atomic multi-tag read or an ongoing subscription. The report identifies `controller_upload_snapshot` and a capture timestamp only for the exact, unedited result of a successful upload-only job. Other projects are labeled `saved_project`.
+
+The active upload ID remains read-only until it reaches a terminal state. Loading an upload job requires its original, unedited result revision/hash; select it explicitly as a saved project if it has since been edited.
 
 ## Supported values and compatibility
 

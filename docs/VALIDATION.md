@@ -11,7 +11,7 @@ dotnet test tests/Studio5000.Tests/Studio5000.Tests.csproj -c Release
 .\scripts\Verify-Isolated.ps1
 ```
 
-The isolated script publishes a separate service, MCP adapter, desktop application and extension worker under `artifacts/isolated-validation/<run-id>/`. It selects its own loopback port and state, leaves the normal service configuration alone, unconfigures the native bridge and disables controller operations. It runs core tests, REST/MCP integration checks through an official MCP client, extension reload checks and eighteen off-screen desktop renders. It stops its temporary service when finished.
+The isolated script publishes a separate service, MCP adapter, desktop application and extension worker under `artifacts/isolated-validation/<run-id>/`. It selects its own loopback port and state, leaves the normal service configuration alone, unconfigures the native bridge and disables controller operations. It runs core tests, REST/MCP integration checks through an official MCP client, extension reload checks and twenty off-screen desktop checks/renders. It stops its temporary service when finished.
 
 Results are under that run's `artifacts/test-results/`, including `core.trx`, `integration.json`, `extensions.json` and desktop PNGs. FactoryTalk schema-dependent checks require the matching installed ME/SE schemas; inspect skipped checks rather than treating them as passes. Rendering a desktop view checks layout, not every button or native Studio workflow.
 
@@ -31,6 +31,8 @@ The checks cover:
 `scripts/Verify.ps1` instead uses the configured running service and conditionally exercises its native bridge. Choose the isolated script for ordinary development without native execution.
 
 Add `-WithCip` to isolated verification for the optional symbolic reader's generated read/reconstruction self-test, native library load/version check and rejected-startup protocol test. No tag handle or controller connection is created. The [CIP reader guide](CIP_READS.md) describes this offline evidence and the pending live acceptance boundary.
+
+The generated `value-merge-workflow` GUI check exercises actual shared-service calls through the form: 310-tag discovery, selections across pages/searches, a combined preview/apply, preserved unselected values/source revision and scope-change invalidation. `comparison-workflow` loads a real structural report, navigates a late modified rung and an insertion gap, and verifies snapshot-change clearing. Each emits a PNG plus JSON check list under the isolated results folder; neither calls a native bridge or controller. Other render fixtures primarily check layout.
 
 ## Optional offline Logix SDK checks
 

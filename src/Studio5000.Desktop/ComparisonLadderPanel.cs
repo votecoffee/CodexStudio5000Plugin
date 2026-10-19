@@ -16,8 +16,10 @@ public sealed class ComparisonLadderPanel : UserControl
     private ProjectCompareRequest? projects;
     private ComparedRoutine? selected;
     private LadderComparisonReport? report;
+    internal LadderComparisonReport? DisplayedReport => report;
     private int routineOffset, rungOffset;
-    private bool busy, suppress;
+    private bool suppress;
+    private readonly SemaphoreSlim work = new(1, 1);
     public ComparisonLadderPanel(ServiceClient client)
     {
         this.client = client; Dock = DockStyle.Fill;
@@ -47,15 +49,29 @@ public sealed class ComparisonLadderPanel : UserControl
     { var button = new Button { Text = text, AutoSize = true }; parent.Controls.Add(button); button.Click += async (_, _) => await Run(action); }
     private async Task Run(Func<Task> action)
     {
-        if (busy) return; busy = true; Enabled = false;
+        await work.WaitAsync(); Enabled = false;
         try { await action(); } catch (Exception ex) { ClearRungs(); status.Text = ex.Message; }
-        finally { busy = false; Enabled = true; }
+        finally { Enabled = true; work.Release(); }
     }
     public void Clear() { projects = null; selected = null; report = null; suppress = true; routines.Nodes.Clear(); suppress = false; ClearRungs(); status.Text = "Select two snapshots and Compare."; }
     private void ClearRungs() { left.Set(null); right.Set(null); leftText.Clear(); rightText.Clear(); }
     public async Task LoadProjectsAsync(ProjectCompareRequest request)
     {
         Clear(); projects = request; routineOffset = rungOffset = 0; await Run(LoadTreeAsync);
+    }
+    public async Task OpenDifferenceAsync(ProjectCompareRequest request, ProjectDifference difference)
+    {
+        Clear(); projects = request;
+        await Run(async () =>
+        {
+            if (projects != request) return;
+            var value = await client.PostAsync<LadderLocation>("/api/projects/compare/locate", new LadderLocateRequest(request, difference.LeftXPath, difference.RightXPath, changed.Checked));
+            if (projects != request) return;
+            selected = value.Routine; routineOffset = 0; routineTotal = 1; rungOffset = value.Ladder.Offset;
+            suppress = true; routines.Nodes.Clear(); var owner = routines.Nodes.Add(selected.Owner);
+            var node = owner.Nodes.Add($"{selected.Name} · {selected.Change} · {selected.LeftRungs}/{selected.RightRungs}"); node.Tag = selected; owner.Expand(); routines.SelectedNode = node; suppress = false;
+            Show(value.Ladder);
+        });
     }
     private int routineTotal;
     private async Task RoutinePageAsync(int direction)

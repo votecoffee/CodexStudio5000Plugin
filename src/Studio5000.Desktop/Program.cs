@@ -7,11 +7,22 @@ try
 {
     var root = ServiceClient.FindRoot();
     using var client = new ServiceClient(root);
-    if (args.Length == 2 && args[0] == "--self-test-value-merge")
+    if (args.Length == 2 && args[0] == "--self-test-comparison-workflow")
     {
-        using var merge = new TagValueMergeForm(client, null); merge.LoadForTest();
+        using var comparison = new ProjectCompareForm(client, null); comparison.LoadForTest(workflow: true);
+        comparison.StartPosition = FormStartPosition.Manual; comparison.Location = new(-30000, -30000); comparison.ShowInTaskbar = false;
+        comparison.Show(); Application.DoEvents();
+        File.WriteAllText(args[1] + ".json", System.Text.Json.JsonSerializer.Serialize(new { checks = comparison.ExerciseOfflineWorkflowForTest(root), controllerConnectionAttempted = false }, ProjectService.Json));
+        using var bitmap = new Bitmap(comparison.Width, comparison.Height); comparison.DrawToBitmap(bitmap, new Rectangle(Point.Empty, comparison.Size)); bitmap.Save(args[1], System.Drawing.Imaging.ImageFormat.Png); comparison.Close(); return;
+    }
+    if (args.Length == 2 && args[0] is "--self-test-value-merge" or "--self-test-value-merge-workflow")
+    {
+        var workflow = args[0] == "--self-test-value-merge-workflow";
+        using var merge = new TagValueMergeForm(client, null); merge.LoadForTest(workflow);
         merge.StartPosition = FormStartPosition.Manual; merge.Location = new(-30000, -30000); merge.ShowInTaskbar = false;
-        merge.Show(); Application.DoEvents(); using var bitmap = new Bitmap(merge.Width, merge.Height);
+        merge.Show(); Application.DoEvents();
+        if (workflow) File.WriteAllText(args[1] + ".json", System.Text.Json.JsonSerializer.Serialize(new { checks = merge.ExerciseOfflineWorkflowForTest(root), controllerConnectionAttempted = false }, ProjectService.Json));
+        using var bitmap = new Bitmap(merge.Width, merge.Height);
         merge.DrawToBitmap(bitmap, new Rectangle(Point.Empty, merge.Size)); bitmap.Save(args[1], System.Drawing.Imaging.ImageFormat.Png); merge.Close(); return;
     }
     if (args.Length == 2 && args[0] == "--self-test-watch-rebind")

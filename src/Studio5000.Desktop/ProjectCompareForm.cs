@@ -22,6 +22,7 @@ public sealed class ProjectCompareForm : Form
     private readonly TextBox before = XmlBox(), after = XmlBox();
     private readonly ComparisonLadderPanel ladder;
     private readonly TabControl previews = new() { Dock = DockStyle.Fill };
+    private readonly Button locate = new() { Text = "Browse selected change…", AutoSize = true, Enabled = false };
     private readonly Label status = new() { Dock = DockStyle.Bottom, Height = 52, Padding = new(8), Text = "Choose two registered Logix snapshots. Structural comparison only." };
     private ProjectComparisonReport? report;
     private ProjectCompareRequest? request;
@@ -38,6 +39,7 @@ public sealed class ProjectCompareForm : Form
         Button(top, "Open left…", () => OpenSnapshotAsync(left)); Button(top, "Open right…", () => OpenSnapshotAsync(right));
         top.SetFlowBreak(top.Controls[^1], true); top.Controls.Add(query); top.Controls.Add(numbers);
         Button(top, "Previous", () => PageAsync(-1)); Button(top, "Next", () => PageAsync(1));
+        top.Controls.Add(locate); locate.Click += async (_, _) => await Run(LocateAsync);
         changes.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "Change", HeaderText = "Change", Width = 100 });
         changes.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "Kind", HeaderText = "Component", Width = 150 });
         changes.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "Path", HeaderText = "Component path", AutoSizeMode = DataGridViewAutoSizeColumnMode.Fill });
@@ -121,19 +123,55 @@ public sealed class ProjectCompareForm : Form
     private void SelectDifference()
     {
         var difference = changes.CurrentRow?.DataBoundItem as ProjectDifference;
+        locate.Enabled = report is not null && difference?.Kind is "Rung" or "Routine" or "RLLContent";
         static string Display(string? text, bool truncated) => text is null ? "(absent)" : truncated ? text : XElement.Parse(text).ToString();
         before.Text = Display(difference?.LeftXml, difference?.LeftTruncated == true); after.Text = Display(difference?.RightXml, difference?.RightTruncated == true);
         if (difference?.LeftTruncated == true) before.AppendText("\r\n… snippet truncated; use the source XPath for inspection.");
         if (difference?.RightTruncated == true) after.AppendText("\r\n… snippet truncated; use the source XPath for inspection.");
     }
-    public void LoadForTest(bool showLadder = false)
+    private async Task LocateAsync()
     {
-        fixture = true;
+        if (request is null || report is null || changes.CurrentRow?.DataBoundItem is not ProjectDifference difference) throw new ArgumentException("Select a saved RLL change first.");
+        previews.SelectedIndex = 1; await ladder.OpenDifferenceAsync(request, difference);
+    }
+    public void LoadForTest(bool showLadder = false, bool workflow = false)
+    {
+        fixture = true; if (workflow) return;
         const string xml = "<RSLogix5000Content><Controller Name='Generated'><Tags><Tag Name='CycleCount' DataType='DINT'><DataValue Value='1'/></Tag></Tags><Programs><Program Name='Example'><Routines><Routine Name='MainRoutine' Type='RLL'><RLLContent><Rung Number='0'><Text>XIC(Enable)OTE(Output);</Text></Rung></RLLContent></Routine></Routines></Program></Programs></Controller></RSLogix5000Content>";
         var a = new ProjectInfo("left-fixture", "Baseline example", "Generated.L5X", "hash-a", "hash-a", 0, DateTimeOffset.UnixEpoch);
         var b = a with { Id = "right-fixture", Name = "Edited example", CurrentSha256 = "hash-b", Revision = 1 };
         left.Items.Add(new ReviewProjectChoice(a)); right.Items.Add(new ReviewProjectChoice(b)); left.SelectedIndex = right.SelectedIndex = 0;
         ShowReport(ProjectComparison.Compare(a, XDocument.Parse(xml), b, XDocument.Parse(xml.Replace("Value='1'", "Value='2'").Replace("XIC(Enable)", "XIO(Enable)")), new(a.Id, a.CurrentSha256, b.Id, b.CurrentSha256)));
         if (showLadder) { ladder.LoadForTest(); previews.SelectedIndex = 1; }
+    }
+    public string[] ExerciseOfflineWorkflowForTest(string root)
+    {
+        if (!fixture) throw new InvalidOperationException("Generated off-screen validation only.");
+        var checks = new List<string>();
+        void Check(bool ok, string message) { if (!ok) throw new InvalidOperationException(message); checks.Add(message); }
+        async Task ExerciseAsync()
+        {
+            var caps = await client.GetAsync<System.Text.Json.JsonElement>("/api/sdk/capabilities"); Check(!caps.GetProperty("controllerOperationsEnabled").GetBoolean(), "GUI comparison workflow requires disabled controller operations");
+            var doc = XDocument.Parse("<RSLogix5000Content><Controller Name='Generated'><Programs><Program Name='Example'><Routines><Routine Name='Main' Type='RLL'><RLLContent/></Routine></Routines></Program></Programs></Controller></RSLogix5000Content>");
+            doc.Descendants("RLLContent").Single().Add(Enumerable.Range(0, 20).Select(i => new XElement("Rung", new XAttribute("Number", i), new XElement("Text", $"MOV({i},Count);"))));
+            var aPath = Path.Combine(root, "examples", "GuiCompareLeft.l5x"); var bPath = Path.Combine(root, "examples", "GuiCompareRight.l5x"); doc.Save(aPath);
+            var original = doc.Descendants("Rung").ToArray(); original[17].Element("Text")!.Value = "MOV(999,Count);";
+            original[4].AddBeforeSelf(new XElement("Rung", new XAttribute("Number", "4"), new XElement("Text", "NOP();"))); doc.Save(bPath);
+            var a = await client.PostAsync<ProjectInfo>("/api/projects", new RegisterRequest(aPath)); var b = await client.PostAsync<ProjectInfo>("/api/projects", new RegisterRequest(bPath)); await RefreshAsync();
+            left.SelectedItem = left.Items.Cast<ReviewProjectChoice>().Single(c => c.Project.Id == a.Id); right.SelectedItem = right.Items.Cast<ReviewProjectChoice>().Single(c => c.Project.Id == b.Id); await CompareAsync();
+            Check(report is { TotalChanges: 2 } && ladder.DisplayedReport is { Total: 21 }, "GUI loads the independent comparison and its aligned routine browser");
+            async Task Open(string change)
+            {
+                var row = changes.Rows.Cast<DataGridViewRow>().Single(r => r.DataBoundItem is ProjectDifference d && d.Change == change);
+                changes.CurrentCell = row.Cells[0]; Check(locate.Enabled, "GUI enables navigation for the selected " + change + " rung"); await LocateAsync();
+            }
+            await Open("modified"); Check(ladder.DisplayedReport is { Offset: 18 } page && page.Rungs.Single() is { Left.Index: 17, Right.Index: 18 }, "GUI selected-change action jumps to the late modified source occurrences");
+            await Open("added"); Check(ladder.DisplayedReport!.Rungs.Single() is { Change: "added", Left: null, Right.Index: 4 }, "GUI selected-change action preserves the insertion gap and infers the existing routine");
+            ClearSelection(); Check(report is null && ladder.DisplayedReport is null && !locate.Enabled, "Changing GUI snapshot selection clears comparison navigation and disables its action");
+            await CompareAsync(); await Open("modified");
+        }
+        WorkflowValidation.Run(ExerciseAsync);
+        Check(previews.SelectedIndex == 1 && ladder.Visible && ladder.IsHandleCreated && ladder.Width > 0 && ladder.Height > 0, "GUI navigation leaves a visible ladder pane with handles owned by the UI thread");
+        return checks.ToArray();
     }
 }

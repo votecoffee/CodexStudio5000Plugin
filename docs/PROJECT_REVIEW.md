@@ -10,6 +10,8 @@ The **Ladder comparison browser** tab groups routine pairs by program/AOI, inclu
 
 Open **Ladder preview…**, select a snapshot, filter/find routines, then select an RLL routine and **Load routine**. Previous/Next selects a rung occurrence, including online-edit variants. Scroll the drawing for wide branches. Raw code, comments and parse diagnostics remain below; unsupported/malformed rungs have no drawing. The desktop consumes Core's drawing geometry rather than parsing rung text independently.
 
+Select a rung/RLL routine/content change in the difference list and choose **Browse selected change…** to jump directly to its aligned source occurrence. One-sided rung changes infer the existing routine on the other side; a wholly added/removed routine starts at its first row. The browser focuses that routine pair; use **Find routines** to return to the full tree. Paging continues from the located row under the current changed-rung filter. Snapshot changes clear the view and disable the action until another comparison is loaded. Non-ladder, ambiguous, mismatched or stale selectors are rejected.
+
 ## Structural comparison
 
 `POST /api/projects/compare` accepts:
