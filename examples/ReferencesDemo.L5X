@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RSLogix5000Content SchemaRevision="1.0" SoftwareRevision="35.00">
+  <Controller Name="GeneratedReferencesDemo">
+    <Tags>
+      <Tag Name="Input" TagType="Base" DataType="DINT" />
+      <Tag Name="Index" TagType="Base" DataType="DINT" />
+      <Tag Name="Samples" TagType="Base" DataType="DINT" Dimensions="8" />
+    </Tags>
+    <Programs>
+      <Program Name="ExampleProgram">
+        <Tags>
+          <Tag Name="Input" TagType="Base" DataType="DINT" />
+          <Tag Name="Result" TagType="Base" DataType="DINT" />
+          <Tag Name="InputAlias" TagType="Alias" AliasFor="Input" />
+        </Tags>
+        <Routines>
+          <Routine Name="MainRoutine" Type="RLL"><RLLContent>
+            <Rung Number="0" Type="N"><Comment>Generated lexical fixture; no native acceptance.</Comment><Text><![CDATA[ADD(Input,1,Result);]]></Text></Rung>
+            <Rung Number="1" Type="N"><Text><![CDATA[MOV(Samples[Index],Result);]]></Text></Rung>
+          </RLLContent></Routine>
+          <Routine Name="Calculate" Type="ST"><STContent>
+            <Line Number="0"><![CDATA[(* Input inside this comment is not a reference.]]></Line>
+            <Line Number="1"><![CDATA[The comment continues: Input *) Result := Input + Samples[Index];]]></Line>
+            <Line Number="2"><![CDATA[Result := Input; // Input inside this comment is skipped.]]></Line>
+          </STContent></Routine>
+        </Routines>
+      </Program>
+      <Program Name="OtherProgram"><Tags /><Routines>
+        <Routine Name="MainRoutine" Type="RLL"><RLLContent>
+          <Rung Number="0" Type="N"><Text><![CDATA[ADD(Input,1,Input);]]></Text></Rung>
+        </RLLContent></Routine>
+      </Routines></Program>
+    </Programs>
+  </Controller>
+</RSLogix5000Content>

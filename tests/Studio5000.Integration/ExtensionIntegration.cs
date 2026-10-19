@@ -26,7 +26,7 @@ internal static class ExtensionIntegration
         { ["extensionId"] = view.Id, ["operation"] = "viewdesigner_screen_summary", ["generation"] = view.Generation });
         Check(view.Operations.All(o => o.InputSchema.ValueKind == JsonValueKind.Undefined) && descriptor.InputSchema.GetProperty("properties").TryGetProperty("file", out _),
             "Compact live catalog omits schemas and describe returns the selected exact schema");
-        Check(catalog.Extensions.Where(x => x.Id != "fixture").Sum(x => x.Operations.Length) == 57, "Live catalog exposes FactoryTalk reference resolution, project comparison and ladder previews");
+        Check(catalog.Extensions.Where(x => x.Id != "fixture").Sum(x => x.Operations.Length) == 58, "Live catalog exposes PLC where-used, FactoryTalk reference resolution, project comparison and ladder previews");
         var graphics = await client.PostAsync<ProjectInfo>("/api/projects", new RegisterRequest(Path.Combine(root, "examples", "DemoME.xml")));
         var factoryTalk = catalog.Extensions.Single(x => x.Id == "factorytalk" && x.State == "active");
         var referenceCall = new ExtensionCall(factoryTalk.Id, "ftview_tag_references", factoryTalk.Generation,
@@ -66,6 +66,22 @@ internal static class ExtensionIntegration
             [new("set_text", "//Tag[@Name='Input']/Description", "Edited generated fixture"), new("set_text", "//Rung[@Number='1']/Text", "XIC(Enable)ADD(Input,2,Result);")]));
         candidate = await client.PostAsync<ProjectInfo>($"/api/projects/{candidate.Id}/previews/{draft.Id}/apply", new ApplyRequest(candidate.CurrentSha256));
         var logix = catalog.Extensions.Single(x => x.Id == "logix" && x.State == "active");
+        var referencesPath = Path.Combine(root, "examples", "ReferencesDemo.L5X"); var referencesHash = ProjectService.Hash(File.ReadAllBytes(referencesPath));
+        var referencesProject = await client.PostAsync<ProjectInfo>("/api/projects", new RegisterRequest(referencesPath));
+        var tagRequest = new TagReferenceRequest(referencesProject.CurrentSha256, "Input", "ExampleProgram");
+        var tagCall = new ExtensionCall(logix.Id, "studio_tag_references", logix.Generation,
+            JsonSerializer.SerializeToElement(new { projectId = referencesProject.Id, request = tagRequest }, ProjectService.Json));
+        var usages = await Tool<TagReferenceReport>("studio_extensions_read", new() { ["call"] = tagCall });
+        Check(usages.Total == 4 && usages.References.Count(r => r.Kind == "alias") == 1 && usages.References.Count(r => r.RoutineType == "ST") == 2,
+            "Stable MCP where-used reports local RLL/ST occurrences and direct alias declarations while skipping comments");
+        var globalUsages = await client.PostAsync<TagReferenceReport>($"/api/projects/{referencesProject.Id}/tag-references", tagRequest with { ProgramName = null, Limit = 1 });
+        Check(globalUsages.Total == 2 && globalUsages.References.Length == 1 && globalUsages.References[0].ProgramName == "OtherProgram",
+            "REST where-used honors local shadowing and pages controller-tag occurrences");
+        var indexUsages = await client.PostAsync<TagReferenceReport>($"/api/projects/{referencesProject.Id}/tag-references", tagRequest with { TagName = "Index", ProgramName = null, Query = "index_expression" });
+        Check(indexUsages.Total == 2 && indexUsages.References.All(r => r.Role == "index_expression"), "Shared scanner distinguishes tags used in indirect array indices");
+        var staleTagCall = tagCall with { Arguments = JsonSerializer.SerializeToElement(new { projectId = referencesProject.Id, request = tagRequest with { ExpectedSha256 = "stale" } }, ProjectService.Json) };
+        Check((await mcp.CallToolAsync("studio_extensions_read", new Dictionary<string, object?> { ["call"] = staleTagCall })).IsError == true && ProjectService.Hash(File.ReadAllBytes(referencesPath)) == referencesHash,
+            "PLC where-used rejects stale hashes and preserves original source bytes through both transports");
         var compareRequest = new ProjectCompareRequest(baseline.Id, baseline.CurrentSha256, candidate.Id, candidate.CurrentSha256);
         var comparisonCall = new ExtensionCall(logix.Id, "studio_compare_projects", logix.Generation,
             JsonSerializer.SerializeToElement(new { request = compareRequest }, ProjectService.Json));
