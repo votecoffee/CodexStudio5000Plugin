@@ -6,6 +6,15 @@ try
 {
     var root = ServiceClient.FindRoot();
     using var client = new ServiceClient(root);
+    if (args.Length == 2 && args[0] is "--self-test-comparison" or "--self-test-ladder")
+    {
+        using Form review = args[0] == "--self-test-comparison" ? new ProjectCompareForm(client, null) : new LadderForm(client, null);
+        review.StartPosition = FormStartPosition.Manual; review.Location = new(-30000, -30000); review.ShowInTaskbar = false;
+        if (review is ProjectCompareForm comparison) comparison.LoadForTest(); else ((LadderForm)review).LoadForTest();
+        review.Show(); Application.DoEvents(); using var bitmap = new Bitmap(review.Width, review.Height);
+        review.DrawToBitmap(bitmap, new Rectangle(Point.Empty, review.Size)); bitmap.Save(args[1], System.Drawing.Imaging.ImageFormat.Png);
+        review.Close(); return;
+    }
     if (args.Length == 2 && args[0] is "--self-test-browser" or "--self-test-trends")
     {
         using Form view = args[0] == "--self-test-browser" ? new TagBrowserForm(client, null) : new TrendForm(client,

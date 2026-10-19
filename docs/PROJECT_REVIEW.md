@@ -2,6 +2,12 @@
 
 These read-only operations use registered Logix snapshots. They preserve source files and managed revisions, require current hashes, and connect to no controller. ACD inputs must already have been registered through the separately configured SDK conversion path.
 
+## Desktop views
+
+Open **Compare projects…** to choose left/right snapshots, refresh their hashes, compare, filter component paths and page results. Selecting a change shows normalized before/after XML. Snippets are explicitly marked when truncated. Changing a snapshot clears the old result; comparison never migrates or applies components.
+
+Open **Ladder preview…**, select a snapshot, filter/find routines, then select an RLL routine and **Load routine**. Previous/Next selects a rung occurrence, including online-edit variants. Scroll the drawing for wide branches. Raw code, comments and parse diagnostics remain below; unsupported/malformed rungs have no drawing. The desktop consumes Core's drawing geometry rather than parsing rung text independently.
+
 ## Structural comparison
 
 `POST /api/projects/compare` accepts:

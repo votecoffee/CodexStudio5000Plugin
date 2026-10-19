@@ -37,6 +37,33 @@ internal static class ExtensionIntegration
         var restReferences = await client.PostAsync<GraphicsReferenceReport>($"/api/projects/{graphics.Id}/graphics-references", new GraphicsReferenceRequest(graphics.CurrentSha256, "missing"));
         Check(restReferences.Total == 0 && restReferences.Project.CurrentSha256 == graphics.CurrentSha256,
             "REST reference filtering preserves snapshot identity without connecting to a controller");
+        var reviewSource = Path.Combine(root, "examples", "ReviewDemo.L5X");
+        var sourceHash = ProjectService.Hash(File.ReadAllBytes(reviewSource));
+        var baseline = await client.PostAsync<ProjectInfo>("/api/projects", new RegisterRequest(reviewSource));
+        var candidate = await client.PostAsync<ProjectInfo>("/api/projects", new RegisterRequest(reviewSource));
+        var draft = await client.PostAsync<ChangePreview>($"/api/projects/{candidate.Id}/previews", new PreviewRequest(candidate.CurrentSha256,
+            [new("set_text", "//Tag[@Name='Input']/Description", "Edited generated fixture"), new("set_text", "//Rung[@Number='1']/Text", "XIC(Enable)ADD(Input,2,Result);")]));
+        candidate = await client.PostAsync<ProjectInfo>($"/api/projects/{candidate.Id}/previews/{draft.Id}/apply", new ApplyRequest(candidate.CurrentSha256));
+        var logix = catalog.Extensions.Single(x => x.Id == "logix" && x.State == "active");
+        var compareRequest = new ProjectCompareRequest(baseline.Id, baseline.CurrentSha256, candidate.Id, candidate.CurrentSha256);
+        var comparisonCall = new ExtensionCall(logix.Id, "studio_compare_projects", logix.Generation,
+            JsonSerializer.SerializeToElement(new { request = compareRequest }, ProjectService.Json));
+        var comparison = await Tool<ProjectComparisonReport>("studio_extensions_read", new() { ["call"] = comparisonCall });
+        Check(comparison.TotalChanges == 2 && comparison.Modified == 2 && comparison.Differences.Any(d => d.Kind == "Rung"),
+            "MCP structural comparison reports a tag edit and same-count rung change without parent duplicates");
+        var filteredComparison = await client.PostAsync<ProjectComparisonReport>("/api/projects/compare", compareRequest with { Query = "Rung", Limit = 1 });
+        Check(filteredComparison.TotalChanges == 2 && filteredComparison.FilteredChanges == 1 && filteredComparison.Differences.Length == 1,
+            "REST comparison filters a paged report while retaining full change counts");
+        var ladderRequest = new LadderPreviewRequest(baseline.CurrentSha256, "//Routine[@Name='MainRoutine']", Limit: 3);
+        var ladderCall = new ExtensionCall(logix.Id, "studio_ladder_preview", logix.Generation,
+            JsonSerializer.SerializeToElement(new { projectId = baseline.Id, request = ladderRequest }, ProjectService.Json));
+        var ladder = await Tool<LadderPreviewReport>("studio_extensions_read", new() { ["call"] = ladderCall });
+        Check(ladder.Total == 3 && ladder.Rungs.All(r => r.Status == "rendered" && r.Diagram!.Svg.Contains("<svg", StringComparison.Ordinal)) && ladder.Rungs[0].Diagram!.Nodes.Length == 5,
+            "Stable MCP read dispatch returns branch geometry and passive SVG for generated ladder rungs");
+        var staleLadder = ladderCall with { Arguments = JsonSerializer.SerializeToElement(new { projectId = baseline.Id, request = ladderRequest with { ExpectedSha256 = "stale" } }, ProjectService.Json) };
+        var staleReply = await mcp.CallToolAsync("studio_extensions_read", new Dictionary<string, object?> { ["call"] = staleLadder });
+        Check(staleReply.IsError == true && ProjectService.Hash(File.ReadAllBytes(reviewSource)) == sourceHash,
+            "Ladder preview rejects stale snapshots and review operations preserve original inputs");
         var p = await client.PostAsync<ProjectInfo>("/api/viewdesigner/projects", new RegisterRequest(Path.Combine(root, "examples", "ViewDesignerDemo")));
         var call = new ExtensionCall("viewdesigner", "viewdesigner_screen_summary", view.Generation,
             JsonSerializer.SerializeToElement(new { projectId = p.Id, file = "User-Defined Screens/Overview.hmi" }));

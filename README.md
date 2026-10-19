@@ -108,6 +108,8 @@ Inspect/read before editing. Preview binds the requested changes to a source has
 
 Open a Logix or FactoryTalk export, inspect a component, then **Preview edit**, **Apply preview** and export a new file. **View Designer…** opens the exported-project workspace.
 
+**Compare projects…** shows paged structural changes between two Logix snapshots with before/after XML and rung alignment. **Ladder preview…** displays scrollable branches, instruction blocks and raw-code diagnostics from the same shared service. Both are read-only; see [project review](docs/PROJECT_REVIEW.md).
+
 For FactoryTalk displays, **Tag references** shows the current snapshot's extracted references and source expressions. The read-only `ftview_tag_references` extension operation adds search and pagination through the live catalog. Shortcut and parameter resolution remain explicit pending context; extraction does not connect to a PLC or declare tags missing.
 
 Use **Tag / UDT browser…** to search tags, expand structures/arrays and create a watch list from selected values. **Watch lists…** provides polling controls and extracted values; **Trends & recording…** provides graphs, retention and CSV. Saving a watch list does not connect. Lists restart stopped; closing a viewer does not stop already active shared polling.

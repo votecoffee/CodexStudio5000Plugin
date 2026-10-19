@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RSLogix5000Content SchemaRevision="1.0" SoftwareRevision="35.00">
+  <Controller Name="GeneratedReviewDemo">
+    <DataTypes />
+    <Programs>
+      <Program Name="ExampleProgram" MainRoutineName="MainRoutine">
+        <Tags>
+          <Tag Name="Enable" TagType="Base" DataType="BOOL" />
+          <Tag Name="Auto" TagType="Base" DataType="BOOL" />
+          <Tag Name="Manual" TagType="Base" DataType="BOOL" />
+          <Tag Name="Fault" TagType="Base" DataType="BOOL" />
+          <Tag Name="Output" TagType="Base" DataType="BOOL" />
+          <Tag Name="Input" TagType="Base" DataType="DINT"><Description>Generated review input</Description></Tag>
+          <Tag Name="Result" TagType="Base" DataType="DINT" />
+          <Tag Name="CycleTimer" TagType="Base" DataType="TIMER" />
+        </Tags>
+        <Routines>
+          <Routine Name="MainRoutine" Type="RLL">
+            <RLLContent>
+              <Rung Number="0" Type="N"><Comment>Generated bracket-branch preview; no controller connection.</Comment><Text><![CDATA[XIC(Enable)[XIC(Auto),XIC(Manual)]XIO(Fault)OTE(Output);]]></Text></Rung>
+              <Rung Number="1" Type="N"><Text><![CDATA[XIC(Enable)ADD(Input,1,Result);]]></Text></Rung>
+              <Rung Number="2" Type="N"><Comment>Generated keyword branch syntax for parser verification.</Comment><Text><![CDATA[BST XIC(Auto) NXB XIC(Manual) BND TON(CycleTimer,1000,0);]]></Text></Rung>
+            </RLLContent>
+          </Routine>
+        </Routines>
+      </Program>
+    </Programs>
+  </Controller>
+</RSLogix5000Content>
