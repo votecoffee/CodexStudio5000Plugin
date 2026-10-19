@@ -76,10 +76,14 @@ app.MapGet("/api/comparison-sessions", (ProjectService service, CancellationToke
 app.MapGet("/api/comparison-sessions/{id}", (ProjectService service, string id, CancellationToken ct) => service.GetComparisonSessionAsync(id, ct));
 app.MapPost("/api/comparison-sessions", (ProjectService service, ComparisonSessionSaveRequest request, CancellationToken ct) => service.SaveComparisonSessionAsync(request, ct));
 app.MapPost("/api/comparison-sessions/{id}/delete", (ProjectService service, string id, ReviewDeleteRequest request, CancellationToken ct) => service.DeleteSavedReviewAsync("comparison-sessions", id, request, ct));
+app.MapPost("/api/comparison-sessions/recovery/preview", (ProjectService service, ComparisonSessionRecoveryRequest request, CancellationToken ct) => service.PreviewComparisonRecoveryAsync(request, ct));
+app.MapPost("/api/comparison-sessions/recovery/apply", (ProjectService service, ComparisonSessionRecoveryApplyRequest request, CancellationToken ct) => service.ApplyComparisonRecoveryAsync(request, ct));
 app.MapGet("/api/merge-mappings", (ProjectService service, CancellationToken ct) => service.SavedReviewsAsync("merge-mappings", ct));
 app.MapGet("/api/merge-mappings/{id}", (ProjectService service, string id, CancellationToken ct) => service.GetMergeMappingAsync(id, ct));
 app.MapPost("/api/merge-mappings", (ProjectService service, MergeMappingSaveRequest request, CancellationToken ct) => service.SaveMergeMappingAsync(request, ct));
 app.MapPost("/api/merge-mappings/bind", (ProjectService service, MergeMappingBindRequest request, CancellationToken ct) => service.BindMergeMappingAsync(request, ct));
+app.MapPost("/api/merge-mappings/import", (ProjectService service, MergeMappingImportRequest request, CancellationToken ct) => service.ImportMergeMappingAsync(request, ct));
+app.MapPost("/api/merge-mappings/{id}/export", (ProjectService service, string id, MergeMappingExportRequest request, CancellationToken ct) => service.ExportMergeMappingAsync(id, request, ct));
 app.MapPost("/api/merge-mappings/{id}/delete", (ProjectService service, string id, ReviewDeleteRequest request, CancellationToken ct) => service.DeleteSavedReviewAsync("merge-mappings", id, request, ct));
 app.MapPost("/api/projects/{id}/ladder-preview", (ProjectService service, string id, LadderPreviewRequest request) => service.PreviewLadder(id, request));
 app.MapPost("/api/projects", (ProjectService service, RegisterRequest request, CancellationToken ct) => service.RegisterAsync(request.Path, ct));

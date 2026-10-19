@@ -22,11 +22,13 @@ public sealed record MergeMappingBinding(SavedMergeMapping Mapping, TagValueMerg
 
 public static class MergeMappingTemplates
 {
+    public const int MaximumBytes = 128 * 1024;
+    public static byte[] Bytes(MergeMappingTemplate template) { Validate(template); return JsonSerializer.SerializeToUtf8Bytes(template, ProjectService.Json); }
     private static readonly JsonSerializerOptions Strict = new(ProjectService.Json)
     { PropertyNameCaseInsensitive = false, UnmappedMemberHandling = JsonUnmappedMemberHandling.Disallow, MaxDepth = 8 };
     public static MergeMappingTemplate Parse(JsonElement value)
     {
-        if (value.ValueKind != JsonValueKind.Object || System.Text.Encoding.UTF8.GetByteCount(value.GetRawText()) > 128 * 1024)
+        if (value.ValueKind != JsonValueKind.Object || System.Text.Encoding.UTF8.GetByteCount(value.GetRawText()) > MaximumBytes)
             throw new OperationException("invalid_merge_mapping", "Use a mapping JSON object up to 128 KiB.");
         void Keys(JsonElement v)
         {
@@ -50,6 +52,8 @@ public static class MergeMappingTemplates
         foreach (var tag in template.Tags) { WatchValidation.Identifier(tag.SourceTag); WatchValidation.Identifier(tag.DestinationTag); }
         if (template.Tags.Select(t => t.DestinationTag).Distinct(StringComparer.OrdinalIgnoreCase).Count() != template.Tags.Length)
             throw new OperationException("invalid_merge_mapping", "Each destination tag may occur only once.");
+        if (JsonSerializer.SerializeToUtf8Bytes(template, ProjectService.Json).Length > MaximumBytes)
+            throw new OperationException("invalid_merge_mapping", "Canonical mapping exceeds 128 KiB.");
     }
 }
 internal static class SavedReviewValidation
@@ -84,7 +88,7 @@ public sealed partial class ProjectService
         var revision = json.RootElement.GetProperty("revision").GetInt32();
         if (revision != expected) throw new OperationException("stale_revision", "Saved definition changed; refresh before updating or deleting.");
         if (revision == int.MaxValue) throw new OperationException("review_limit", "Definition revision limit reached.");
-            return (Id(id), revision + 1);
+        return (Id(id), revision + 1);
     }
     private string ExistingReviewPath(string kind, string id)
     { var path = ReviewPath(kind, id); if (!File.Exists(path)) throw new OperationException("not_found", "Saved definition does not exist."); return path; }

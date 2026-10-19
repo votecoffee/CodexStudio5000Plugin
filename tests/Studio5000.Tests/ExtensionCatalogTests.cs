@@ -11,7 +11,7 @@ public sealed class ExtensionCatalogTests
     {
         IWorkspaceExtension[] modules = [new LogixExtension(), new FactoryTalkExtension(), new ViewDesignerExtension(), new WatchesExtension()];
         var operations = modules.SelectMany(x => x.Describe()).ToArray();
-        Assert.Equal(81, operations.Length); Assert.Equal(81, operations.Select(o => o.Name).Distinct().Count());
+        Assert.Equal(85, operations.Length); Assert.Equal(85, operations.Select(o => o.Name).Distinct().Count());
         foreach (var operation in operations) ExtensionSchema.CheckDefinition(operation.InputSchema);
         Assert.Equal("control", operations.Single(o => o.Name == "studio_sdk_start_job").Effect);
         Assert.Equal("control", operations.Single(o => o.Name == "studio_watch_start").Effect);
@@ -23,6 +23,10 @@ public sealed class ExtensionCatalogTests
         Assert.Equal("read", operations.Single(o => o.Name == "studio_merge_mapping_bind").Effect);
         Assert.Equal("apply", operations.Single(o => o.Name == "studio_merge_mapping_save").Effect);
         Assert.Equal("apply", operations.Single(o => o.Name == "studio_comparison_session_save").Effect);
+        Assert.Equal("read", operations.Single(o => o.Name == "studio_comparison_session_recovery_preview").Effect);
+        Assert.Equal("apply", operations.Single(o => o.Name == "studio_comparison_session_recovery_apply").Effect);
+        Assert.Equal("apply", operations.Single(o => o.Name == "studio_merge_mapping_export").Effect);
+        Assert.Equal("apply", operations.Single(o => o.Name == "studio_merge_mapping_import").Effect);
         Assert.Equal("read", operations.Single(o => o.Name == "studio_compare_locate").Effect);
         Assert.Equal("read", operations.Single(o => o.Name == "studio_value_merge_browse").Effect);
         Assert.Equal("read", operations.Single(o => o.Name == "studio_ladder_preview").Effect);

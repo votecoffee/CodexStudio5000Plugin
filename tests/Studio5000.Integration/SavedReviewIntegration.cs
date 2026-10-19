@@ -47,6 +47,18 @@ internal static class SavedReviewIntegration
         var read = await Tool<SavedMergeMapping>("studio_merge_mapping_get", key: "mappingId", id: mapping.Id);
         Check(read.Revision == 0 && read.Template.Tags.SequenceEqual(mapping.Template.Tags) && (await client.GetAsync<ReviewSummary[]>("/api/merge-mappings")).Any(m => m.Id == mapping.Id),
             "REST and MCP share reusable name-pair mappings without project bindings or copied values");
+        Check((await Call("studio_merge_mapping_export", new MergeMappingExportRequest(0), key: "mappingId", id: mapping.Id)).IsError == true,
+            "Read-only MCP dispatch rejects mapping artifact creation");
+        var artifact = await Tool<Artifact>("studio_merge_mapping_export", new MergeMappingExportRequest(0), true, "mappingId", mapping.Id);
+        using var portable = JsonDocument.Parse(await client.DownloadAsync(artifact.Id));
+        Check(portable.RootElement.EnumerateObject().Select(p => p.Name).SequenceEqual(["schemaVersion", "name", "tags"]),
+            "MCP mapping export downloads through REST with only portable name pairs and schema metadata");
+        var imported = await client.PostAsync<SavedMergeMapping>("/api/merge-mappings/import", new MergeMappingImportRequest(portable.RootElement));
+        var importedMcp = await Tool<SavedMergeMapping>("studio_merge_mapping_import", new MergeMappingImportRequest(portable.RootElement), true);
+        Check(imported.Id != mapping.Id && importedMcp.Id != imported.Id && imported.Template.Tags.SequenceEqual(mapping.Template.Tags),
+            "REST and MCP imports each create a distinct saved mapping without overwriting existing definitions");
+        var output = await Tool<SavedArtifact>("studio_save_artifact", new SaveArtifactRequest(Path.Combine(root, "artifacts", "exports", "mapping-portable.json")), true, "artifactId", artifact.Id);
+        Check(output.Sha256 == artifact.Sha256 && File.Exists(output.Path), "Portable mappings use the existing guarded artifact-save operation");
         var bind = new MergeMappingBindRequest(mapping.Id, 0, a.Id, a.CurrentSha256, b.Id, b.CurrentSha256, "WatchProgram", "WatchProgram");
         var binding = await Tool<MergeMappingBinding>("studio_merge_mapping_bind", bind);
         var rest = await client.PostAsync<MergeMappingBinding>("/api/merge-mappings/bind", bind);
@@ -61,8 +73,20 @@ internal static class SavedReviewIntegration
         Check(merged.Revision == 1 && !stale.CanResume && stale.Session.Comparison.RightSha256 == b.CurrentSha256,
             "An offline merge makes the pinned session stale without silently rebinding its saved snapshot hash");
         Check((await Call("studio_merge_mapping_bind", bind)).IsError == true, "An old mapping binding rejects changed destination hashes after the merge");
+        var recovery = new ComparisonSessionRecoveryRequest(saved.Id, saved.Revision, comparison with { RightSha256 = merged.CurrentSha256 });
+        var recoveryPreview = await Tool<ComparisonSessionRecoveryReport>("studio_comparison_session_recovery_preview", recovery);
+        var restPreview = await client.PostAsync<ComparisonSessionRecoveryReport>("/api/comparison-sessions/recovery/preview", recovery);
+        Check(recoveryPreview.ReviewSha256 == restPreview.ReviewSha256 && !(await client.GetAsync<ComparisonSessionView>("/api/comparison-sessions/" + saved.Id)).CanResume,
+            "REST and MCP recovery previews agree while leaving the stale saved session untouched");
+        Check((await Call("studio_comparison_session_recovery_apply", new ComparisonSessionRecoveryApplyRequest(recovery, "wrong"), true)).IsError == true &&
+            (await Call("studio_comparison_session_recovery_apply", new ComparisonSessionRecoveryApplyRequest(recovery, recoveryPreview.ReviewSha256))).IsError == true,
+            "Session recovery rejects an unreviewed hash and read-only MCP dispatch");
+        var recovered = await Tool<ComparisonSession>("studio_comparison_session_recovery_apply", new ComparisonSessionRecoveryApplyRequest(recovery, recoveryPreview.ReviewSha256), true);
+        Check(recovered.Revision == 1 && recovered.Bookmark is null && (await client.GetAsync<ComparisonSessionView>("/api/comparison-sessions/" + saved.Id)).CanResume &&
+            (await Call("studio_comparison_session_recovery_apply", new ComparisonSessionRecoveryApplyRequest(recovery, recoveryPreview.ReviewSha256), true)).IsError == true,
+            "Reviewed MCP recovery pins current snapshots, clears the old bookmark and rejects replay at the old revision");
         await Tool<JsonElement>("studio_merge_mapping_delete", new ReviewDeleteRequest(0), true, "mappingId", mapping.Id);
-        await Tool<JsonElement>("studio_comparison_session_delete", new ReviewDeleteRequest(0), true, "sessionId", saved.Id);
+        await Tool<JsonElement>("studio_comparison_session_delete", new ReviewDeleteRequest(recovered.Revision), true, "sessionId", saved.Id);
         Check((await Call("studio_merge_mapping_get", key: "mappingId", id: mapping.Id)).IsError == true &&
             (await client.GetAsync<ProjectInfo>("/api/projects/" + b.Id)).Revision == 1, "Deleting saved definitions preserves the merged project and its revision");
         Check(ProjectService.Hash(await File.ReadAllBytesAsync(leftPath)) == a.SourceSha256 && ProjectService.Hash(await File.ReadAllBytesAsync(rightPath)) == b.SourceSha256,
