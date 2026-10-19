@@ -1,0 +1,8 @@
+{
+  "schemaVersion": 1,
+  "name": "Watch demo values",
+  "tags": [
+    { "sourceTag": "Enabled", "destinationTag": "Enabled" },
+    { "sourceTag": "Record", "destinationTag": "Record" }
+  ]
+}

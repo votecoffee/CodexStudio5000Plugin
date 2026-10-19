@@ -6,11 +6,15 @@ All clients use the shared service. Definitions are stored locally under the pro
 
 A session saves two managed project IDs and their exact hashes, comparison filter/page, rung-number setting and an optional ladder bookmark: routine selectors, aligned rung offset, changed-rung filter and routine query. Saving validates the snapshots and bookmark. Reading reports `canResume=false` and issues if either snapshot changed or became unavailable. It retains the original hashes rather than silently selecting newer revisions.
 
-Resume through the existing read-only comparison and ladder operations. To continue against changed projects, explicitly compare current snapshots and update the session with its expected revision. Saved sessions do not recreate missing projects, reconnect to controllers or restore a previously reviewed mutation.
+Resume through the existing read-only comparison and ladder operations. To continue against changed or replacement projects, preview recovery with explicit project IDs/current hashes and the loaded session revision. The preview returns a current structural comparison and a review hash without changing the saved definition. Apply rechecks that hash, both snapshots and the session revision, then creates a new session revision. Recovery resets the comparison page and clears the old ladder bookmark: inserted or deleted rungs can change the meaning of an aligned offset. Select and save a new position after inspecting the current ladder. Saved sessions do not recreate missing projects, reconnect to controllers or restore a previously reviewed mutation.
 
 ## Reusable merge mappings
 
 Mapping templates contain only `schemaVersion: 1`, a display `name` and 1..256 `tags` with `sourceTag`/`destinationTag` pairs. They omit project IDs, paths, program names, controller routes, values and previous review hashes. Unknown fields and duplicate JSON properties are rejected. Destination names must be unique, ignoring case. Whole base-tag names are supported; member/array-cell selections are outside this merge format.
+
+Export a saved mapping's exact revision as a portable JSON artifact, then download it or save it through the existing artifact service inside configured `OutputRoots`. Existing output files are preserved. Import accepts strict JSON up to 128 KiB and always creates a distinct local definition; IDs/revisions and operational fields are rejected. The canonical exported JSON also fits the import size limit. Review display and tag names before sharing them.
+
+[TagMergeMapping.json](../examples/TagMergeMapping.json) is a generated example for the `Enabled` and `Record` tags in `WatchDemo.L5X`. Select the actual source/destination program scopes when binding it; the file carries no scope or source binding.
 
 ```json
 {
@@ -26,9 +30,11 @@ Apply remains a separate call to `/api/value-merge/apply` with the returned prop
 
 ## Desktop
 
-In **Compare projects…**, the saved-session row offers refresh, load, save new, update and delete. Load restores the pinned comparison and its exact ladder row. A stale session leaves the comparison empty with diagnostics; explicitly compare current snapshots before updating it.
+In **Compare projects…**, the saved-session row offers refresh, load, save new, update and delete. Load restores the pinned comparison and its exact ladder row. A stale session leaves the comparison empty with diagnostics. Load that session, select the current/replacement snapshots and filters, then choose **Review recovery**. Inspect the differences before choosing **Save reviewed recovery**. Changing selections or filters invalidates the preview; saving clears the previous bookmark. Recovery does not import or alter either project.
 
 In **Merge tag values…**, select the source/destination snapshots and scopes, then choose **Reusable mappings…**. Edit source/destination whole-tag names in the grid, save a new mapping or update a loaded one, then choose **Use saved mapping**. The merge window displays the freshly bound value review. It requires a separate click on **Apply reviewed offline merge** to change the destination. Unsaved mapping edits must be saved before use. Both editors retain the revision they loaded when updating; refreshing the library does not authorize overwriting another client's changes.
+
+The mapping editor also offers **Import JSON as new…** and **Export loaded JSON…**. Import creates a new saved mapping; export requires saved, unmodified editor contents and the current saved revision. A rejected import leaves the loaded editor intact. Export uses the service's output-root and new-file rules.
 
 ## REST and MCP
 
@@ -38,12 +44,16 @@ In **Merge tag values…**, select the source/destination snapshots and scopes, 
 | GET | `/api/comparison-sessions/{id}` | Definition and resume diagnostics |
 | POST | `/api/comparison-sessions` | Save new, or update with `id`/`expectedRevision` |
 | POST | `/api/comparison-sessions/{id}/delete` | Delete with `expectedRevision` |
+| POST | `/api/comparison-sessions/recovery/preview` | Review `{sessionId, expectedRevision, comparison}` against explicit current snapshots |
+| POST | `/api/comparison-sessions/recovery/apply` | Recheck `{preview, expectedReviewSha256}`, save current pins and clear the bookmark |
 | GET | `/api/merge-mappings` | Bounded summaries |
 | GET | `/api/merge-mappings/{id}` | Exact saved template/revision |
 | POST | `/api/merge-mappings` | Save `{template}`, or update with `id`/`expectedRevision` |
 | POST | `/api/merge-mappings/bind` | Fresh read-only value preview for an explicit binding |
+| POST | `/api/merge-mappings/import` | Import `{template}` as a distinct saved definition |
+| POST | `/api/merge-mappings/{id}/export` | Create JSON artifact with `expectedRevision` |
 | POST | `/api/merge-mappings/{id}/delete` | Delete with `expectedRevision` |
 
-The `logix` extension exposes nine `studio_comparison_session*`/`studio_merge_mapping*` operations, including plural list names. Discover them through the existing fixed MCP bridge. Listing, reading and binding use the read channel; saving/deleting definitions use apply. None are controller operations. Project mutations retain their existing separate review/apply boundary.
+The `logix` extension exposes thirteen `studio_comparison_session*`/`studio_merge_mapping*` operations, including plural list names. Discover them through the existing fixed MCP bridge. Listing, reading, binding and recovery preview use the read channel; saving/deleting/importing/exporting definitions and applying recovery use apply. None are controller operations. Project mutations retain their existing separate review/apply boundary.
 
-Version 0.19 needs the updated shared service and desktop as well as its extension package. Install when the workspace is idle. Reloading a worker alone cannot add missing service endpoints.
+Version 0.20 needs the updated shared service and desktop as well as its extension package. Install when the workspace is idle. Reloading a worker alone cannot add missing service endpoints.

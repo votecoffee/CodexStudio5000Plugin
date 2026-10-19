@@ -38,8 +38,8 @@ RockwellMCPServer gives agents and engineers a shared workspace for project insp
 | Portable watch templates | Export selections/settings, preview explicit project/program bindings and import a new stopped list with a checked review hash. |
 | Watch source rebinding | Preview declaration/scope changes and move a stopped list to a new snapshot while retaining its ID, settings and recording revisions. |
 | Tag value merge | Preview selected values from saved or uploaded PLC snapshots, check UDT/array layouts and merge into a different offline project. GUI supports capture and new L5X/ACD exports. |
-| Saved comparison sessions | Persist pinned snapshot hashes, comparison filters and ladder bookmarks; detect drift before resuming. |
-| Reusable merge mappings | Store whole-tag name pairs, bind to explicit snapshots/program scopes and generate a fresh reviewed value preview. |
+| Saved comparison sessions | Persist pinned hashes, filters and ladder bookmarks; review recovery to changed snapshots with revision/hash checks. |
+| Reusable merge mappings | Import/export portable JSON name pairs, bind to explicit snapshots/program scopes and generate a fresh value preview. |
 | Optional CIP reader | Read bounded scalar/UDT/array symbols through an isolated libplctag worker; plan reads offline and share watch recording/trends. Live validation pending. |
 | Trending and recording | Persist history across restarts, graph numeric/BOOL values, show quality/stale gaps and export CSV. |
 | Reloadable extensions | Discover operation schemas and reload compatible modules through MCP or the GUI while the host and chat remain running. |
@@ -135,7 +135,7 @@ Open a Logix or FactoryTalk export, inspect a component, then **Preview edit**, 
 
 **Merge tag values…** reads a saved project or captures an authorized online upload, searches/pages tag candidates and merges reviewed values into a different offline working copy. Selections persist across pages/searches, with up to 256 tags per merge. Declaration/layout mismatches block apply. Export a separate L5X/ACD after merging; see [value merge](docs/VALUE_MERGE.md).
 
-Save and reload named comparison sessions in **Compare projects…**, retaining snapshot hashes, filters and the selected ladder row. In the merge window, **Reusable mappings…** edits/saves whole-tag name pairs and binds them to the selected project/program scopes for a fresh value preview. Definition updates detect concurrent edits; changed snapshots require explicit refresh/comparison. See [saved reviews and mappings](docs/SAVED_REVIEWS.md).
+Save and reload named comparison sessions in **Compare projects…**, retaining snapshot hashes, filters and the selected ladder row. **Review recovery** compares explicitly selected current snapshots; **Save reviewed recovery** updates their pins and clears the old bookmark. In the merge window, **Reusable mappings…** edits/saves whole-tag name pairs, imports/exports portable JSON and binds to the selected project/program scopes for a fresh value preview. Definition updates detect concurrent edits. See [saved reviews and mappings](docs/SAVED_REVIEWS.md).
 
 For FactoryTalk displays, **Tag references** shows extracted occurrences and source expressions. **Resolve references…** maps shortcuts to saved Logix snapshots, binds parameters to exact objects/groups and searches the resulting tag/UDT/array checks. The read-only `ftview_tag_references` and `ftview_resolve_references` extension operations expose these features through the live catalog. Missing context, unavailable metadata and absence in a potentially partial snapshot have separate statuses. These checks do not connect to a PLC. See [FactoryTalk reference resolution](docs/FACTORYTALK.md#plchmi-reference-resolution).
 

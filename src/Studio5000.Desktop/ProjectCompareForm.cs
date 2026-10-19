@@ -29,13 +29,14 @@ public sealed class ProjectCompareForm : WorkspaceForm
     private ProjectComparisonReport? report;
     private ProjectCompareRequest? request;
     private ComparisonSession? loadedSession;
+    private ComparisonSessionRecoveryReport? recovery;
     private bool busy, fixture;
 
     public ProjectCompareForm(ServiceClient client, ProjectInfo? initial)
     {
         this.client = client; this.initial = initial; ladder = new(client);
         Text = "Logix project comparison"; Size = new(1380, 880); MinimumSize = new(1100, 700); Font = new("Segoe UI", 10);
-        var top = new FlowLayoutPanel { Dock = DockStyle.Top, Height = 136, Padding = new(8), AutoScroll = true };
+        var top = new FlowLayoutPanel { Dock = DockStyle.Top, Height = 180, Padding = new(8), AutoScroll = true };
         top.Controls.Add(new Label { Text = "Left", AutoSize = true, Padding = new(0, 7, 0, 0) }); top.Controls.Add(left);
         top.Controls.Add(new Label { Text = "Right", AutoSize = true, Padding = new(0, 7, 0, 0) }); top.Controls.Add(right);
         Button(top, "Refresh snapshots", RefreshAsync); Button(top, "Compare", CompareAsync);
@@ -46,6 +47,10 @@ public sealed class ProjectCompareForm : WorkspaceForm
         top.SetFlowBreak(locate, true); top.Controls.Add(sessions); top.Controls.Add(sessionName);
         Button(top, "Refresh sessions", () => RefreshSessionsAsync()); Button(top, "Load session", LoadSessionAsync);
         Button(top, "Save new", () => SaveSessionAsync(false)); Button(top, "Update selected", () => SaveSessionAsync(true)); Button(top, "Delete selected", DeleteSessionAsync);
+        top.SetFlowBreak(top.Controls[^1], true);
+        Button(top, "Review recovery", PreviewRecoveryAsync); Button(top, "Save reviewed recovery", ApplyRecoveryAsync);
+        top.Controls.Add(new Label { Text = "Recovery uses selected snapshots and clears the previous ladder bookmark.", AutoSize = true, Padding = new(0, 7, 0, 0) });
+        query.TextChanged += (_, _) => recovery = null; numbers.CheckedChanged += (_, _) => recovery = null;
         sessions.SelectionChangeCommitted += (_, _) => { if (sessions.SelectedItem is SavedReviewChoice s) sessionName.Text = s.Summary.Name; };
         changes.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "Change", HeaderText = "Change", Width = 100 });
         changes.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "Kind", HeaderText = "Component", Width = 150 });
@@ -85,7 +90,7 @@ public sealed class ProjectCompareForm : WorkspaceForm
     }
     private void ClearSelection()
     {
-        report = null; request = null; changes.DataSource = null; before.Clear(); after.Clear(); ladder.Clear();
+        recovery = null; report = null; request = null; changes.DataSource = null; before.Clear(); after.Clear(); ladder.Clear();
         status.Text = "Snapshot selection changed. Select Compare to load its differences.";
     }
     private async Task RefreshAsync()
@@ -95,7 +100,7 @@ public sealed class ProjectCompareForm : WorkspaceForm
         if (initial != null) left.SelectedItem = choices.FirstOrDefault(c => c.Project.Id == initial.Id);
         if (left.SelectedIndex < 0 && choices.Length > 0) left.SelectedIndex = 0;
         if (choices.Length > 1) right.SelectedIndex = left.SelectedIndex == 0 ? 1 : 0;
-        report = null; request = null; changes.DataSource = null; before.Clear(); after.Clear(); ladder.Clear();
+        recovery = null; report = null; request = null; changes.DataSource = null; before.Clear(); after.Clear(); ladder.Clear();
         status.Text = $"{choices.Length} Logix snapshots. Hashes are pinned when Compare is selected; refresh after other edits.";
     }
     private async Task OpenSnapshotAsync(ComboBox selector)
@@ -107,11 +112,15 @@ public sealed class ProjectCompareForm : WorkspaceForm
     }
     private async Task CompareAsync()
     {
+        recovery = null; request = SelectedComparison();
+        await LoadAsync(); await ladder.LoadProjectsAsync(request); previews.SelectedIndex = 1;
+    }
+    private ProjectCompareRequest SelectedComparison()
+    {
         if (left.SelectedItem is not ReviewProjectChoice a || right.SelectedItem is not ReviewProjectChoice b)
             throw new InvalidOperationException("Register/select two Logix snapshots first.");
-        request = new(a.Project.Id, a.Project.CurrentSha256, b.Project.Id, b.Project.CurrentSha256,
+        return new(a.Project.Id, a.Project.CurrentSha256, b.Project.Id, b.Project.CurrentSha256,
             string.IsNullOrWhiteSpace(query.Text) ? null : query.Text.Trim(), IncludeRungNumbers: numbers.Checked);
-        await LoadAsync(); await ladder.LoadProjectsAsync(request); previews.SelectedIndex = 1;
     }
     private async Task PageAsync(int direction)
     {
@@ -162,7 +171,7 @@ public sealed class ProjectCompareForm : WorkspaceForm
     {
         var chosen = (sessions.SelectedItem as SavedReviewChoice)?.Summary ?? throw new InvalidOperationException("Select a saved session.");
         var view = await client.GetAsync<ComparisonSessionView>("/api/comparison-sessions/" + chosen.Id);
-        loadedSession = view.Session;
+        recovery = null; loadedSession = view.Session;
         await RefreshAsync(); await RefreshSessionsAsync(view.Session.Id); sessionName.Text = view.Session.Name;
         var c = view.Session.Comparison;
         left.SelectedItem = left.Items.Cast<ReviewProjectChoice>().FirstOrDefault(p => p.Project.Id == c.LeftProjectId);
@@ -178,7 +187,32 @@ public sealed class ProjectCompareForm : WorkspaceForm
         var chosen = (sessions.SelectedItem as SavedReviewChoice)?.Summary ?? throw new InvalidOperationException("Select a saved session.");
         await client.PostAsync<object>($"/api/comparison-sessions/{chosen.Id}/delete", new ReviewDeleteRequest(chosen.Revision));
         if (loadedSession?.Id == chosen.Id) loadedSession = null;
+        recovery = null;
         await RefreshSessionsAsync(); status.Text = "Saved session deleted. Project snapshots remain available.";
+    }
+    private ComparisonSession RequireLoadedSession()
+    {
+        if (loadedSession is null || loadedSession.Id != (sessions.SelectedItem as SavedReviewChoice)?.Summary.Id)
+            throw new InvalidOperationException("Load the selected session before reviewing recovery.");
+        return loadedSession;
+    }
+    private async Task PreviewRecoveryAsync()
+    {
+        recovery = null; var session = RequireLoadedSession(); var selected = SelectedComparison();
+        var preview = await client.PostAsync<ComparisonSessionRecoveryReport>("/api/comparison-sessions/recovery/preview",
+            new ComparisonSessionRecoveryRequest(session.Id, session.Revision, selected));
+        request = preview.Proposed; ShowReport(preview.Comparison); await ladder.LoadProjectsAsync(request); previews.SelectedIndex = 1;
+        recovery = preview; status.Text = $"Recovery preview: {preview.Comparison.TotalChanges} current differences. Saving pins these snapshots and clears the previous bookmark. Saved session is unchanged.";
+    }
+    private async Task ApplyRecoveryAsync()
+    {
+        var session = RequireLoadedSession(); var preview = recovery ?? throw new InvalidOperationException("Review recovery before saving it.");
+        if (preview.Session.Id != session.Id || preview.Session.Revision != session.Revision || SelectedComparison() != preview.Proposed)
+            throw new InvalidOperationException("Snapshot selection or filters changed; review recovery again.");
+        loadedSession = await client.PostAsync<ComparisonSession>("/api/comparison-sessions/recovery/apply",
+            new ComparisonSessionRecoveryApplyRequest(new(session.Id, session.Revision, preview.Proposed), preview.ReviewSha256));
+        recovery = null; await RefreshSessionsAsync(loadedSession.Id);
+        status.Text = $"Recovered session revision {loadedSession.Revision}. Previous bookmark cleared; choose a rung in the current comparison before saving a new position.";
     }
     public void LoadForTest(bool showLadder = false, bool workflow = false)
     {
@@ -216,7 +250,24 @@ public sealed class ProjectCompareForm : WorkspaceForm
             Check(ladder.DisplayedReport is { Offset: 18 } restored && restored.Rungs.Single() is { Left.Index: 17, Right.Index: 18 }, "GUI saves and restores a comparison session at the exact aligned rung");
             await Open("added"); Check(ladder.DisplayedReport!.Rungs.Single() is { Change: "added", Left: null, Right.Index: 4 }, "GUI selected-change action preserves the insertion gap and infers the existing routine");
             ClearSelection(); Check(report is null && ladder.DisplayedReport is null && !locate.Enabled, "Changing GUI snapshot selection clears comparison navigation and disables its action");
-            await CompareAsync(); await Open("modified");
+            // Replacing the selected right snapshot models recovery to a newly registered revision without modifying either original.
+            original[17].Element("Text")!.Value = "MOV(555,Count);";
+            var cPath = Path.Combine(root, "examples", "GuiCompareRecovery.l5x"); doc.Save(cPath);
+            var c = await client.PostAsync<ProjectInfo>("/api/projects", new RegisterRequest(cPath));
+            await LoadSessionAsync(); await RefreshAsync();
+            left.SelectedItem = left.Items.Cast<ReviewProjectChoice>().Single(p => p.Project.Id == a.Id);
+            right.SelectedItem = right.Items.Cast<ReviewProjectChoice>().Single(p => p.Project.Id == c.Id);
+            await PreviewRecoveryAsync();
+            var unchanged = await client.GetAsync<ComparisonSessionView>("/api/comparison-sessions/" + loadedSession!.Id);
+            Check(unchanged.Session.Comparison.RightProjectId == b.Id && unchanged.Session.Bookmark?.RungOffset == 18 && recovery?.Proposed.RightProjectId == c.Id,
+                "GUI recovery previews explicitly selected snapshots while retaining the original saved comparison and bookmark");
+            numbers.Checked = !numbers.Checked; var rejected = false;
+            try { await ApplyRecoveryAsync(); } catch (InvalidOperationException) { rejected = true; }
+            Check(rejected, "Changing GUI comparison filters invalidates the reviewed recovery");
+            numbers.Checked = !numbers.Checked; await PreviewRecoveryAsync(); await ApplyRecoveryAsync();
+            Check(loadedSession is { Revision: 1, Bookmark: null } && loadedSession.Comparison.RightProjectId == c.Id,
+                "GUI saves recovery through the shared service and clears the previous aligned rung position");
+            await LoadSessionAsync(); await Open("modified");
         }
         WorkflowValidation.Run(ExerciseAsync);
         Check(previews.SelectedIndex == 1 && ladder.Visible && ladder.IsHandleCreated && ladder.Width > 0 && ladder.Height > 0, "GUI navigation leaves a visible ladder pane with handles owned by the UI thread");

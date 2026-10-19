@@ -22,7 +22,8 @@ public sealed class MergeMappingForm : WorkspaceForm
         top.Controls.Add(saved); Button(top, "Refresh saved", () => RefreshAsync()); Button(top, "Load selected", LoadAsync); top.SetFlowBreak(top.Controls[^1], true);
         top.Controls.Add(name); Button(top, "Save new", () => SaveAsync(false)); Button(top, "Update selected", () => SaveAsync(true)); Button(top, "Delete selected", DeleteAsync);
         var bottom = new FlowLayoutPanel { Dock = DockStyle.Bottom, Height = 48, Padding = new(8) };
-        Button(bottom, "Use saved mapping", UseAsync); bottom.Controls.Add(new Button { Text = "Cancel", AutoSize = true, DialogResult = DialogResult.Cancel });
+        Button(bottom, "Use saved mapping", UseAsync); Button(bottom, "Import JSON as new…", ImportAsync); Button(bottom, "Export loaded JSON…", ExportAsync);
+        bottom.Controls.Add(new Button { Text = "Cancel", AutoSize = true, DialogResult = DialogResult.Cancel });
         Controls.Add(pairs); Controls.Add(status); Controls.Add(bottom); Controls.Add(top); SetPairs(initial);
         Shown += async (_, _) => { if (!fixture) await Run(() => RefreshAsync()); };
     }
@@ -64,11 +65,43 @@ public sealed class MergeMappingForm : WorkspaceForm
     }
     private Task UseAsync()
     {
+        RequireSaved(); DialogResult = DialogResult.OK; Close(); return Task.CompletedTask;
+    }
+    private SavedMergeMapping RequireSaved()
+    {
         var current = Template();
         if (Selection is null || Selection.Id != (saved.SelectedItem as SavedReviewChoice)?.Summary.Id ||
             JsonSerializer.Serialize(current, ProjectService.Json) != JsonSerializer.Serialize(Selection.Template, ProjectService.Json))
             throw new InvalidOperationException("Load the selected mapping, or save your edited name pairs before using them.");
-        DialogResult = DialogResult.OK; Close(); return Task.CompletedTask;
+        return Selection;
+    }
+    private async Task ImportAsync()
+    {
+        using var dialog = new OpenFileDialog { Filter = "Portable tag mappings|*.json", Title = "Import JSON as a new saved mapping" };
+        if (dialog.ShowDialog(this) == DialogResult.OK) await ImportFileAsync(dialog.FileName);
+    }
+    private async Task ImportFileAsync(string path)
+    {
+        await using var stream = File.OpenRead(path);
+        if (stream.Length > MergeMappingTemplates.MaximumBytes) throw new InvalidOperationException("Mapping JSON exceeds 128 KiB.");
+        using var document = await JsonDocument.ParseAsync(stream, new JsonDocumentOptions { MaxDepth = 8 });
+        Selection = await client.PostAsync<SavedMergeMapping>("/api/merge-mappings/import", new MergeMappingImportRequest(document.RootElement));
+        name.Text = Selection.Template.Name; SetPairs(Selection.Template.Tags); await RefreshAsync(Selection.Id);
+        status.Text = $"Imported {Selection.Template.Tags.Length} pairs as a new mapping. Choose projects and scopes when using it.";
+    }
+    private async Task ExportAsync()
+    {
+        RequireSaved();
+        using var dialog = new SaveFileDialog { Filter = "Portable tag mappings|*.json", FileName = "tag-merge-mapping.json", OverwritePrompt = false };
+        if (dialog.ShowDialog(this) != DialogResult.OK) return;
+        var exported = await ExportFileAsync(dialog.FileName);
+        status.Text = "Saved portable name pairs to " + exported.Path + ". Review names before sharing.";
+    }
+    private async Task<SavedArtifact> ExportFileAsync(string path)
+    {
+        var mapping = RequireSaved();
+        var artifact = await client.PostAsync<Artifact>($"/api/merge-mappings/{mapping.Id}/export", new MergeMappingExportRequest(mapping.Revision));
+        return await client.PostAsync<SavedArtifact>($"/api/artifacts/{artifact.Id}/save", new SaveArtifactRequest(path));
     }
     public void LoadForTest() { fixture = true; name.Text = "Reusable process values"; SetPairs([new("Enabled", "OtherEnabled"), new("Record", "Record")]); }
     public string[] ExerciseOfflineWorkflowForTest()
@@ -91,6 +124,13 @@ public sealed class MergeMappingForm : WorkspaceForm
             Check(rejected, "Refreshing summaries does not let an older loaded editor overwrite another client's definition");
             await LoadAsync(); await DeleteAsync(); Check(Selection is null, "Deleting a mapping clears the editor's loaded definition");
             await SaveAsync(false);
+            var original = Selection!; var path = Path.Combine(ServiceClient.FindRoot(), "artifacts", "exports", "gui-mapping-roundtrip.json");
+            var exported = await ExportFileAsync(path); await ImportFileAsync(path);
+            Check(Selection!.Id != original.Id && Selection.Revision == 0 && Selection.Template.Tags.SequenceEqual(original.Template.Tags) && exported.Sha256 == ProjectService.Hash(File.ReadAllBytes(path)),
+                "GUI exports through the guarded artifact service and imports identical pairs as a distinct saved definition");
+            var retained = Selection; await File.WriteAllTextAsync(path + ".invalid.json", "{\"schemaVersion\":1,\"name\":\"Unsafe fields\",\"tags\":[],\"values\":42}");
+            rejected = false; try { await ImportFileAsync(path + ".invalid.json"); } catch (HttpRequestException ex) when (ex.StatusCode == System.Net.HttpStatusCode.BadRequest) { rejected = true; }
+            Check(rejected && Selection == retained, "GUI rejects nonportable mapping fields while preserving the loaded definition");
         }
         WorkflowValidation.Run(ExerciseAsync); return checks.ToArray();
     }
