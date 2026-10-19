@@ -203,11 +203,11 @@ public sealed partial class ProjectService
         return (preview, bytes);
     }
     public async Task<DocumentationPreview> PreviewDocumentationAsync(string id, DocumentationPreviewRequest request, CancellationToken ct = default)
-    { await gate.WaitAsync(ct); try { return BuildDocumentationPreview(id, request).Preview; } finally { gate.Release(); } }
+    { using (await EnterWorkspaceAsync(id, ct)) { return BuildDocumentationPreview(id, request).Preview; } }
+
     public async Task<ProjectInfo> ApplyDocumentationAsync(string id, DocumentationApplyRequest request, CancellationToken ct = default)
     {
-        await gate.WaitAsync(ct);
-        try
+        using (await EnterWorkspaceAsync(id, ct))
         {
             var (preview, bytes) = BuildDocumentationPreview(id, request.Preview);
             if (!preview.ReviewSha256.Equals(request.ExpectedReviewSha256, StringComparison.OrdinalIgnoreCase)) throw new OperationException("stale_revision", "Documentation edits differ from the reviewed source/languages/text.");
@@ -215,12 +215,12 @@ public sealed partial class ProjectService
             AtomicBytes(RevisionFile(id, next.Revision), bytes); Audit("documentation_apply_intent", p, p.CurrentSha256, next.CurrentSha256, preview.ReviewSha256);
             Save(ProjectMeta(id), next); Audit("documentation_apply", next, p.CurrentSha256, next.CurrentSha256, preview.ReviewSha256); return next;
         }
-        finally { gate.Release(); }
+
     }
+
     public async Task<Artifact> ExportDocumentationAsync(string id, DocumentationExportRequest request, CancellationToken ct = default)
     {
-        await gate.WaitAsync(ct);
-        try
+        using (await EnterWorkspaceAsync(id, ct))
         {
             var (p, source) = DocumentationSource(id, request.Query.ExpectedSha256); var page = ProjectDocumentation.Browse(p, XmlProjects.Parse(source), request.Query, true);
             var bytes = JsonSerializer.SerializeToUtf8Bytes(new DocumentationExportDocument(1, page.Project, page.CurrentLanguage, page.DefaultLanguage, page.ControllerLanguage, page.Languages, page.Fields, page.Boundary), Json);
@@ -229,6 +229,6 @@ public sealed partial class ProjectService
             var artifact = new Artifact(artifactId, id, "json", Hash(bytes), bytes.Length, ProjectDocumentation.Boundary); Save(Path.Combine(dir, "artifact.json"), artifact);
             Audit("documentation_export", p, p.CurrentSha256, artifact.Sha256, artifact.Id); return artifact;
         }
-        finally { gate.Release(); }
+
     }
 }

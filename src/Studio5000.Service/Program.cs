@@ -55,7 +55,7 @@ app.Use(async (context, next) =>
     }
     catch (OperationException ex)
     {
-        context.Response.StatusCode = ex.Code == "not_found" ? 404 : ex.Code is "stale_revision" or "state_tampered" or "draft_tampered" ? 409 : 400;
+        context.Response.StatusCode = ex.Code == "not_found" ? 404 : ex.Code == "request_queue_full" ? 429 : ex.Code is "stale_revision" or "state_tampered" or "draft_tampered" or "transaction_conflict" or "transaction_closed" or "transaction_recovery_required" ? 409 : 400;
         await context.Response.WriteAsJsonAsync(new { code = ex.Code, message = ex.Message });
     }
     catch (Exception ex) when (ex is System.Xml.XmlException or System.Xml.Schema.XmlSchemaException or System.Xml.XPath.XPathException or ArgumentException or System.Text.Json.JsonException)
@@ -63,6 +63,14 @@ app.Use(async (context, next) =>
 });
 app.MapGet("/health", () => new { status = "ok", name = WorkspaceIdentity.Name, version = WorkspaceIdentity.Version });
 app.MapGet("/api/capabilities", (ProjectService service) => service.Capabilities());
+app.MapGet("/api/concurrency", (ProjectService service) => service.Concurrency());
+app.MapGet("/api/transactions", (ProjectService service, string? status, int? offset, int? limit) => service.Transactions(status, offset ?? 0, limit ?? 50));
+app.MapPost("/api/transactions", (ProjectService service, WorkspaceTransactionBeginRequest request, CancellationToken ct) => service.BeginTransactionAsync(request, ct));
+app.MapGet("/api/transactions/{id}", (ProjectService service, string id, CancellationToken ct) => service.TransactionAsync(id, ct));
+app.MapPost("/api/transactions/{id}/stage", (ProjectService service, string id, WorkspaceTransactionStageRequest request, CancellationToken ct) => service.StageTransactionAsync(id, request, ct));
+app.MapPost("/api/transactions/{id}/preview", (ProjectService service, string id, WorkspaceTransactionVersionRequest request, CancellationToken ct) => service.PreviewTransactionAsync(id, request, ct));
+app.MapPost("/api/transactions/{id}/commit", (ProjectService service, string id, WorkspaceTransactionCommitRequest request, CancellationToken ct) => service.CommitTransactionAsync(id, request, ct));
+app.MapPost("/api/transactions/{id}/abort", (ProjectService service, string id, WorkspaceTransactionVersionRequest request, CancellationToken ct) => service.AbortTransactionAsync(id, request, ct));
 app.MapGet("/api/hmi-languages", (ProjectService service) => service.HmiLanguages());
 app.MapPost("/api/hmi-languages", (ProjectService service, HmiLanguageRegisterRequest request, CancellationToken ct) => service.RegisterHmiLanguageAsync(request, ct));
 app.MapGet("/api/hmi-languages/{id}", (ProjectService service, string id) => service.HmiLanguage(id));

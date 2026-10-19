@@ -44,17 +44,17 @@ public sealed partial class ProjectService
         if (Path.GetFileName(source).Equals("ViewApplication.hmi", StringComparison.OrdinalIgnoreCase))
             source = Path.GetDirectoryName(AllowedSource(source))!;
         source = AllowedSource(source, directory: true);
-        await gate.WaitAsync(ct);
-        try
+        var id = Guid.NewGuid().ToString("N");
+        using (await EnterWorkspaceAsync(id, ct))
         {
             var files = ReadVdTree(source); ValidateVdTree(files);
-            var hash = TreeHash(files); var id = Guid.NewGuid().ToString("N"); Directory.CreateDirectory(VdDir(id));
+            var hash = TreeHash(files); Directory.CreateDirectory(VdDir(id));
             var project = new ProjectInfo(id, new DirectoryInfo(source).Name, source, hash, hash, 0, DateTimeOffset.UtcNow, "view-designer");
             WriteVdTree(Path.Combine(VdDir(id), "original"), files); WriteVdTree(VdRevision(project), files);
             Save(VdMeta(id), project); Audit("viewdesigner_register", project, null, hash, "Export tree snapshotted; native project untouched.");
             return project;
         }
-        finally { gate.Release(); }
+
     }
 
     public ViewDesignerInspection InspectViewDesigner(string id)
@@ -73,8 +73,7 @@ public sealed partial class ProjectService
 
     public async Task<ViewDesignerPreview> PreviewViewDesignerAsync(string id, ViewDesignerPreviewRequest request, CancellationToken ct = default)
     {
-        await gate.WaitAsync(ct);
-        try
+        using (await EnterWorkspaceAsync(id, ct))
         {
             var p = ViewDesignerProject(id); Expect(p, request.ExpectedSha256);
             if (request.Edits is null || request.Edits.Length is < 1 or > 256) throw new OperationException("invalid_edits", "Supply 1–256 existing-property edits.");
@@ -99,13 +98,12 @@ public sealed partial class ProjectService
             Save(Path.Combine(VdDir(id), draft.Id + ".draft.json"), draft);
             return draft;
         }
-        finally { gate.Release(); }
+
     }
 
     public async Task<ProjectInfo> ApplyViewDesignerAsync(string id, string previewId, ApplyRequest request, CancellationToken ct = default)
     {
-        await gate.WaitAsync(ct);
-        try
+        using (await EnterWorkspaceAsync(id, ct))
         {
             var p = ViewDesignerProject(id); Expect(p, request.ExpectedSha256);
             var draft = Read<ViewDesignerPreview>(Path.Combine(VdDir(id), Id(previewId) + ".draft.json"));
@@ -120,7 +118,7 @@ public sealed partial class ProjectService
             Audit("viewdesigner_apply", next, p.CurrentSha256, next.CurrentSha256, draft.Id);
             return next;
         }
-        finally { gate.Release(); }
+
     }
 
     public async Task<ViewDesignerImportPlan> PrepareViewDesignerImportAsync(string id, ViewDesignerImportRequest request, CancellationToken ct = default)

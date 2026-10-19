@@ -16,6 +16,8 @@ public sealed class ServiceOptions
     public string ExtensionsDirectory { get; set; } = "extensions";
     public string ExtensionWorkerPath { get; set; } = "artifacts/app/ExtensionWorker/Studio5000.ExtensionWorker.exe";
     public int ExtensionTimeoutSeconds { get; set; } = 240;
+    public int MaximumConcurrentMutations { get; set; } = 8;
+    public int MaximumQueuedMutations { get; set; } = 256;
 }
 
 public sealed record ProjectInfo(string Id, string Name, string SourcePath, string SourceSha256,

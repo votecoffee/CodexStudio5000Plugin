@@ -18,13 +18,18 @@ public sealed partial class ProjectService : IDisposable
     private readonly string state;
     private readonly string[] roots;
     private readonly string[] outputRoots;
-    private readonly SemaphoreSlim gate = new(1, 1);
+    private readonly WorkspaceCoordinator gate;
     private readonly object auditGate = new();
     private readonly FileStream instanceLock;
+    // Short metadata I/O leases avoid Windows rename/open gaps without locking project parsing or snapshot content reads.
+    private static readonly ReaderWriterLockSlim[] stateFileGates = Enumerable.Range(0, 128).Select(_ => new ReaderWriterLockSlim()).ToArray();
+    private static ReaderWriterLockSlim StateFileGate(string path) => stateFileGates[(int)((uint)StringComparer.OrdinalIgnoreCase.GetHashCode(Path.GetFullPath(path)) % (uint)stateFileGates.Length)];
 
     public ProjectService(ServiceOptions options, IWatchSessionFactory? watchFactory = null)
     {
         this.options = options;
+        if (options.MaximumConcurrentMutations is < 1 or > 32 || options.MaximumQueuedMutations is < 1 or > 4096) throw new ArgumentException("Set concurrency limits to active 1..32 and queued 1..4096.");
+        gate = new(options.MaximumConcurrentMutations, options.MaximumQueuedMutations);
         if (options.ControllerTargets.Any(t => string.IsNullOrWhiteSpace(t.Id) || string.IsNullOrWhiteSpace(t.CommunicationsPath)) ||
             options.ControllerTargets.Select(t => t.Id).Distinct(StringComparer.Ordinal).Count() != options.ControllerTargets.Length)
             throw new ArgumentException("ControllerTargets must have unique nonempty IDs and communications paths.");
@@ -44,7 +49,8 @@ public sealed partial class ProjectService : IDisposable
         Directory.CreateDirectory(Path.Combine(state, "artifacts"));
         native = new(options);
         this.watchFactory = watchFactory ?? new WatchBackendRouter(native, new CipWatchSessionFactory(options));
-        try { InitializeSdkJobs(); InitializeWatches(); InitializeTriggers(); }
+        gate.BeforeExclusive = RecoverTransactions;
+        try { InitializeTransactions(); InitializeSdkJobs(); InitializeWatches(); InitializeTriggers(); }
         catch { instanceLock.Dispose(); gate.Dispose(); throw; }
     }
 
@@ -57,6 +63,10 @@ public sealed partial class ProjectService : IDisposable
             protectedAois = false, structuredTextXmlMetadata = false, unsafeDependencyBypass = false },
         allowedRoots = roots,
         outputRoots,
+        concurrency = new { status = "/api/concurrency", maximumActiveMutations = options.MaximumConcurrentMutations, maximumQueuedMutations = options.MaximumQueuedMutations,
+            independentWorkspaceWriters = true, sameWorkspaceWritersSerialized = true, snapshotReads = true, legacyCompoundBarrier = true, nativeSdkOrderingChanged = false },
+        transactions = new { path = "/api/transactions", workspaceTypes = new[] { "project", "hmi-languages", "view-designer" }, maximumStages = 50, maximumEdits = 1000,
+            maximumReviewBytes = 4 * 1024 * 1024, commitRequiresReviewHashAndVersion = true, retryUsesDurableReceipt = true, atomicAcrossWorkspaces = false, connectsToController = false },
         projectKinds = new[] { "logix", "ftview-me", "ftview-se" },
         factoryTalk = FactoryTalkStatus(),
         viewDesigner = ViewDesignerStatus(),
@@ -94,13 +104,12 @@ public sealed partial class ProjectService : IDisposable
         source = AllowedSource(source);
         var extension = Path.GetExtension(source).ToLowerInvariant();
         if (extension is not (".l5x" or ".acd" or ".xml")) throw new OperationException("unsupported_file", "Select an L5X/ACD project or FactoryTalk ME/SE display XML.");
-        await gate.WaitAsync(ct);
-        try
+        var id = Guid.NewGuid().ToString("N");
+        using (await EnterWorkspaceAsync(id, ct))
         {
             if (new FileInfo(source).Length > 64 * 1024 * 1024) throw new OperationException("file_too_large", "Project exceeds the 64 MiB import limit.");
             var bytes = await File.ReadAllBytesAsync(source, ct);
             if (bytes.Length > 64 * 1024 * 1024) throw new OperationException("file_too_large", "Project exceeds the 64 MiB import limit.");
-            var id = Guid.NewGuid().ToString("N");
             var dir = ProjectDir(id);
             Directory.CreateDirectory(dir);
             await File.WriteAllBytesAsync(Path.Combine(dir, "original" + extension), bytes, ct);
@@ -125,7 +134,7 @@ public sealed partial class ProjectService : IDisposable
             Audit("register", info, null, info.CurrentSha256, "Original source bytes preserved; working copy created.");
             return info;
         }
-        finally { gate.Release(); }
+
     }
 
     public ProjectInfo[] Projects()
@@ -169,8 +178,7 @@ public sealed partial class ProjectService : IDisposable
 
     public async Task<ChangePreview> PreviewAsync(string id, PreviewRequest request, CancellationToken ct = default)
     {
-        await gate.WaitAsync(ct);
-        try
+        using (await EnterWorkspaceAsync(id, ct))
         {
             var info = Get(id);
             Expect(info, request.ExpectedSha256);
@@ -189,15 +197,14 @@ public sealed partial class ProjectService : IDisposable
             Audit("preview", info, info.CurrentSha256, preview.ResultSha256, preview.Id);
             return preview;
         }
-        finally { gate.Release(); }
+
     }
 
     public ChangePreview Draft(string id, string draftId) => Read<ChangePreview>(DraftFile(id, draftId));
 
     public async Task<ProjectInfo> ApplyAsync(string id, string draftId, ApplyRequest request, CancellationToken ct = default)
     {
-        await gate.WaitAsync(ct);
-        try
+        using (await EnterWorkspaceAsync(id, ct))
         {
             var info = Get(id);
             var draft = Draft(id, draftId);
@@ -214,13 +221,12 @@ public sealed partial class ProjectService : IDisposable
             Audit("apply", next, info.CurrentSha256, next.CurrentSha256, draft.Id);
             return next;
         }
-        finally { gate.Release(); }
+
     }
 
     public async Task<Artifact> ExportAsync(string id, ExportRequest request, CancellationToken ct = default)
     {
-        await gate.WaitAsync(ct);
-        try
+        using (await EnterWorkspaceAsync(id, ct))
         {
             var info = Get(id);
             Expect(info, request.ExpectedSha256);
@@ -269,7 +275,7 @@ public sealed partial class ProjectService : IDisposable
             Audit("export", info, info.CurrentSha256, artifact.Sha256, $"{format}:{artifactId}");
             return artifact;
         }
-        finally { gate.Release(); }
+
     }
 
     public async Task<ProjectInfo> RegisterExplodedAsync(string path, CancellationToken ct = default)
@@ -411,14 +417,49 @@ public sealed partial class ProjectService : IDisposable
     private string RevisionFile(string id, int revision, string kind = "logix") => Path.Combine(ProjectDir(id), $"revision-{revision}." + (FactoryTalkGraphics.IsFactoryTalk(kind) ? "xml" : "l5x"));
     private string DraftFile(string id, string draft) => Path.Combine(ProjectDir(id), Id(draft) + ".draft.json");
     private string ArtifactDir(string id) => Path.Combine(state, "artifacts", Id(id));
-    private static T Read<T>(string path) => File.Exists(path) ? JsonSerializer.Deserialize<T>(File.ReadAllText(path), Json)!
-        : throw new OperationException("not_found", "Requested resource does not exist.");
+    private static T Read<T>(string path)
+    {
+        var fileGate = StateFileGate(path); fileGate.EnterReadLock();
+        try
+        {
+            for (var attempt = 0; ; attempt++)
+            {
+                try
+                {
+                    using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
+                    using var reader = new StreamReader(stream);
+                    return JsonSerializer.Deserialize<T>(reader.ReadToEnd(), Json)!;
+                }
+                catch (Exception ex) when (ex is FileNotFoundException or DirectoryNotFoundException) { throw new OperationException("not_found", "Requested resource does not exist."); }
+                catch (IOException ex) when (attempt < 4 && (ex.HResult & 0xffff) is 32 or 33) { Thread.Sleep(2 << attempt); }
+            }
+        }
+        finally { fileGate.ExitReadLock(); }
+    }
     private static void Save<T>(string path, T value) => AtomicBytes(path, JsonSerializer.SerializeToUtf8Bytes(value, Json));
     private static void AtomicBytes(string path, byte[] bytes)
     {
         var temp = path + "." + Guid.NewGuid().ToString("N") + ".tmp";
-        File.WriteAllBytes(temp, bytes);
-        File.Move(temp, path, overwrite: true);
+        var fileGate = StateFileGate(path); fileGate.EnterWriteLock();
+        try
+        {
+            using (var output = new FileStream(temp, FileMode.CreateNew, FileAccess.Write, FileShare.None)) { output.Write(bytes); output.Flush(flushToDisk: true); }
+            for (var attempt = 0; ; attempt++)
+            {
+                try
+                {
+                    if (File.Exists(path)) File.Replace(temp, path, null); else File.Move(temp, path);
+                    break;
+                }
+                catch (Exception ex) when ((ex is IOException or UnauthorizedAccessException) && attempt < 4 && File.Exists(temp))
+                { Thread.Sleep(10 << attempt); }
+            }
+        }
+        finally
+        {
+            try { if (File.Exists(temp)) File.Delete(temp); } catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
+            fileGate.ExitWriteLock();
+        }
     }
     private void Audit(string action, ProjectInfo info, string? before, string? after, string detail)
     {

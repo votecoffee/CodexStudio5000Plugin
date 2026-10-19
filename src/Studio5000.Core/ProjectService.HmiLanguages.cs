@@ -26,21 +26,22 @@ public sealed partial class ProjectService
     }
     public async Task<HmiLanguageInfo> RegisterHmiLanguageAsync(HmiLanguageRegisterRequest request, CancellationToken ct = default)
     {
-        await gate.WaitAsync(ct);
-        try
+        var id = Guid.NewGuid().ToString("N");
+        using (await EnterWorkspaceAsync(id, ct))
         {
             var source = AllowedSource(request.Path); var extension = Path.GetExtension(source).TrimStart('.').ToLowerInvariant();
             if (extension is not ("xls" or "xlsx" or "txt")) throw new OperationException("hmi_language_format", "Select a native .xls/.xlsx workbook or .txt language export.");
             var bytes = ReadHmiLanguageSource(source); var parsed = HmiLanguageFile.Parse(bytes, request.Platform, request.Language);
             if ((parsed.Format == "openxml") != (extension is "xls" or "xlsx")) throw new OperationException("hmi_language_format", "The file extension must match its detected workbook/text container.");
             if (parsed.Format == "openxml" && request.Language is not null || request.Platform == "view-designer" && request.Language is not null) throw new OperationException("hmi_language_format", "Matrix languages come from native column headers; Language is only for single-language FactoryTalk text.");
-            var id = Guid.NewGuid().ToString("N"); var hash = Hash(bytes);
+            var hash = Hash(bytes);
             var info = new HmiLanguageInfo(id, Path.GetFileNameWithoutExtension(source), request.Platform, extension, source, hash, hash, 0, DateTimeOffset.UtcNow, request.Language);
             Directory.CreateDirectory(HmiLanguageDir(id)); AtomicBytes(Path.Combine(HmiLanguageDir(id), "original." + extension), bytes); AtomicBytes(HmiLanguageRevision(info), bytes);
             Save(HmiLanguageMeta(id), info); Audit("hmi_language_register", HmiLanguageAuditProject(info), null, hash, HmiLanguageFile.Boundary); return info;
         }
-        finally { gate.Release(); }
+
     }
+
     private (HmiLanguageInfo Info, byte[] Bytes, HmiLanguageFile File) HmiLanguageSource(string id, string expected)
     {
         var p = HmiLanguage(id);
@@ -65,22 +66,27 @@ public sealed partial class ProjectService
         var (p, _, file) = HmiLanguageSource(id, request.ExpectedSha256); var update = file.Update(request);
         var resultHash = Hash(update.Bytes); var readback = HmiLanguageFile.Parse(update.Bytes, p.Platform, p.Language);
         var before = HmiLanguageFile.Parse(File.ReadAllBytes(HmiLanguageRevision(p)), p.Platform, p.Language).Records;
-        var expected = before.ToDictionary(r => r.Key, r => r.Texts.ToDictionary(t => t.Language, t => t.Text, StringComparer.OrdinalIgnoreCase), StringComparer.Ordinal);
-        foreach (var values in expected.Values) foreach (var l in update.Added) values.Add(l, "");
-        foreach (var change in update.Changes) expected[change.Key][change.Language] = change.After;
-        if (readback.Records.Length != before.Length || readback.Records.Any(r => !expected.TryGetValue(r.Key, out var values) || values.Count != r.Texts.Length || r.Texts.Any(t => !values.TryGetValue(t.Language, out var value) || value != t.Text)))
-            throw new OperationException("hmi_language_readback", "Edited export failed independent identity/translation readback.");
+        ValidateHmiLanguageReadback(before, readback, update.Changes, update.Added);
         var review = Hash(JsonSerializer.SerializeToUtf8Bytes(new { id, p.Revision, p.CurrentSha256, request, resultHash }, Json));
         var preview = new HmiLanguagePreview(id, p.Revision, p.CurrentSha256, review, resultHash, update.Changes, update.Added, HmiLanguageFile.Boundary);
         if (JsonSerializer.SerializeToUtf8Bytes(preview, Json).Length > 4 * 1024 * 1024) throw new OperationException("hmi_language_limit", "Review exceeds 4 MiB; split the edits into smaller batches.");
         return (preview, update.Bytes, p);
     }
+    private static void ValidateHmiLanguageReadback(HmiLanguageRecord[] before, HmiLanguageFile readback, HmiLanguageChange[] changes, string[] added)
+    {
+        var expected = before.ToDictionary(r => r.Key, r => r.Texts.ToDictionary(t => t.Language, t => t.Text, StringComparer.OrdinalIgnoreCase), StringComparer.Ordinal);
+        foreach (var values in expected.Values) foreach (var language in added) values.Add(language, "");
+        foreach (var change in changes) expected[change.Key][change.Language] = change.After;
+        var after = readback.Records;
+        if (after.Length != before.Length || after.Any(r => !expected.TryGetValue(r.Key, out var values) || values.Count != r.Texts.Length || r.Texts.Any(t => !values.TryGetValue(t.Language, out var value) || value != t.Text)))
+            throw new OperationException("hmi_language_readback", "Edited export failed independent identity/translation readback.");
+    }
     public async Task<HmiLanguagePreview> PreviewHmiLanguageAsync(string id, HmiLanguagePreviewRequest request, CancellationToken ct = default)
-    { await gate.WaitAsync(ct); try { return BuildHmiLanguagePreview(id, request).Preview; } finally { gate.Release(); } }
+    { using (await EnterWorkspaceAsync(id, ct)) { return BuildHmiLanguagePreview(id, request).Preview; } }
+
     public async Task<HmiLanguageInfo> ApplyHmiLanguageAsync(string id, HmiLanguageApplyRequest request, CancellationToken ct = default)
     {
-        await gate.WaitAsync(ct);
-        try
+        using (await EnterWorkspaceAsync(id, ct))
         {
             var (preview, bytes, p) = BuildHmiLanguagePreview(id, request.Preview);
             if (!preview.ReviewSha256.Equals(request.ExpectedReviewSha256, StringComparison.OrdinalIgnoreCase)) throw new OperationException("stale_revision", "Language changes differ from the exact reviewed source/text/languages.");
@@ -88,20 +94,21 @@ public sealed partial class ProjectService
             AtomicBytes(HmiLanguageRevision(next), bytes); Audit("hmi_language_apply_intent", HmiLanguageAuditProject(p), p.CurrentSha256, next.CurrentSha256, preview.ReviewSha256);
             Save(HmiLanguageMeta(id), next); Audit("hmi_language_apply", HmiLanguageAuditProject(next), p.CurrentSha256, next.CurrentSha256, $"{preview.Changes.Length} translations; {preview.AddedLanguages.Length} new columns."); return next;
         }
-        finally { gate.Release(); }
+
     }
+
     public async Task<Artifact> ExportHmiLanguageAsync(string id, HmiLanguageExportRequest request, CancellationToken ct = default)
     {
-        await gate.WaitAsync(ct);
-        try
+        using (await EnterWorkspaceAsync(id, ct))
         {
             var (p, bytes, _) = HmiLanguageSource(id, request.ExpectedSha256); var aid = Guid.NewGuid().ToString("N"); var dir = ArtifactDir(aid); Directory.CreateDirectory(dir);
             AtomicBytes(Path.Combine(dir, "project." + p.Format), bytes);
             var artifact = new Artifact(aid, id, p.Format, Hash(bytes), bytes.Length, HmiLanguageFile.Boundary); Save(Path.Combine(dir, "artifact.json"), artifact);
             Audit("hmi_language_export", HmiLanguageAuditProject(p), p.CurrentSha256, artifact.Sha256, artifact.Id); return artifact;
         }
-        finally { gate.Release(); }
+
     }
+
     public HmiLanguageVerification VerifyHmiLanguage(string id, HmiLanguageVerifyRequest request)
     {
         var (p, _, file) = HmiLanguageSource(id, request.ExpectedSha256); var bytes = ReadHmiLanguageSource(request.Path); var observed = HmiLanguageFile.Parse(bytes, p.Platform, p.Language);
