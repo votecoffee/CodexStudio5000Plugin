@@ -64,6 +64,7 @@ public static class LogicTracing
         var root = context.Resolve((request.ProgramName is null ? "" : "Program:" + request.ProgramName + ".") + request.TagName, null)!;
         var usages = new List<LogicUsage>(); var edges = new List<LogicDependency>(); var issues = new HashSet<string>(StringComparer.Ordinal); var limited = false; var calls = 0; var sourceCharacters = 0;
         void Issue(string message) { if (issues.Count < 100) issues.Add(message); else limited = true; }
+        void Edge(LogicDependency edge) { if (edges.Count >= 100000) throw new OperationException("logic_trace_limit", "Trace exceeds 100000 dependencies; use a smaller saved snapshot."); edges.Add(edge); }
         if (root.Issue is not null) Issue(root.Issue + ": " + root.Symbol);
         IEnumerable<LadderPreview.Part> Flatten(IEnumerable<LadderPreview.Part> parts) => parts.SelectMany(p => p.Legs is null ? new[] { p } : p.Legs.SelectMany(Flatten));
         var definitions = context.Controller.Elements("AddOnInstructionDefinitions").Elements("AddOnInstructionDefinition").ToDictionary(a => (string)a.Attribute("Name")!, StringComparer.OrdinalIgnoreCase);
@@ -96,7 +97,7 @@ public static class LogicTracing
                     }
                     usages.AddRange(local);
                     foreach (var read in local.Where(u => u.Role == "read")) foreach (var write in local.Where(u => u.Role == "write"))
-                        if (!LogicContext.Same(read.Symbol, write.Symbol)) edges.Add(new(read.Symbol, write.Symbol, "possible-statement-dependency", path));
+                        if (!LogicContext.Same(read.Symbol, write.Symbol)) Edge(new(read.Symbol, write.Symbol, "possible-statement-dependency", path));
                     if (usages.Count > 50000 || edges.Count > 100000) throw new OperationException("logic_trace_limit", "ST trace exceeds its usage/dependency budget.");
                 }
                 return;
@@ -145,7 +146,7 @@ public static class LogicTracing
                                 else
                                 {
                                     var parameter = map[name]; var usage = (string?)layout[i].Attribute("Usage");
-                                    edges.Add(usage == "Output" ? new(parameter.Symbol, actual.Symbol, "aoi-output", path) : new(actual.Symbol, parameter.Symbol, "aoi-input", path));
+                                    Edge(usage == "Output" ? new(parameter.Symbol, actual.Symbol, "aoi-output", path) : new(actual.Symbol, parameter.Symbol, "aoi-input", path));
                                 }
                             }
                             foreach (var body in aoi.Elements("Routines").Elements("Routine")) Routine(body, program, owner + "/AOI:" + part.Operands[0] + ":" + part.Instruction, map, active);
@@ -166,7 +167,7 @@ public static class LogicTracing
                 usages.AddRange(local);
                 foreach (var read in local.Where(u => u.Role is "read" or "read-write"))
                 foreach (var write in local.Where(u => u.Role is "write" or "read-write"))
-                    if (!LogicContext.Same(read.Symbol, write.Symbol)) edges.Add(new(read.Symbol, write.Symbol, "possible-rung-dependency", path));
+                    if (!LogicContext.Same(read.Symbol, write.Symbol)) Edge(new(read.Symbol, write.Symbol, "possible-rung-dependency", path));
                 if (usages.Count > 50000 || edges.Count > 100000) throw new OperationException("logic_trace_limit", "Trace exceeds its usage/dependency budget.");
                 index++;
             }

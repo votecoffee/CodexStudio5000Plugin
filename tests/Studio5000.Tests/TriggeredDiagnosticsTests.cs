@@ -102,6 +102,23 @@ public sealed class TriggeredDiagnosticsTests : IDisposable
         service.Dispose(); service = new(options, reader); Assert.Equal(view.Id, Assert.Single(service.SavedTrends()).Id); Assert.Equal(0, service.GetWatch(w.Definition.Id).Definition.Revision);
     }
     [Fact]
+    public async Task SavedTrendSelectsNestedMembersBeforeTheGlobalPlotSeriesLimit()
+    {
+        var path = Path.Combine(root, "demo.l5x"); var hash = ProjectService.Hash(await File.ReadAllBytesAsync(path));
+        var w = await service.SaveWatchAsync(new("Structure trend", [new("record", "Record", "WatchProgram")], hash, SourcePath: path, Mode: "Offline", IntervalMs: 100));
+        await service.StartWatchAsync(w.Definition.Id); await Until(() => service.GetWatch(w.Definition.Id).Latest?.Sequence >= 2); await service.StopWatchAsync(w.Definition.Id);
+        foreach (var selected in new[] { "record", "record.Inner.Count" })
+        {
+            var view = await service.SaveTrendAsync(new("Nested selection", w.Definition.Id, 0, [selected]));
+            Assert.Equal("record.Inner.Count", Assert.Single(service.AnalyzeTrend(new(view.Id, 0)).Statistics).Key);
+        }
+        var at = DateTimeOffset.UtcNow;
+        var large = new JsonObject(); for (var i = 0; i < 150; i++) large["m" + i] = i;
+        var snapshot = new WatchSnapshot(1, at, at, "Offline", [new("record", "Record", "WatchProgram", "WatchRecord", large, "good")]);
+        var trend = WatchTrends.Build([new(1, 0, "generated", at, "sample", snapshot)], 100, at.AddSeconds(-1), at.AddSeconds(1), true, key => key == "record.m149");
+        Assert.Equal("record.m149", Assert.Single(trend.Series).Key); Assert.False(trend.SeriesLimitReached);
+    }
+    [Fact]
     public async Task BadTriggerSettingsOrStaleBindingDoNotStartAReader()
     {
         var (p, w) = await Watch();

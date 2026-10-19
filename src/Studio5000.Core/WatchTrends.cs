@@ -11,7 +11,7 @@ public sealed record WatchTrend(TrendSeries[] Series, TrendGap[] Gaps, bool Seri
 public static class WatchTrends
 {
     // Display projections use doubles; the recording and CSV retain exact JSON integer values.
-    public static WatchTrend Build(WatchRecord[] records, int intervalMs, DateTimeOffset from, DateTimeOffset to, bool stale)
+    public static WatchTrend Build(WatchRecord[] records, int intervalMs, DateTimeOffset from, DateTimeOffset to, bool stale, Func<string, bool>? includeSeries = null)
     {
         var keys = new Dictionary<string, bool>(StringComparer.Ordinal); var limit = false;
         Dictionary<string, (double Number, bool Boolean, string Exact)> Flatten(WatchSnapshot sample)
@@ -28,6 +28,7 @@ public static class WatchTrends
                 double number;
                 if (boolean) number = value.GetBoolean() ? 1 : 0;
                 else if (value.ValueKind != JsonValueKind.Number || !value.TryGetDouble(out number) || !double.IsFinite(number)) return;
+                if (includeSeries is not null && !includeSeries(key)) return;
                 if (!keys.ContainsKey(key))
                 {
                     if (keys.Count >= 128) { limit = true; return; }

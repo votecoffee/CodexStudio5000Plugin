@@ -37,8 +37,8 @@ public sealed partial class ProjectService
         var to = request.To ?? DateTimeOffset.UtcNow; var from = request.From ?? to.AddMinutes(-definition.WindowMinutes);
         var page = QueryRecording(definition.WatchId, new(definition.WatchRevision, from, to, request.AfterIndex, request.Limit));
         if (page.Definition!.Settings.ExpectedSha256 != definition.ProjectSha256) throw new OperationException("state_tampered", "Trend source hash differs from its recorded watch revision.");
-        var trend = WatchTrends.Build(page.Records, page.Definition.Settings.IntervalMs, from, to, page.Stale);
-        trend = trend with { Series = trend.Series.Where(s => definition.Series.Any(key => s.Key == key || s.Key.StartsWith(key + ".", StringComparison.Ordinal) || s.Key.StartsWith(key + "[", StringComparison.Ordinal))).ToArray() };
+        var trend = WatchTrends.Build(page.Records, page.Definition.Settings.IntervalMs, from, to, page.Stale,
+            key => definition.Series.Any(selected => key == selected || key.StartsWith(selected + ".", StringComparison.Ordinal) || key.StartsWith(selected + "[", StringComparison.Ordinal)));
         if (trend.Series.Length > 128 || JsonSerializer.SerializeToUtf8Bytes(trend, Json).Length > 6 * 1024 * 1024) throw new OperationException("trend_limit", "Trend exceeds 128 scalar series or 6 MiB; select fewer series or a smaller page.");
         var stats = trend.Series.Select(s =>
         {
