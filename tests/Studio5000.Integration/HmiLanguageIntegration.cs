@@ -16,7 +16,7 @@ internal static class HmiLanguageIntegration
         foreach (var platform in new[] { "ftview-me", "ftview-se", "view-designer" })
         {
             var vd = platform == "view-designer"; var prefix = vd ? "viewdesigner" : "ftview"; var moduleId = vd ? "viewdesigner" : "factorytalk";
-            var module = catalog.Extensions.Single(e => e.Id == moduleId); var source = Path.Combine(root, "examples", vd ? "ViewDesignerLanguagesDemo.xlsx" : "FactoryTalkLanguagesDemo.xls");
+            var module = catalog.Extensions.Single(e => e.Id == moduleId); var source = Path.Combine(root, "examples", vd ? "ViewDesignerV9LanguagesDemo.xlsx" : "FactoryTalkLanguagesDemo.xls");
             var p = await client.PostAsync<HmiLanguageInfo>("/api/hmi-languages", new HmiLanguageRegisterRequest(source, platform));
             async Task<CallToolResult> Call(string verb, object request, bool write = false) => await mcp.CallToolAsync(write ? "studio_extensions_apply" : "studio_extensions_read", new Dictionary<string, object?>
             { ["call"] = new ExtensionCall(moduleId, prefix + "_languages_" + verb, module.Generation, JsonSerializer.SerializeToElement(new { workspaceId = p.Id, request }, ProjectService.Json)) });
@@ -26,6 +26,8 @@ internal static class HmiLanguageIntegration
             var rest = await client.PostAsync<HmiLanguagePage>($"/api/hmi-languages/{p.Id}/browse", new HmiLanguageQuery(p.CurrentSha256));
             Check(JsonSerializer.Serialize(before) == JsonSerializer.Serialize(rest), platform + ": REST/MCP return identical native keys, translations and evidence boundaries");
             var locale = vd ? "es-ES" : "zh-CN"; var key = before.Records[0].Key;
+            if (vd) Check(before.Records.Length == 3 && before.Records[0].Context[3] == before.Records[1].Context[3] && before.Records[0].Key != before.Records[1].Key && before.Records.All(r => !r.Texts.Single(t => t.Language == "en-US").Writable) &&
+                (await Call("preview", new HmiLanguagePreviewRequest(p.CurrentSha256, [new(key, "en-US", "No key edits")]))).IsError == true, "View Designer native v9 metadata/implicit cells retain distinct context identities and block source KEY edits through MCP");
             var request = new HmiLanguagePreviewRequest(p.CurrentSha256, [new(key, locale, "翻译\r\n=literal _x000A_"), new(key, "fr-FR", "Prêt")], ["fr-FR"]);
             var preview = await Tool<HmiLanguagePreview>("preview", request); var httpPreview = await client.PostAsync<HmiLanguagePreview>($"/api/hmi-languages/{p.Id}/preview", request);
             Check(preview.ReviewSha256 == httpPreview.ReviewSha256 && (await client.GetAsync<HmiLanguageInfo>("/api/hmi-languages/" + p.Id)).Revision == 0, platform + ": repeatable previews agree and do not mutate managed state");
@@ -46,8 +48,8 @@ internal static class HmiLanguageIntegration
         }
         var textSource = Path.Combine(root, "examples", "FactoryTalkLanguagesDemo.txt"); var textWorkspace = await client.PostAsync<HmiLanguageInfo>("/api/hmi-languages", new HmiLanguageRegisterRequest(textSource, "ftview-se", "en-US"));
         Check((await client.PostAsync<HmiLanguagePage>($"/api/hmi-languages/{textWorkspace.Id}/browse", new HmiLanguageQuery(textWorkspace.CurrentSha256))).Total == 2, "FactoryTalk Unicode text uses explicit single-language context with preserved native headers");
-        var vdText = await client.PostAsync<HmiLanguageInfo>("/api/hmi-languages", new HmiLanguageRegisterRequest(Path.Combine(root, "examples", "ViewDesignerLanguagesDemo.txt"), "view-designer"));
-        Check((await client.PostAsync<HmiLanguagePage>($"/api/hmi-languages/{vdText.Id}/browse", new HmiLanguageQuery(vdText.CurrentSha256))).Languages.SequenceEqual(["en-US", "es-ES"]), "View Designer Unicode text reads the immutable KEY/language matrix");
+        var vdText = await client.PostAsync<HmiLanguageInfo>("/api/hmi-languages", new HmiLanguageRegisterRequest(Path.Combine(root, "examples", "ViewDesignerV9LanguagesDemo.txt"), "view-designer"));
+        Check((await client.PostAsync<HmiLanguagePage>($"/api/hmi-languages/{vdText.Id}/browse", new HmiLanguageQuery(vdText.CurrentSha256))).Languages.SequenceEqual(["en-US", "zh-Hans", "es-ES"]), "View Designer Unicode text reads native metadata/context/source-language keys");
         return checks;
     }
     // Optional real-export validation. No running service, native bridge or controller is used.

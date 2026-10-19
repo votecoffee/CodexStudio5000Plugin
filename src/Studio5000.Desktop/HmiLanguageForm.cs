@@ -153,23 +153,26 @@ public sealed class HmiLanguageForm : WorkspaceForm
     {
         fixture = true; await InitializeAsync();
         var key = page!.Records[0].Key;
+        var nativeViewDesigner = workspace!.Platform == "view-designer";
+        var editedLanguage = nativeViewDesigner ? "zh-Hans" : "zh-CN";
         void Select(string locale)
         {
             var row = records.Rows.Cast<DataGridViewRow>().Single(r => r.Tag is Row x && x.Record.Key == key && x.Text.Language == locale);
             records.CurrentCell = row.Cells[0]; ShowEditor();
         }
-        Select("en-US");
-        language.Text = "zh-CN"; text.Text = "翻译验证\r\nReady"; Stage(); newLanguage.Text = "fr-FR"; AddLanguage(); language.Text = "fr-FR"; text.Text = "Prêt"; Stage();
+        Select(editedLanguage);
+        language.Text = editedLanguage; text.Text = "翻译验证\r\nReady"; Stage(); newLanguage.Text = "fr-FR"; AddLanguage(); language.Text = "fr-FR"; text.Text = "Prêt"; Stage();
         await PreviewAsync(); if (preview!.Changes.Length != 2 || !apply.Enabled) throw new InvalidOperationException("Language review lost staged edits."); await ApplyAsync();
-        var record = page!.Records.Single(r => r.Key == key); if (record.Texts.Single(t => t.Language == "zh-CN").Text != "翻译验证\r\nReady" || record.Texts.Single(t => t.Language == "fr-FR").Text != "Prêt") throw new InvalidOperationException("Unicode/new-language readback failed.");
-        Select("zh-CN"); text.Text = "Pending"; Stage();
-        var external = new HmiLanguagePreviewRequest(workspace!.CurrentSha256, [new(key, "en-US", "Updated externally")]);
+        var record = page!.Records.Single(r => r.Key == key); if (record.Texts.Single(t => t.Language == editedLanguage).Text != "翻译验证\r\nReady" || record.Texts.Single(t => t.Language == "fr-FR").Text != "Prêt") throw new InvalidOperationException("Unicode/new-language readback failed.");
+        if (nativeViewDesigner && record.Texts.Single(t => t.Language == "en-US").Writable) throw new InvalidOperationException("Native source KEY became editable.");
+        Select(editedLanguage); text.Text = "Pending"; Stage();
+        var external = new HmiLanguagePreviewRequest(workspace!.CurrentSha256, [new(key, nativeViewDesigner ? "es-ES" : "en-US", "Updated externally")]);
         var reviewed = await client.PostAsync<HmiLanguagePreview>($"/api/hmi-languages/{workspace.Id}/preview", external);
         await client.PostAsync<HmiLanguageInfo>($"/api/hmi-languages/{workspace.Id}/apply", new HmiLanguageApplyRequest(external, reviewed.ReviewSha256));
         var rejected = false; try { await LoadAsync(); } catch (InvalidOperationException) { rejected = true; }
         if (!rejected || pending.Count != 1) throw new InvalidOperationException("Concurrent revision discarded the pending language draft.");
-        await DiscardAsync(); var saved = await ExportFileAsync(Path.Combine(root, "artifacts", "exports", "desktop-languages-" + workspace.Id + ".xls"));
-        var suppliedReexport = Path.Combine(root, "examples", "desktop-language-readback-" + workspace.Id + ".xls"); File.Copy(saved.Path, suppliedReexport);
+        await DiscardAsync(); var saved = await ExportFileAsync(Path.Combine(root, "artifacts", "exports", "desktop-languages-" + workspace.Id + "." + workspace.Format));
+        var suppliedReexport = Path.Combine(root, "examples", "desktop-language-readback-" + workspace.Id + "." + workspace.Format); File.Copy(saved.Path, suppliedReexport);
         var verify = await client.PostAsync<HmiLanguageVerification>($"/api/hmi-languages/{workspace.Id}/verify", new HmiLanguageVerifyRequest(workspace.CurrentSha256, suppliedReexport));
         if (!verify.Matches || ProjectService.Hash(File.ReadAllBytes(saved.Path)) != saved.Sha256) throw new InvalidOperationException("GUI language artifact readback failed.");
         status.Text = "Verified staged Unicode translations/new columns, reviewed apply, concurrent draft retention, explicit discard, export and comparison.";

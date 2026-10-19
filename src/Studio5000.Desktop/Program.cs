@@ -7,12 +7,13 @@ try
 {
     var root = ServiceClient.FindRoot();
     using var client = new ServiceClient(root);
-    if (args.Length == 2 && args[0] == "--self-test-hmi-languages-workflow")
+    if (args.Length == 2 && args[0] is "--self-test-hmi-languages-workflow" or "--self-test-viewdesigner-languages-workflow")
     {
         HmiLanguageForm? languageView = null; string[] checks = [];
         WorkflowValidation.Run(async () =>
         {
-            var workspace = await client.PostAsync<HmiLanguageInfo>("/api/hmi-languages", new HmiLanguageRegisterRequest(Path.Combine(root, "examples", "FactoryTalkLanguagesDemo.xls"), "ftview-me"));
+            var viewDesigner = args[0] == "--self-test-viewdesigner-languages-workflow";
+            var workspace = await client.PostAsync<HmiLanguageInfo>("/api/hmi-languages", new HmiLanguageRegisterRequest(Path.Combine(root, "examples", viewDesigner ? "ViewDesignerV9LanguagesDemo.xlsx" : "FactoryTalkLanguagesDemo.xls"), viewDesigner ? "view-designer" : "ftview-me"));
             languageView = new HmiLanguageForm(client, initial: workspace); checks = await languageView.ExerciseOfflineWorkflowForTestAsync(root);
         });
         using var view = languageView ?? throw new InvalidOperationException("Missing HMI language view."); view.StartPosition = FormStartPosition.Manual; view.Location = new(-30000, -30000); view.ShowInTaskbar = false; view.Show(); Application.DoEvents();
