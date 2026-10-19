@@ -65,6 +65,17 @@ public sealed class ServiceSettingsTests : IDisposable
         Assert.Throws<ArgumentException>(() => store.Save(new(snapshot.Revision, Element(document)))); Assert.Equal(snapshot.Revision, store.Read().Revision);
     }
     [Fact]
+    public void AlternateHostConfigurationCannotOverrideTheLoopbackEndpointOrSavedPolicy()
+    {
+        var snapshot = store.Read();
+        foreach (var key in new[] { "Kestrel", "Urls", "AllowedHosts", "Studio5000:EnableControllerOperations" })
+        {
+            var document = JsonNode.Parse(snapshot.Saved.GetRawText())!; document[key] = "generated override";
+            Assert.Throws<ArgumentException>(() => store.Save(new(snapshot.Revision, Element(document))));
+        }
+        Assert.Equal(snapshot.Revision, store.Read().Revision);
+    }
+    [Fact]
     public void InvalidPolicyUnknownSettingAndDuplicateKeysDoNotChangeSavedSettings()
     {
         var snapshot = store.Read(); var document = JsonNode.Parse(snapshot.Saved.GetRawText())!.AsObject();

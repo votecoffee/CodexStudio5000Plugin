@@ -27,8 +27,9 @@ builder.Configuration["AllowedHosts"] = "127.0.0.1;localhost;[::1]";
 var settingsSection = builder.Configuration.GetSection("Studio5000");
 var options = new ServiceOptions();
 // Bind configured arrays onto empty arrays rather than appending their defaults.
-if (settingsSection.GetSection(nameof(ServiceOptions.AllowedRoots)).Exists()) options.AllowedRoots = [];
-if (settingsSection.GetSection(nameof(ServiceOptions.OutputRoots)).Exists()) options.OutputRoots = [];
+var configuredKeys = settingsSection.GetChildren().Select(s => s.Key).ToHashSet(StringComparer.OrdinalIgnoreCase);
+if (configuredKeys.Contains(nameof(ServiceOptions.AllowedRoots))) options.AllowedRoots = [];
+if (configuredKeys.Contains(nameof(ServiceOptions.OutputRoots))) options.OutputRoots = [];
 settingsSection.Bind(options);
 ServiceSettingsStore.ResolveAndValidate(options, root);
 var local = Path.Combine(root, ".local");

@@ -127,6 +127,8 @@ public sealed class ServiceSettingsStore
     private static ServiceOptions Options(JsonObject document) => document["Studio5000"]?.Deserialize<ServiceOptions>(Json) ?? throw new ArgumentException("Studio5000 settings are required.");
     private static JsonObject Normalize(JsonObject document, string root)
     {
+        if (document.Any(p => p.Key.Contains(':') || new[] { "Kestrel", "Urls", "AllowedHosts" }.Contains(p.Key, StringComparer.OrdinalIgnoreCase)))
+            throw new ArgumentException("Use ServiceUrl for the endpoint; separate transport overrides and flattened configuration keys are not supported.");
         var url = Url(document);
         if (!Uri.TryCreate(url, UriKind.Absolute, out var address) || address.Scheme != "http" || !IPAddress.TryParse(address.Host, out var ip) ||
             !IPAddress.IsLoopback(ip) || address.Port <= 0 || address.AbsolutePath != "/" || address.Query.Length != 0 || address.Fragment.Length != 0 || address.UserInfo.Length != 0)
