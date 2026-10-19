@@ -56,7 +56,11 @@ try {
     foreach ($view in @('viewdesigner-languages-workflow', 'hmi-languages-workflow', 'documentation-workflow', 'diagnostics-workflow', 'trend-views-workflow', 'comparison-annotations', 'comparison-annotations-workflow', 'comparison-history', 'comparison-history-workflow', 'merge-mappings', 'merge-mappings-workflow', 'value-merge', 'value-merge-workflow', 'comparison-workflow', 'comparison-ladder', 'watch-rebind', 'watch-template', 'watch-preflight', 'tag-references', 'references', 'reference-parameters', 'comparison', 'ladder', 'browser', 'trends', 'extensions', 'viewdesigner', 'watches', 'watches-values', 'online-edit', 'main')) {
         $flag = if ($view -eq 'main') { '--self-test' } else { "--self-test-$view" }
         $png = Join-Path $fixtureRoot "artifacts/test-results/desktop-$view.png"
-        $guiProcess = Start-Process -FilePath $gui -ArgumentList @($flag, ('"' + $png + '"')) -WindowStyle Hidden -PassThru -Wait -RedirectStandardError ($png + '.stderr.log')
+        $guiProcess = Start-Process -FilePath $gui -ArgumentList @($flag, ('"' + $png + '"')) -WindowStyle Hidden -PassThru -RedirectStandardError ($png + '.stderr.log')
+        if (!$guiProcess.WaitForExit(60000)) {
+            if (!$guiProcess.HasExited) { Stop-Process -InputObject $guiProcess; $guiProcess.WaitForExit() }
+            throw "$view GUI helper exceeded 60 seconds; inspect $png.stderr.log."
+        }
         if ($guiProcess.ExitCode -ne 0 -or !(Test-Path -LiteralPath $png)) { throw "$view GUI render failed; inspect $png.stderr.log." }
     }
     Write-Output "Isolated verification passed: $fixtureRoot"
