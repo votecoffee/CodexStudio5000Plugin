@@ -161,12 +161,7 @@ public sealed partial class ProjectService
 
     private (TagValueMergeReport Report, byte[] Bytes) BuildTagValueMerge(TagValueMergeRequest request)
     {
-        if (request.SourceProjectId == request.DestinationProjectId) throw new OperationException("merge_same_project", "Choose different source and destination projects.");
-        var source = Get(request.SourceProjectId); var destination = Get(request.DestinationProjectId);
-        Expect(source, request.SourceSha256); Expect(destination, request.DestinationSha256);
-        if (source.Kind != "logix" || destination.Kind != "logix") throw new OperationException("not_logix", "Select Logix snapshots.");
-        var sourceDoc = XmlProjects.Parse(File.ReadAllBytes(RevisionFile(source.Id, source.Revision)));
-        var targetDoc = XmlProjects.Parse(File.ReadAllBytes(RevisionFile(destination.Id, destination.Revision)));
+        var (source, sourceDoc, destination, targetDoc) = ValueMergeDocuments(request.SourceProjectId, request.SourceSha256, request.DestinationProjectId, request.DestinationSha256);
         var maps = request.Tags ?? TagValueMerging.Tags(sourceDoc, request.SourceProgram).Select(t => new TagValueMap((string)t.Attribute("Name")!, request.SourceProgram, (string)t.Attribute("Name")!, request.DestinationProgram)).ToArray();
         if (maps.Length is 0 or > 256 || maps.Any(m => m is null)) throw new OperationException("merge_limit", "Select between 1 and 256 whole base tags per merge.");
         foreach (var map in maps)

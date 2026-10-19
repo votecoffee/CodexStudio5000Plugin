@@ -40,6 +40,17 @@ internal static class EngineeringUtilitiesIntegration
         Check(aligned.Total == 3 && aligned.Rungs[0] is { Change: "added", Left: null, Right.Diagram: not null } && aligned.Rungs[1] is { Change: "unchanged", Left.Index: 0, Right.Index: 1 }, "Ladder comparison exposes insertion gaps and aligns following saved rungs with both diagrams");
         var changed = await client.PostAsync<LadderComparisonReport>("/api/projects/compare/ladder", ladder with { ChangesOnly = true });
         Check(changed.Total == 1 && changed.Rungs.Single().Change == "added", "REST ladder browser filters changed rungs without losing source positions");
+        var inserted = (await client.PostAsync<ProjectComparisonReport>("/api/projects/compare", compare)).Differences.Single(d => d.Kind == "Rung");
+        var locate = new LadderLocateRequest(compare, inserted.LeftXPath, inserted.RightXPath);
+        var location = await Tool<LadderLocation>("studio_compare_locate", locate);
+        Check(location.Routine.LeftXPath is not null && location.Ladder.Rungs.Single() is { Change: "added", Left: null, Right.Index: 0 }, "MCP locates an added rung and infers its existing routine counterpart");
+        Check(JsonSerializer.Serialize(location) == JsonSerializer.Serialize(await client.PostAsync<LadderLocation>("/api/projects/compare/locate", locate)), "REST and MCP locate the same exact aligned source occurrence");
+        Check((await Call("studio_compare_locate", locate with { LeftXPath = "//Controller" })).IsError == true, "Comparison navigation rejects non-ladder selectors through the shared read operation");
+        var browse = new TagValueMergeBrowseRequest(a.Id, a.CurrentSha256, b.Id, b.CurrentSha256, "WatchProgram", "WatchProgram", Limit: 1);
+        var candidates = await Tool<TagValueMergePage>("studio_value_merge_browse", browse);
+        Check(candidates.Total == 4 && candidates.Rows.Single().Tag.SourceTag == "Enabled" && JsonSerializer.Serialize(candidates) == JsonSerializer.Serialize(await client.PostAsync<TagValueMergePage>("/api/value-merge/browse", browse)), "REST and MCP page the same read-only merge candidates before any apply review");
+        var searched = await Tool<TagValueMergePage>("studio_value_merge_browse", browse with { Query = "record", Offset = 1 });
+        Check(searched.Total == 2 && searched.Rows.Single().Tag.SourceTag == "Records" && (await Call("studio_value_merge_browse", browse with { Limit = 101 })).IsError == true, "Merge candidate search filters before pagination and rejects oversized pages");
         var merge = new TagValueMergeRequest(a.Id, a.CurrentSha256, b.Id, b.CurrentSha256, [new("Record", "WatchProgram", "Record", "WatchProgram"), new("Enabled", "WatchProgram", "Enabled", "WatchProgram")]);
         var preview = await Tool<TagValueMergeReport>("studio_value_merge_preview", merge);
         Check(preview.CanApply && preview.Changed == 2 && preview.Origin == "saved_project" && JsonSerializer.Serialize(preview) == JsonSerializer.Serialize(await client.PostAsync<TagValueMergeReport>("/api/value-merge/preview", merge)), "REST and MCP return the same whole-tag value merge review without connecting or mutating");
@@ -51,6 +62,7 @@ internal static class EngineeringUtilitiesIntegration
         var content = await client.GetAsync<ElementContent>($"/api/projects/{merged.Id}/element?xpath=" + Uri.EscapeDataString("//Tag[@Name='Record']")); var tag = XElement.Parse(content.Xml);
         Check(tag.Element("Description")!.Value == "Destination metadata" && tag.Elements("Data").Single().Attribute("Format")!.Value == "Decorated", "Value merge preserves destination metadata and removes competing stale Data representations");
         Check((await Call("studio_value_merge_apply", new TagValueMergeApplyRequest(merge, preview.ReviewSha256), true)).IsError == true && (await Call("studio_compare_routines", compare)).IsError == true, "Replayed merge and stale routine comparison are rejected after destination changes");
+        Check((await Call("studio_value_merge_browse", browse)).IsError == true && (await Call("studio_compare_locate", locate)).IsError == true, "Candidate browsing and ladder navigation reject their old destination hash after a merge");
         var export = await client.PostAsync<Artifact>($"/api/projects/{merged.Id}/exports", new ExportRequest(merged.CurrentSha256));
         Check(ProjectService.Hash(await client.DownloadAsync(export.Id)) == merged.CurrentSha256 && (await client.GetAsync<ProjectInfo>("/api/projects/" + a.Id)).Revision == 0 && ProjectService.Hash(await File.ReadAllBytesAsync(sourcePath)) == a.SourceSha256 && ProjectService.Hash(await File.ReadAllBytesAsync(targetPath)) == b.SourceSha256, "Merged L5X exports with its reviewed hash while both original projects and the source revision remain preserved");
         var beforeJobs = (await client.GetAsync<SdkJob[]>("/api/sdk/jobs")).Length;

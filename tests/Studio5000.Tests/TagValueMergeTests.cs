@@ -138,5 +138,47 @@ public sealed class TagValueMergeTests : IDisposable
         Job(["UploadToNewProjectAsync"]); var p = await service.PreviewTagValueMergeAsync(Request(uploaded, b, "Record")); Assert.Equal("controller_upload_snapshot", p.Origin); Assert.NotNull(p.CapturedAt);
         Job(["UploadToNewProjectAsync", "SetTagValueDINTAsync"]); p = await service.PreviewTagValueMergeAsync(Request(uploaded, b, "Record")); Assert.Equal("saved_project", p.Origin); Assert.Null(p.CapturedAt);
     }
+    [Fact]
+    public async Task BrowseLargeScopesSearchesAndPagesWithoutPreviewingAllTagsOrChangingFiles()
+    {
+        void Many(XDocument d, string value) => d.Root!.Element("Controller")!.Element("Tags")!.Add(Enumerable.Range(0, 310).Select(i =>
+            new XElement("Tag", new XAttribute("Name", $"Tag{i:D3}"), new XAttribute("TagType", "Base"), new XAttribute("DataType", "DINT"),
+                new XElement("Data", new XAttribute("Format", "Decorated"), new XElement("DataValue", new XAttribute("DataType", "DINT"), new XAttribute("Value", value))))));
+        var a = await Project(d => Many(d, "42")); var b = await Project(d => Many(d, "0"));
+        Dictionary<string, string> Files() => Directory.GetFiles(root, "*", SearchOption.AllDirectories).Where(p => Path.GetFileName(p) != "service.lock").ToDictionary(p => p, p => ProjectService.Hash(File.ReadAllBytes(p)));
+        var before = Files();
+        var request = new TagValueMergeBrowseRequest(a.Id, a.CurrentSha256, b.Id, b.CurrentSha256, Limit: 100);
+        var first = await service.BrowseTagValueMergeAsync(request); var next = await service.BrowseTagValueMergeAsync(request with { Offset = 100 });
+        Assert.Equal(310, first.Total); Assert.Equal(100, first.Rows.Length); Assert.Equal("Tag000", first.Rows[0].Tag.SourceTag); Assert.Equal("Tag100", next.Rows[0].Tag.SourceTag);
+        var search = await service.BrowseTagValueMergeAsync(request with { Query = "Tag2" }); Assert.Equal(100, search.Total); Assert.All(search.Rows, r => Assert.StartsWith("Tag2", r.Tag.SourceTag));
+        Assert.Empty((await service.BrowseTagValueMergeAsync(request with { Offset = 400 })).Rows);
+        Assert.Equal(before, Files());
+        var previewRequest = new TagValueMergeRequest(a.Id, a.CurrentSha256, b.Id, b.CurrentSha256, [first.Rows[0].Tag, next.Rows[0].Tag]);
+        var preview = await service.PreviewTagValueMergeAsync(previewRequest); Assert.True(preview.CanApply); var result = await service.ApplyTagValueMergeAsync(new(previewRequest, preview.ReviewSha256));
+        var values = service.ExtractStructures(new(ProjectId: result.Id, Offset: 0, Limit: 256));
+        Assert.Equal(42, values.Tags.Single(t => t.Name == "Tag000").Value!.GetValue<long>()); Assert.Equal(42, values.Tags.Single(t => t.Name == "Tag100").Value!.GetValue<long>()); Assert.Equal(0, values.Tags.Single(t => t.Name == "Tag101").Value!.GetValue<long>());
+    }
+    [Fact]
+    public async Task BrowseRetainsIndividualDiagnosticsAndHonorsExactScopes()
+    {
+        var a = await Project(); var b = await Project(d => Tag(d, "Enabled").Remove());
+        var request = new TagValueMergeBrowseRequest(a.Id, a.CurrentSha256, b.Id, b.CurrentSha256, "WatchProgram", "WatchProgram");
+        var page = await service.BrowseTagValueMergeAsync(request); Assert.Equal(4, page.Total); Assert.Equal("structure_tag_missing", page.Rows.Single(r => r.Tag.SourceTag == "Enabled").Status);
+        Assert.Equal(2, (await service.BrowseTagValueMergeAsync(request with { Query = "Record" })).Total);
+        Assert.Equal(1, (await service.BrowseTagValueMergeAsync(request with { Query = "bool" })).Total);
+        Assert.Empty((await service.BrowseTagValueMergeAsync(request with { SourceProgram = null })).Rows);
+    }
+    [Fact]
+    public async Task BrowseRejectsStaleAndInvalidRequestsBeforeChangingState()
+    {
+        var a = await Project(); var b = await Project(); var request = new TagValueMergeBrowseRequest(a.Id, a.CurrentSha256, b.Id, b.CurrentSha256);
+        foreach (var changed in new[] { request with { Limit = 101 }, request with { Offset = -1 }, request with { Query = new string('x', 257) } })
+            Assert.Equal("merge_browse_query", (await Assert.ThrowsAsync<OperationException>(() => service.BrowseTagValueMergeAsync(changed))).Code);
+        Assert.Equal("stale_revision", (await Assert.ThrowsAsync<OperationException>(() => service.BrowseTagValueMergeAsync(request with { SourceSha256 = "old" }))).Code);
+        Assert.Equal("stale_revision", (await Assert.ThrowsAsync<OperationException>(() => service.BrowseTagValueMergeAsync(request with { DestinationSha256 = "old" }))).Code);
+        Assert.Equal("merge_same_project", (await Assert.ThrowsAsync<OperationException>(() => service.BrowseTagValueMergeAsync(request with { DestinationProjectId = a.Id }))).Code);
+        Assert.Equal("watch_tag", (await Assert.ThrowsAsync<OperationException>(() => service.BrowseTagValueMergeAsync(request with { DestinationProgram = "bad/program" }))).Code);
+        Assert.Equal(a, service.Get(a.Id)); Assert.Equal(b, service.Get(b.Id));
+    }
     public void Dispose() { service.Dispose(); Directory.Delete(root, true); }
 }

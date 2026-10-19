@@ -6,6 +6,8 @@ Read-only project review uses `POST /api/projects/compare` and `POST /api/projec
 
 The comparison browser uses `POST /api/projects/compare/routines` and `/api/projects/compare/ladder` (`studio_compare_routines`, `studio_compare_ladder`, read effects). Reviewed whole-tag value transfer uses `/api/value-merge/preview` and `/api/value-merge/apply`; an optional `/api/value-merge/capture` queues an authorized upload-only SDK job. See [value merge](VALUE_MERGE.md) for exact mappings, declaration/value checks, offline export and online capture gates.
 
+`POST /api/projects/compare/locate` resolves exact selected rung/routine XPaths into their aligned ladder page (`studio_compare_locate`, read). `POST /api/value-merge/browse` searches/pages candidate values without an apply review (`studio_value_merge_browse`, read). Both require exact source snapshot hashes; see the guides above for request contracts and limits.
+
 `POST /api/projects/{id}/tag-references` provides hash-bound lexical PLC where-used candidates for a controller/program base tag. The read extension operation is `studio_tag_references`; see [TAG_REFERENCES.md](TAG_REFERENCES.md) for scope, source locations, indirect indices and limits.
 
 Exploded import/export compatibility and stable rejection codes are documented in [EXPLODED_PROJECTS.md](EXPLODED_PROJECTS.md). The same checks apply through REST, fixed MCP tools, extension proxies and the desktop.

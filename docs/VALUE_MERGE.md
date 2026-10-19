@@ -28,6 +28,8 @@ For each changed destination tag, the operation replaces its `Data` children wit
 
 `POST /api/value-merge/capture` takes `{ "controllerTargetId": "CONFIGURED_TARGET" }` and returns a queued SDK job. Poll `/api/sdk/jobs/{id}`; the successful `resultProject` can be used below. This is the only merge operation that connects, and it requires separate target authorization/configuration.
 
+`POST /api/value-merge/browse` takes the four source/destination project ID/hash fields below, optional `sourceProgram`/`destinationProgram` (null = controller scope), `query` (up to 256 characters), `offset` (0..100000) and `limit` (1..100, default 50). It filters source tag names/types case-insensitively before stable name ordering and pagination. The result contains `total`, page fields and diagnostic rows with explicit mappings. Source scopes can contain more than 256 tags; only a page is inspected. Candidate browsing creates no review, project revision, draft or artifact and never connects. Collect selected row mappings and submit a separate preview of at most 256 tags. Replies are bounded to 3 MiB. The read extension operation is `studio_value_merge_browse`, with the REST body nested inside `request`.
+
 `POST /api/value-merge/preview`:
 
 ```json

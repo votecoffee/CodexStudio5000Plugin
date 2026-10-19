@@ -11,7 +11,7 @@ public sealed class ExtensionCatalogTests
     {
         IWorkspaceExtension[] modules = [new LogixExtension(), new FactoryTalkExtension(), new ViewDesignerExtension(), new WatchesExtension()];
         var operations = modules.SelectMany(x => x.Describe()).ToArray();
-        Assert.Equal(70, operations.Length); Assert.Equal(70, operations.Select(o => o.Name).Distinct().Count());
+        Assert.Equal(72, operations.Length); Assert.Equal(72, operations.Select(o => o.Name).Distinct().Count());
         foreach (var operation in operations) ExtensionSchema.CheckDefinition(operation.InputSchema);
         Assert.Equal("control", operations.Single(o => o.Name == "studio_sdk_start_job").Effect);
         Assert.Equal("control", operations.Single(o => o.Name == "studio_watch_start").Effect);
@@ -20,6 +20,8 @@ public sealed class ExtensionCatalogTests
         Assert.Equal("read", operations.Single(o => o.Name == "ftview_tag_references").Effect);
         Assert.Equal("read", operations.Single(o => o.Name == "ftview_resolve_references").Effect);
         Assert.Equal("read", operations.Single(o => o.Name == "studio_compare_projects").Effect);
+        Assert.Equal("read", operations.Single(o => o.Name == "studio_compare_locate").Effect);
+        Assert.Equal("read", operations.Single(o => o.Name == "studio_value_merge_browse").Effect);
         Assert.Equal("read", operations.Single(o => o.Name == "studio_ladder_preview").Effect);
         Assert.Equal("read", operations.Single(o => o.Name == "studio_tag_references").Effect);
         Assert.Equal("read", operations.Single(o => o.Name == "studio_cip_watch_plan").Effect);

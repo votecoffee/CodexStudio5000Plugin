@@ -76,5 +76,67 @@ public sealed class LadderComparisonTests : IDisposable
         Assert.Throws<OperationException>(() => service.CompareLadder(req with { LeftRoutineXPath = null, RightRoutineXPath = null }));
         _ = service.CompareLadder(req); Assert.Equal(a.SourceSha256, ProjectService.Hash(File.ReadAllBytes(a.SourcePath))); Assert.Equal(b, service.Get(b.Id));
     }
+    [Fact]
+    public async Task LocateLateModifiedRungUsesAlignedOccurrencesAndFilteredOffset()
+    {
+        void Many(XDocument d) => d.Descendants("RLLContent").Single().ReplaceNodes(Enumerable.Range(0, 12).Select(i => new XElement("Rung", new XAttribute("Number", i), new XElement("Text", $"MOV({i},Output);"))));
+        var a = await Project(Many); var b = await Project(d =>
+        {
+            Many(d); var rungs = d.Descendants("Rung").ToArray(); rungs[9].Element("Text")!.Value = "MOV(99,Output);";
+            rungs[5].AddBeforeSelf(new XElement("Rung", new XAttribute("Number", "5"), new XElement("Text", "XIC(New)NOP();")));
+        });
+        var request = Request(a, b); var diff = service.CompareProjects(request).Differences.Single(r => r.Kind == "Rung" && r.Change == "modified");
+        var located = service.LocateComparedLadder(new(request, diff.LeftXPath, diff.RightXPath)); var rung = located.Ladder.Rungs.Single();
+        Assert.Equal(10, located.Ladder.Offset); Assert.Equal(9, rung.Left!.Index); Assert.Equal(10, rung.Right!.Index); Assert.Equal("modified", rung.Change);
+        var filtered = service.LocateComparedLadder(new(request, diff.LeftXPath, diff.RightXPath, true));
+        Assert.Equal(1, filtered.Ladder.Offset); Assert.Equal(10, filtered.Ladder.Rungs.Single().Position); Assert.Equal(2, filtered.Ladder.Total);
+        Assert.Equal(a.SourceSha256, ProjectService.Hash(File.ReadAllBytes(a.SourcePath))); Assert.Equal(b, service.Get(b.Id));
+    }
+    [Fact]
+    public async Task LocateOneSidedRungInfersItsExistingRoutineCounterpart()
+    {
+        var a = await Project(); var b = await Project(d => d.Descendants("RLLContent").Single().AddFirst(new XElement("Rung", new XAttribute("Number", "0"), new XElement("Text", "XIO(New)NOP();"))));
+        var request = Request(a, b); var diff = service.CompareProjects(request).Differences.Single();
+        var located = service.LocateComparedLadder(new(request, diff.LeftXPath, diff.RightXPath));
+        Assert.NotNull(located.Routine.LeftXPath); Assert.NotNull(located.Routine.RightXPath); Assert.Null(located.Ladder.Rungs.Single().Left); Assert.Equal("added", located.Ladder.Rungs.Single().Change);
+        request = Request(b, a); diff = service.CompareProjects(request).Differences.Single(); located = service.LocateComparedLadder(new(request, diff.LeftXPath, diff.RightXPath));
+        Assert.Equal("removed", located.Ladder.Rungs.Single().Change); Assert.Null(located.Ladder.Rungs.Single().Right);
+    }
+    [Fact]
+    public async Task LocateWholeAddedAndEmptyRoutineDoesNotRequireARung()
+    {
+        var a = await Project(d => d.Descendants("Routine").First().Remove()); var b = await Project();
+        var request = Request(a, b); var diff = service.CompareProjects(request).Differences.Single(); var located = service.LocateComparedLadder(new(request, null, diff.RightXPath));
+        Assert.Null(located.Routine.LeftXPath); Assert.Equal("added", located.Ladder.Rungs.Single().Change);
+        var empty = await Project(d => d.Descendants("RLLContent").Single().RemoveNodes());
+        located = service.LocateComparedLadder(new(Request(empty, empty), "//Routine[@Name='Main']", "//Routine[@Name='Main']")); Assert.Empty(located.Ladder.Rungs); Assert.Equal(0, located.Ladder.Total);
+    }
+    [Fact]
+    public async Task LocateDuplicateNumberedRungsUsesTheExactDeletedOccurrence()
+    {
+        var a = await Project(d => d.Descendants("RLLContent").Single().ReplaceNodes(Enumerable.Range(0, 3).Select(_ => new XElement("Rung", new XAttribute("Number", 0), new XElement("Text", "NOP();")))));
+        var b = await Project(d => d.Descendants("RLLContent").Single().ReplaceNodes(Enumerable.Range(0, 2).Select(_ => new XElement("Rung", new XAttribute("Number", 0), new XElement("Text", "NOP();")))));
+        var request = Request(a, b); var diff = service.CompareProjects(request).Differences.Single();
+        var result = service.LocateComparedLadder(new(request, diff.LeftXPath, diff.RightXPath));
+        Assert.Equal(2, result.Ladder.Offset); Assert.Equal(2, result.Ladder.Rungs.Single().Left!.Index); Assert.Null(result.Ladder.Rungs.Single().Right);
+    }
+    [Fact]
+    public async Task LocateRejectsStaleNonLadderAmbiguousAndMismatchedRoutineAnchors()
+    {
+        var a = await Project(); var b = await Project(d => d.Descendants("Routines").Single().Add(new XElement("Routine", new XAttribute("Name", "Other"), new XAttribute("Type", "RLL"))));
+        var request = Request(a, b);
+        Assert.Equal("stale_revision", Assert.Throws<OperationException>(() => service.LocateComparedLadder(new(request with { RightSha256 = "old" }, "//Routine", null))).Code);
+        foreach (var xpath in new[] { "//Controller", "//Routine", "//Routine[@Name='Text']", "//Routine[@Name='Main']/RLLContent/Rung/Text" })
+            Assert.Throws<OperationException>(() => service.LocateComparedLadder(new(request, xpath, null)));
+        Assert.Equal("comparison_navigation_target", Assert.Throws<OperationException>(() => service.LocateComparedLadder(new(request, "//Routine[@Name='Main']", "//Routine[@Name='Other']"))).Code);
+        Assert.Throws<OperationException>(() => service.LocateComparedLadder(new(request, null, null)));
+    }
+    [Fact]
+    public async Task LocateRejectsUnpairedOccurrencesAndRungsHiddenByTheFilter()
+    {
+        var a = await Project(); var b = await Project(); var request = Request(a, b);
+        Assert.Equal("comparison_navigation_target", Assert.Throws<OperationException>(() => service.LocateComparedLadder(new(request, "//Rung[1]", "//Rung[2]"))).Code);
+        Assert.Equal("comparison_navigation_target", Assert.Throws<OperationException>(() => service.LocateComparedLadder(new(request, "//Rung[1]", "//Rung[1]", true))).Code);
+    }
     public void Dispose() { service.Dispose(); Directory.Delete(root, true); }
 }
