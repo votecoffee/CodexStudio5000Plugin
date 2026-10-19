@@ -69,6 +69,38 @@ public static class LogicTracing
         var definitions = context.Controller.Elements("AddOnInstructionDefinitions").Elements("AddOnInstructionDefinition").ToDictionary(a => (string)a.Attribute("Name")!, StringComparer.OrdinalIgnoreCase);
         void Routine(XElement routine, string? program, string owner, Dictionary<string, LogicAddress>? bindings, HashSet<string> active)
         {
+            if ((string?)routine.Attribute("Type") == "ST")
+            {
+                Issue("st_partial_effects: simple leading assignments classified; compound control flow/calls remain unknown: " + XmlProjects.PathOf(routine));
+                foreach (var line in routine.Elements("STContent").Elements("Line"))
+                {
+                    var text = line.Value; if (text.Length > 1024 * 1024 || (sourceCharacters += text.Length) > 16 * 1024 * 1024) throw new OperationException("logic_trace_limit", "ST source exceeds the trace text budget.");
+                    var assignment = Regex.Match(text, @"\A\s*(?<left>(?:Program:[A-Za-z_][A-Za-z0-9_]*\.)?[A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_0-9]+|\[\d+\])*)\s*:=", RegexOptions.IgnoreCase);
+                    // Classify only a single leading assignment. Calls and compound statements may write other operands.
+                    var simple = !routine.Value.Contains("(*", StringComparison.Ordinal) && assignment.Success && text.IndexOf(":=", assignment.Index + assignment.Length, StringComparison.Ordinal) < 0 &&
+                        !Regex.IsMatch(text[assignment.Length..], @"[();]|\b(?:IF|THEN|ELSE|FOR|WHILE|REPEAT|CASE|RETURN)\b", RegexOptions.IgnoreCase);
+                    // A single trailing semicolon is permitted, but not a second statement.
+                    if (!simple && !routine.Value.Contains("(*", StringComparison.Ordinal) && assignment.Success && text.TrimEnd().EndsWith(';'))
+                    {
+                        var body = text.TrimEnd()[..^1];
+                        simple = body.IndexOf(":=", assignment.Length, StringComparison.Ordinal) < 0 && !Regex.IsMatch(body[assignment.Length..], @"[();]|\b(?:IF|THEN|ELSE|FOR|WHILE|REPEAT|CASE|RETURN)\b", RegexOptions.IgnoreCase);
+                    }
+                    var local = new List<LogicUsage>(); var path = XmlProjects.PathOf(line);
+                    foreach (var token in TagReferences.Lex(text, Issue))
+                    {
+                        var operand = text.Substring(token.Start, token.Length); var address = context.Resolve(operand, program, bindings); if (address is null) continue;
+                        var role = simple ? token.Start == assignment.Groups["left"].Index ? "write" : "read" : "unknown";
+                        if (address.Issue is not null) Issue(address.Issue + ": " + operand);
+                        local.Add(new(address.Symbol, operand, role, "ST", owner + "/" + (string?)routine.Attribute("Name"), XmlProjects.PathOf(routine), path, -1, address.Aliases));
+                        if (local.Count > 10000) throw new OperationException("logic_trace_limit", "ST line exceeds the trace operand budget.");
+                    }
+                    usages.AddRange(local);
+                    foreach (var read in local.Where(u => u.Role == "read")) foreach (var write in local.Where(u => u.Role == "write"))
+                        if (!LogicContext.Same(read.Symbol, write.Symbol)) edges.Add(new(read.Symbol, write.Symbol, "possible-statement-dependency", path));
+                    if (usages.Count > 50000 || edges.Count > 100000) throw new OperationException("logic_trace_limit", "ST trace exceeds its usage/dependency budget.");
+                }
+                return;
+            }
             if ((string?)routine.Attribute("Type") != "RLL") { Issue("unsupported_routine_language: " + XmlProjects.PathOf(routine)); return; }
             var index = 0;
             foreach (var rung in routine.Elements("RLLContent").Elements("Rung"))

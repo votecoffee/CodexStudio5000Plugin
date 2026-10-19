@@ -180,7 +180,7 @@ public sealed partial class ProjectService
     }
     public async Task<object> DeleteSavedReviewAsync(string kind, string id, ReviewDeleteRequest request, CancellationToken ct = default)
     {
-        if (kind is not ("comparison-sessions" or "merge-mappings")) throw new OperationException("invalid_review", "Unknown review kind.");
+        if (kind is not ("comparison-sessions" or "merge-mappings" or "trend-views")) throw new OperationException("invalid_review", "Unknown review kind.");
         await gate.WaitAsync(ct);
         try
         {

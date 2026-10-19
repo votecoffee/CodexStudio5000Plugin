@@ -44,7 +44,7 @@ public sealed partial class ProjectService : IDisposable
         Directory.CreateDirectory(Path.Combine(state, "artifacts"));
         native = new(options);
         this.watchFactory = watchFactory ?? new WatchBackendRouter(native, new CipWatchSessionFactory(options));
-        try { InitializeSdkJobs(); InitializeWatches(); }
+        try { InitializeSdkJobs(); InitializeWatches(); InitializeTriggers(); }
         catch { instanceLock.Dispose(); gate.Dispose(); throw; }
     }
 
@@ -420,5 +420,5 @@ public sealed partial class ProjectService : IDisposable
     private static XDocument ParseDocument(ProjectInfo info, byte[] bytes) => FactoryTalkGraphics.IsFactoryTalk(info.Kind) ? FactoryTalkGraphics.Parse(bytes) : XmlProjects.Parse(bytes);
     private byte[] ApplyDocument(ProjectInfo info, byte[] bytes, Edit[] edits) => FactoryTalkGraphics.IsFactoryTalk(info.Kind)
         ? FactoryTalkGraphics.Apply(bytes, edits, options.FactoryTalkSchemaDirectory) : XmlProjects.Apply(bytes, edits);
-    public void Dispose() { DisposeWatches(); DisposeSdkJobs(); instanceLock.Dispose(); gate.Dispose(); }
+    public void Dispose() { DisposeWatches(); DisposeSdkJobs(); instanceLock.Dispose(); gate.Dispose(); compatibilityGate.Dispose(); }
 }

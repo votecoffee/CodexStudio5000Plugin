@@ -58,6 +58,18 @@ public sealed class LogicDiagnosticsTests : IDisposable
         Assert.Throws<OperationException>(() => service.TraceLogic(p.Id, new("stale", "Enable", "Example")));
     }
     [Fact]
+    public async Task TraceClassifiesOnlySimpleStAssignmentsAndLeavesCompoundWritesUnknown()
+    {
+        var p = await Project(); var source = XDocument.Load(p.SourcePath);
+        source.Descendants("Program").Single().Element("Routines")!.Add(new XElement("Routine", new XAttribute("Name", "Structured"), new XAttribute("Type", "ST"), new XElement("STContent",
+            new XElement("Line", "Next := Output;"), new XElement("Line", "Next := Output; Ready := Enable;"), new XElement("Line", "Output := SomeCall(Enable);"))));
+        var path = Path.Combine(root, "structured.l5x"); source.Save(path); var q = await service.RegisterAsync(path);
+        var report = service.TraceLogic(q.Id, new(q.CurrentSha256, "Next", "Example", Depth: 3));
+        Assert.Contains(report.Usages, u => u.Instruction == "ST" && u.Operand == "Next" && u.Role == "write");
+        Assert.Contains(report.Usages, u => u.Instruction == "ST" && u.Operand == "Ready" && u.Role == "unknown");
+        Assert.DoesNotContain(report.Usages, u => u.Instruction == "ST" && u.Operand == "Ready" && u.Role == "read");
+    }
+    [Fact]
     public async Task BranchEvaluationUsesOrAndIdentifiesOnlyDecisiveBlockers()
     {
         var capture = await Capture(await Project()); var parallel = Evaluate(capture, 0); var series = Evaluate(capture, 1);

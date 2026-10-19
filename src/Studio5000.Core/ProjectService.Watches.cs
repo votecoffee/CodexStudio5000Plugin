@@ -168,6 +168,7 @@ public sealed partial class ProjectService
                     if (bytes > 4 * 1024 * 1024) throw new OperationException("watch_too_large", "A sample exceeds 4 MiB; reduce the list.");
                     watch.Recorder.Append(watch.Definition.Revision, watch.Session, "sample", sample);
                     watch.Latest = sample; CacheSample(watch, sample);
+                    FeedDiagnosticTriggers(watch, new(sample.CompletedAt, "sample", sample, false));
                     Save(Path.Combine(WatchDir(watch.Definition.Id), "latest.json"), sample);
                 }
                 var remaining = settings.IntervalMs - clock.ElapsedMilliseconds;
@@ -182,6 +183,7 @@ public sealed partial class ProjectService
             {
                 try { watch.Recorder.Append(watch.Definition.Revision, watch.Session, watch.State == "faulted" ? "fault" : "stop", detail: watch.Error); }
                 catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { watch.State = "faulted"; watch.Error = "Recording failed: " + ex.Message; }
+                FeedDiagnosticTriggers(watch, new(DateTimeOffset.UtcNow, watch.State == "faulted" ? "fault" : "stop", null, false, watch.Error));
             }
         }
     }

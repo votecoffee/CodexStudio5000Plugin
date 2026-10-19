@@ -15,7 +15,7 @@ public sealed record TagReferenceReport(ProjectInfo Project, string TagName, str
 /// <summary>A lexical where-used view. Compiler binding, instruction effects and alias propagation are deliberately separate.</summary>
 public static class TagReferences
 {
-    private sealed record Token(int Start, int Length, string Name, string? Program, string Role, string Status);
+    internal sealed record Token(int Start, int Length, string Name, string? Program, string Role, string Status);
     private sealed record Unit(XElement Element, string Text, int Start, string? Number);
     private static bool Word(char c) => char.IsAsciiLetterOrDigit(c) || c == '_';
     private static bool Initial(char c) => char.IsAsciiLetter(c) || c == '_';
@@ -103,7 +103,7 @@ public static class TagReferences
         return report;
     }
 
-    private static IEnumerable<Token> Lex(string text, Action<string> diagnose)
+    internal static IEnumerable<Token> Lex(string text, Action<string> diagnose)
     {
         var masked = text.ToCharArray();
         void Mask(int start, int end) { for (var i = start; i < end; i++) if (masked[i] is not ('\r' or '\n')) masked[i] = ' '; }
