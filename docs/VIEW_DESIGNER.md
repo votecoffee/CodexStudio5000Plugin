@@ -68,3 +68,5 @@ Format/workflow basis: Rockwell's [Studio 5000 View Designer Import/Export Refer
 ## Multilingual text
 
 Use Tools > Export Languages for the native KEY/language workbook or Unicode text matrix. The Languages button opens the shared editor for reviewed translations and new language columns. This workflow is separate from ViewApplication.hmi property editing. See [HMI multilingual text](HMI_LANGUAGES.md).
+
+Native v9 language workbooks may omit OpenXML row/cell addresses and include metadata before the Container/Element/Property/Key:<source language> header. These shapes are supported without rewriting existing addresses. The source key is read-only, and context distinguishes objects that use the same text. File-level edit/export/readback checks remain separate from native import/build/runtime acceptance.

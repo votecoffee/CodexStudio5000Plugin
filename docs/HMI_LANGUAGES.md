@@ -8,14 +8,16 @@ FactoryTalk View **ME and SE** and Studio 5000 **View Designer** language export
 | --- | --- |
 | FactoryTalk all-language workbook | OpenXML ZIP signature, even when Studio names it `.xls`. Native headers are `Server`, `Component Type`, `Component Name`, `Description`, then language-code columns. The four identity columns are immutable. |
 | FactoryTalk selected-language Unicode `.txt` | Seven native header lines are preserved verbatim. Body columns are component type, component name, string reference and string definition. Supply the selected language explicitly when registering; the service does not infer or relabel the native header. |
-| View Designer `.xlsx` | OpenXML workbook with immutable `KEY` source-string identities and language columns such as `en-US` and `es-ES`. Header context following a space is retained. |
-| View Designer Unicode `.txt` | Tab-delimited `KEY`/language matrix, including quoted tabs, doubled quotes and multiline fields. |
+| View Designer `.xlsx` | Native v9 `Container`, `Element`, `Property`, `Key:<source language>` layout, including metadata preamble rows and omitted OpenXML row/cell addresses. All four identity columns are immutable; source-language key text is visible as read-only. A simple immutable `KEY`/language matrix is also supported. |
+| View Designer Unicode `.txt` | Tab-delimited context/source-key or simple `KEY`/language matrix, including metadata preambles, quoted tabs, doubled quotes and multiline fields. |
 
 UTF-8 and UTF-16 LE/BE text is supported, preserving the BOM, encoding and untouched text spans. FactoryTalk text uses its native backslash/newline syntax; the API exposes those export strings without interpreting or replacing their escapes. Standard Excel-style doubled quote escaping is supported. Ambiguous Notepad quoting is rejected; normalize a separate Unicode text copy through the documented Studio/Excel workflow.
 
 The file signature determines workbook recognition. Legacy OLE/BIFF binary `.xls`, SpreadsheetML XML, signed/macro workbooks, ambiguous duplicate identities/language headers, unknown column layouts and unsupported worksheet relationships are rejected. Save a separate OpenXML workbook or use a supported native Unicode export. Microsoft Office and a spreadsheet package dependency are not required.
 
 Existing workbook styles, metadata and unknown package parts are retained; only changed worksheet XML is serialized. Untouched ZIP entry payloads remain byte-for-byte identical. Formula, typed numeric/boolean/error, rich text and metadata-bearing target cells are read-only. Protected or merged tables are read-only. New language columns contain explicit edited values or empty strings; they do not copy/fallback to another language. No API deletes language columns or changes native keys.
+
+Native View Designer identities include container, element, property and source-key text. Identical source strings on different objects remain distinct, and an empty source string with a valid object context remains addressable. Language headers such as `Key:en-US [English]` expose `en-US` as a read-only source language; headers such as `zh-Hans [Chinese]` expose an editable target. Native preamble rows, blank footer rows and existing implicit addresses are retained. Added workbook language columns include empty cells for unedited records.
 
 ## Desktop workflow
 
@@ -64,7 +66,7 @@ All existing language columns, identities and unedited translations are independ
 
 ## Validation and native boundaries
 
-Generated workbook/text fixtures cover ME/SE identities, View Designer keys, Unicode/Excel escapes, source preservation, unselected translations, new language columns, unsupported shapes, stale reviews and shared REST/MCP/GUI operations. Rebuild public fixtures with `py -3 scripts/New-HmiLanguageExamples.py`. They contain synthetic data and are not native acceptance evidence. Real View Designer import/build/runtime validation remains pending.
+Generated workbook/text fixtures cover ME/SE identities, View Designer context/source keys and metadata, implicit/mixed/sparse cell addressing, Unicode/Excel escapes, source preservation, unselected translations, new language columns, unsupported shapes, stale reviews and shared REST/MCP/GUI operations. The v9-shaped fixtures use invented content and contain no supplied application strings. Rebuild public fixtures with `py -3 scripts/New-HmiLanguageExamples.py`. They are not native acceptance evidence. View Designer import/build/runtime validation remains pending.
 
 An optional local smoke command validates an actual workbook using a private copy, changes one copied translation, exports/reopens it and checks source hashes and untouched package entries. It uses Core directly with controller operations disabled and no service/native bridge:
 
