@@ -17,7 +17,13 @@ public static class ProjectComparison
         "AddOnInstructionDefinitions", "AddOnInstructionDefinition", "Tags", "DataTypes", "Modules", "Tasks"];
 
     public static ProjectComparisonReport Compare(ProjectInfo left, XDocument leftDocument, ProjectInfo right,
-        XDocument rightDocument, ProjectCompareRequest request)
+        XDocument rightDocument, ProjectCompareRequest request) => CompareCore(left, leftDocument, right, rightDocument, request, false);
+
+    internal static ProjectComparisonReport CompareForReview(ProjectInfo left, XDocument leftDocument, ProjectInfo right,
+        XDocument rightDocument, ProjectCompareRequest request) => CompareCore(left, leftDocument, right, rightDocument, request with { Offset = 0, Limit = 200 }, true);
+
+    private static ProjectComparisonReport CompareCore(ProjectInfo left, XDocument leftDocument, ProjectInfo right,
+        XDocument rightDocument, ProjectCompareRequest request, bool allMatches)
     {
         if (request.Offset is < 0 or > 100000 || request.Limit is < 1 or > 200 || request.Query?.Length > 256)
             throw new OperationException("invalid_comparison", "Use offset 0..100000, limit 1..200 and a query up to 256 characters.");
@@ -77,11 +83,13 @@ public static class ProjectComparison
         Walk(leftDocument.Root, rightDocument.Root, "/RSLogix5000Content");
         var selected = changes.Where(c => string.IsNullOrEmpty(request.Query) ||
             c.Path.Contains(request.Query, StringComparison.OrdinalIgnoreCase) || c.Kind.Contains(request.Query, StringComparison.OrdinalIgnoreCase)).ToArray();
+        if (allMatches && selected.Length > ComparisonReviews.MaximumChanges)
+            throw new OperationException("comparison_review_limit", "A review supports up to 5000 matching changes; narrow the comparison filter.");
         var result = new ProjectComparisonReport(left, right, changes.Count, selected.Length,
             changes.Count(c => c.Change == "added"), changes.Count(c => c.Change == "removed"), changes.Count(c => c.Change == "modified"),
-            request.Offset, request.Limit, selected.Skip(request.Offset).Take(request.Limit).ToArray(),
+            request.Offset, allMatches ? selected.Length : request.Limit, allMatches ? selected : selected.Skip(request.Offset).Take(request.Limit).ToArray(),
             "Structural XML comparison only. Attribute order/formatting indentation and root ExportDate/Controller LastModifiedDate are ignored; scalar text, stored values, UDT member/AOI parameter order and unknown component XML remain significant. Rung numbers are optional. LCS aligns rung occurrences; moves are not inferred. No native semantic equivalence or runtime validation.");
-        if (JsonSerializer.SerializeToUtf8Bytes(result, ProjectService.Json).Length > 4 * 1024 * 1024)
+        if (!allMatches && JsonSerializer.SerializeToUtf8Bytes(result, ProjectService.Json).Length > 4 * 1024 * 1024)
             throw new OperationException("comparison_page_too_large", "Comparison page exceeds 4 MiB; request a smaller limit.");
         return result;
     }

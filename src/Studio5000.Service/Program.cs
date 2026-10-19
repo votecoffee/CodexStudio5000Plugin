@@ -68,6 +68,10 @@ app.MapPost("/api/projects/compare", (ProjectService service, ProjectCompareRequ
 app.MapPost("/api/projects/compare/routines", (ProjectService service, ProjectCompareRequest request) => service.CompareRoutines(request));
 app.MapPost("/api/projects/compare/ladder", (ProjectService service, LadderCompareRequest request) => service.CompareLadder(request));
 app.MapPost("/api/projects/compare/locate", (ProjectService service, LadderLocateRequest request) => service.LocateComparedLadder(request));
+app.MapPost("/api/comparison-reviews/export", (ProjectService service, ComparisonReviewExportRequest request, CancellationToken ct) => service.ExportComparisonReviewAsync(request, ct));
+app.MapGet("/api/comparison-reviews", (ProjectService service, string? query, int? offset, int? limit, CancellationToken ct) => service.ComparisonReviewsAsync(query, offset ?? 0, limit ?? 50, ct));
+app.MapGet("/api/comparison-reviews/{id}", (ProjectService service, string id, CancellationToken ct) => service.ComparisonReviewAsync(id, ct));
+app.MapPost("/api/comparison-reviews/{id}/forget", (ProjectService service, string id, ComparisonReviewDeleteRequest request, CancellationToken ct) => service.ForgetComparisonReviewAsync(id, request, ct));
 app.MapPost("/api/value-merge/capture", (ProjectService service, StructurePullRequest request, CancellationToken ct) => service.CaptureTagValueSourceAsync(request, ct));
 app.MapPost("/api/value-merge/preview", (ProjectService service, TagValueMergeRequest request, CancellationToken ct) => service.PreviewTagValueMergeAsync(request, ct));
 app.MapPost("/api/value-merge/browse", (ProjectService service, TagValueMergeBrowseRequest request, CancellationToken ct) => service.BrowseTagValueMergeAsync(request, ct));
