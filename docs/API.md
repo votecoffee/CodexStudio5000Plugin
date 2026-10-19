@@ -1,5 +1,7 @@
 # REST API
 
+Broker metadata and named versioned workflow readers are described in [CODEX_INTEGRATION.md](CODEX_INTEGRATION.md). Their authenticated REST/MCP routes use shared Core and grant no native access.
+
 Default base URL: `http://127.0.0.1:5487`. Read `.local/connection.json` for the running URL and credential file path. Set `Authorization: Bearer <contents of service.key>` on requests. Keep credentials out of chat, source control and logs. `GET /health` is the only unauthenticated endpoint.
 
 Read-only project review uses `POST /api/projects/compare` and `POST /api/projects/{id}/ladder-preview`. Both require snapshot hashes; the `logix` extension exposes `studio_compare_projects` and `studio_ladder_preview` through `studio_extensions_read`. See [PROJECT_REVIEW.md](PROJECT_REVIEW.md) for contracts, normalization rules, parser coverage and limits. Fixed MCP tool names remain unchanged.

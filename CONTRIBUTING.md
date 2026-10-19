@@ -44,6 +44,7 @@ Use Windows and the .NET 8 SDK. Keep domain operations in the shared service/Cor
 ```powershell
 dotnet build RockwellMCPServer.sln -c Release
 .\scripts\Verify-Isolated.ps1
+.\scripts\Verify-CodexIntegration.ps1
 ```
 
 The isolated verifier has its own service/state, no native bridge and disabled controller execution. See [validation instructions](docs/VALIDATION.md) for expected outputs, conditional schema checks and optional native procedures. Report what was actually tested, including skipped checks and native boundaries. Ordinary development does not authorize controller connections or native project changes.

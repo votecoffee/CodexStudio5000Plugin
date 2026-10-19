@@ -34,7 +34,7 @@ function Case([string]$Name) {
     Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'Start-PackagedMcp.ps1') -Destination (Join-Path $caseRoot 'scripts')
     $repo = Split-Path -Parent $PSScriptRoot
     foreach ($name in @('.codex-plugin','skills')) { Copy-Item -LiteralPath (Join-Path $repo $name) -Destination $caseRoot -Recurse }
-    foreach ($name in @('plugin.json','.mcp.json','mcp.json')) { Copy-Item -LiteralPath (Join-Path $repo $name) -Destination $caseRoot }
+    foreach ($name in @('plugin.json','.mcp.json','mcp.json','LICENSE')) { Copy-Item -LiteralPath (Join-Path $repo $name) -Destination $caseRoot }
     $plugin = Get-Content -LiteralPath (Join-Path $caseRoot 'plugin.json') -Raw | ConvertFrom-Json
     $plugin.version = 'fixture-1'; Write-RockwellIntegrationJson (Join-Path $caseRoot 'plugin.json') $plugin
     $script:inventory = @(); $script:commands.Clear()
@@ -66,7 +66,7 @@ try {
     Check (($commands | Where-Object { $_ -like 'codex plugin add rockwell*' }).Count -eq 1 -and (Receipt).route -eq 'Standalone') 'Fresh installation without Universal Tools installs the standalone plugin with skills'
     $bundle = New-RockwellStandalonePackage $caseRoot
     $files = @(Get-ChildItem -LiteralPath $bundle.package -Recurse -File)
-    Check ($files.Count -eq 11 -and !($files | Where-Object { $_.FullName.Substring($bundle.package.Length) -match '[\\/](artifacts|\.local)[\\/]' })) 'Standalone package contains only manifests, three guides, two references and a runtime launcher/pointer'
+    Check ($files.Count -eq 12 -and !($files | Where-Object { $_.FullName.Substring($bundle.package.Length) -match '[\\/](artifacts|\.local)[\\/]' })) 'Standalone package contains only manifests, MIT license, three guides, two references and a runtime launcher/pointer'
     Check ((New-RockwellStandalonePackage $caseRoot).package -eq $bundle.package) 'Identical standalone content reuses its immutable package'
 
     foreach ($mode in @('disabled','incompatible','missing-runtime','acceptance-pending')) {
