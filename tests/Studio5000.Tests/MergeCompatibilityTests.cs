@@ -61,6 +61,9 @@ public sealed class MergeCompatibilityTests : IDisposable
         var report = VersionCompatibility.CompareReadback(a, before, b, after, 38, [new("warning", "Unsupported option was defaulted by the native converter")]);
         Assert.True(report.TargetRevisionMatches); Assert.True(report.ConfigurationChanges > 0); Assert.Single(report.UnsupportedOrDefaultedMessages);
         after.Root.Element("Controller")!.SetAttributeValue("MajorRev", 37); Assert.False(VersionCompatibility.CompareReadback(a, before, b, after, 38, []).TargetRevisionMatches);
+        after.Root.Attribute("SoftwareRevision")!.Remove(); after.Root.Element("Controller")!.SetAttributeValue("MajorRev", 38);
+        var missing = VersionCompatibility.CompareReadback(a, before, b, after, 38, []); Assert.Null(missing.SoftwareRevision); Assert.False(missing.TargetRevisionMatches);
+        after.Root.Element("Controller")!.SetAttributeValue("MajorRev", "unknown"); Assert.Null(VersionCompatibility.CompareReadback(a, before, b, after, 38, []).ControllerRevision);
     }
     public void Dispose() { service.Dispose(); Directory.Delete(root, true); }
 }

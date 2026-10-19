@@ -96,6 +96,7 @@ public sealed class TriggeredDiagnosticsTests : IDisposable
         var updated = await service.SaveTrendAsync(new("Count trend updated", w.Definition.Id, 0, ["count"], 20, view.Id, 0)); Assert.Equal(1, updated.Revision);
         await Assert.ThrowsAsync<OperationException>(() => service.SaveTrendAsync(new("Stale", w.Definition.Id, 0, ["count"], Id: view.Id, ExpectedRevision: 0)));
         var result = service.AnalyzeTrend(new(view.Id, 1)); Assert.Single(result.Statistics); Assert.True(result.Statistics[0].GoodSamples >= 6); Assert.Equal("1", result.Statistics[0].FirstExact);
+        Assert.Equal(0, result.Statistics[0].MissingSamples); // Start/stop/gap markers are not sampled values.
         var partial = service.AnalyzeTrend(new(view.Id, 1, result.From, result.To, Limit: 2)); Assert.True(partial.HasMore); Assert.True(partial.NextIndex > 0);
         var artifact = service.ExportTrendAnalysis(new(new(view.Id, 1, result.From, result.To), result.ResultSha256)); Assert.Equal("json", artifact.Format);
         Assert.Throws<OperationException>(() => service.ExportTrendAnalysis(new(new(view.Id, 1, result.From, result.To), "wrong")));

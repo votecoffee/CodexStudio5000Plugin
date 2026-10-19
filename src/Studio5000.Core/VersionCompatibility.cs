@@ -15,10 +15,12 @@ public sealed record VersionCompatibilityStatus(VersionCompatibilityRun Run, Sdk
 public static class VersionCompatibility
 {
     public const string Boundary = "Native offline compatibility workflow on separate private copies. SDK ConvertAsync supports upgrading projects, not generic downgrade/header rewriting. Conversion completion is distinct from reopening the saved ACD and inspecting a fresh L5X readback. XML configuration differences and native unsupported/default messages require review; native import/build/runtime acceptance remains version/project-specific.";
-    internal static int? Major(XDocument doc) => int.TryParse(((string?)doc.Root?.Attribute("SoftwareRevision"))?.Split('.')[0], out var revision) ? revision : (int?)doc.Root?.Element("Controller")?.Attribute("MajorRev");
+    private static int? SoftwareMajor(XDocument doc) => int.TryParse(((string?)doc.Root?.Attribute("SoftwareRevision"))?.Split('.')[0], out var revision) ? revision : null;
+    private static int? ControllerMajor(XDocument doc) => int.TryParse((string?)doc.Root?.Element("Controller")?.Attribute("MajorRev"), out var revision) ? revision : null;
+    internal static int? Major(XDocument doc) => SoftwareMajor(doc) ?? ControllerMajor(doc);
     public static VersionReadbackReport CompareReadback(ProjectInfo source, XDocument before, ProjectInfo result, XDocument after, int target, SdkEvent[] events)
     {
-        var software = Major(after); var controller = (int?)after.Root?.Element("Controller")?.Attribute("MajorRev");
+        var software = SoftwareMajor(after); var controller = ControllerMajor(after);
         var a = new XDocument(before); var b = new XDocument(after);
         foreach (var doc in new[] { a, b }) { doc.Root?.Attribute("SoftwareRevision")?.Remove(); doc.Root?.Element("Controller")?.Attribute("MajorRev")?.Remove(); }
         var report = ProjectComparison.Compare(source, a, result, b, new(source.Id, source.CurrentSha256, result.Id, result.CurrentSha256, Limit: 200));

@@ -44,7 +44,7 @@ public sealed partial class ProjectService
         {
             var good = s.Points.Where(p => p.Quality == "good" && p.Value is not null).ToArray(); var values = good.Select(p => p.Value!.Value).ToArray();
             var mean = 0.0; for (var i = 0; i < values.Length; i++) mean = mean * ((double)i / (i + 1)) + values[i] / (i + 1);
-            return new TrendStatistic(s.Key, good.Length, s.Points.Length - good.Length, values.Length == 0 ? null : values.Min(), values.Length == 0 ? null : values.Max(), values.Length == 0 || !double.IsFinite(mean) ? null : mean, good.FirstOrDefault()?.ExactValue, good.LastOrDefault()?.ExactValue);
+            return new TrendStatistic(s.Key, good.Length, s.Points.Count(p => p.Quality == "bad_or_unavailable"), values.Length == 0 ? null : values.Min(), values.Length == 0 ? null : values.Max(), values.Length == 0 || !double.IsFinite(mean) ? null : mean, good.FirstOrDefault()?.ExactValue, good.LastOrDefault()?.ExactValue);
         }).ToArray();
         var hash = Hash(JsonSerializer.SerializeToUtf8Bytes(new { definition, from, to, page.Records, page.HasMore, trend, stats }, Json));
         return new(definition, from, to, trend, stats, page.HasMore, page.NextIndex, hash, "Results use this exact recorded watch/source revision. Numeric display/aggregates use doubles; first/last JSON values retain exact integer text. Gaps and bad quality remain explicit. HasMore means statistics cover only the returned bounded sample window, not the complete requested range. Polling is never started by creating, editing or analyzing a trend view.");

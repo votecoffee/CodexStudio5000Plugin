@@ -19,7 +19,7 @@ public sealed record RungEvaluationReport(DiagnosticCaptureInfo Capture, string 
 
 public static class LogicEvaluation
 {
-    public const string Boundary = "Conditional explanation using an immutable captured-value set and its exact saved project revision. Supports static XIC/XIO, numeric EQU/NEQ/GRT/GEQ/LES/LEQ/LIM, AFI/NOP and OTE power conditions with AND/OR branches. Stateful/unsupported instructions, unavailable values, indirect addresses and values affected by earlier writes remain unknown. No scan scheduling, I/O state, force state, simultaneous sampling or native execution is established. Captured values are never modified.";
+    public const string Boundary = "Conditional explanation using an immutable captured-value set and its exact saved project revision. Supports static XIC/XIO, numeric EQU/NEQ/GRT/GEQ/LES/LEQ/LIM, AFI/NOP and OTE power conditions with AND/OR branches. Stateful/unsupported instructions, unavailable values, indirect addresses and values affected by earlier writes remain unknown. A saved source hash does not authenticate the controller's running logic revision. No scan scheduling, I/O state, force state, simultaneous sampling or native execution is established. Captured values are never modified.";
     private sealed record State(string Truth, string[] Blockers, string[] Unknown)
     {
         internal static State Known(bool value, string? id = null) => new(value ? "true" : "false", !value && id is not null ? [id] : [], []);
