@@ -23,6 +23,12 @@ Discover/describe the `logix` operation `studio_tag_references` through the stab
 
 `query` filters operand text, source program/owner, kind, role or status. `total` counts matching occurrences before paging. Each result includes `sourceXPath`, `start`, `length`, `operand`, `snippet`, `snippetStart` and `snippetTruncated`. Offsets refer to the selected text element's value, or the alias attribute value. Positional XPath selectors distinguish duplicate rung/line numbers. `routineXPath` and the zero-based `rungIndex` allow the matching RLL rung to be opened in the ladder viewer.
 
+## Desktop
+
+Open **PLC where used…** from the main window and select a saved Logix snapshot, declaration scope and base tag. **Where used…** in the tag/UDT browser opens the selected tag's base declaration, including when a member/array cell is selected. **Where used in PLC…** in the ME/SE resolver opens the base tag of a matched PLC reference. Both entry points reject changed snapshots before opening; the where-used view keeps the opening hash until an explicit refresh.
+
+Use **Find references**, the filter and Previous/Next to browse candidates. Select a result for its exact source selector, offsets, snippet, hash and diagnostics. **Open selected ladder rung…** opens RLL at the zero-based rung position, preserving the report's hash even when rung numbers are duplicated. ST and alias source remains in the details pane. Refreshing snapshots explicitly rebinds the selection to current saved metadata; no controller access occurs.
+
 ## Coverage
 
 Local tag declarations shadow controller tags. An explicit `Program:Name.Tag` candidate selects that program scope. Member names are part of their base address, so a member named `Input` in `Record.Input` does not become a reference to a separate tag named `Input`.

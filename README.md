@@ -27,7 +27,7 @@ RockwellMCPServer gives agents and engineers a shared workspace for project insp
 | Capability | Scope |
 |---|---|
 | Logix project editing | Inspect and preview/apply L5X component changes; export L5X or exploded ZIP. Optional SDK conversion supports ACD files. |
-| Project review | Compare two hash-bound Logix snapshots with aligned rung differences; preview ladder branches as drawing geometry and passive SVG. |
+| Project review | Compare hash-bound Logix snapshots, find PLC tag where-used candidates in saved RLL/ST and direct aliases, and preview ladder branches as drawing geometry and passive SVG. |
 | Logix SDK jobs | Ordered native calls for projects, builds, imports, typed/raw tags and other operations in the bound SDK version. Availability depends on the installed Logix version and project. |
 | FactoryTalk View ME/SE | Edit existing graphics XML properties using matching installed schemas; resolve tag references against saved PLC metadata using explicit shortcut/parameter context, prepare import packages and compare re-exports. |
 | View Designer | Edit existing properties in exported `.hmi` folders, preserve assets, prepare import ZIPs and compare re-exports. |
@@ -114,6 +114,8 @@ For FactoryTalk displays, **Tag references** shows extracted occurrences and sou
 
 Use **Tag / UDT browser…** to search tags, expand structures/arrays and create a watch list from selected values. **Watch lists…** provides polling controls and extracted values; **Trends & recording…** provides graphs, retention and CSV. Saving a watch list does not connect. Lists restart stopped; closing a viewer does not stop already active shared polling.
 
+Use **PLC where used…**, **Where used…** in the tag browser, or **Where used in PLC…** on a matched HMI reference to inspect saved RLL/ST candidates and direct alias declarations. Results show source locations and distinguish indirect index expressions. Open a selected RLL candidate in the ladder viewer with its snapshot hash and exact rung position. These lexical checks do not establish compiler binding or prove a tag is unused. See [tag where-used coverage](docs/TAG_REFERENCES.md).
+
 **Extensions…** exposes the live catalog, operation forms, reload and jobs. Compatible extension updates can be reloaded without restarting Codex. Shared host, SDK binding or contract changes can require a service restart; see [extension updating and rollback](docs/EXTENSIONS.md).
 
 To generate a Studio 5000 Custom Tools entry, run `.\scripts\New-CustomToolsMenu.ps1`. It writes `artifacts/CustomToolsMenu.xml` for manual merging into Studio's installed menu and passes the saved project path to the GUI. The generator does not change the Studio installation.
@@ -138,6 +140,7 @@ XML checks, file comparisons and successful SDK calls do not establish native HM
 | [View Designer](docs/VIEW_DESIGNER.md) | Export syntax, property editing and native handoff |
 | [Watches and UDTs](docs/WATCHES.md) | Polling, value extraction and controller structure snapshots |
 | [Browser and recording](docs/BROWSER_RECORDING.md) | Search, watch creation, trends, retention and CSV |
+| [PLC where-used](docs/TAG_REFERENCES.md) | Scoped lexical references, source locations, indirect indices and desktop navigation |
 | [Extensions](docs/EXTENSIONS.md) | Contracts, packaging, live reload and rollback |
 | [Exploded projects](docs/EXPLODED_PROJECTS.md) | Format compatibility and loss-prevention checks |
 | [Community integrations](docs/COMMUNITY.md) | Candidate libraries, licenses and adoption priorities |

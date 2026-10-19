@@ -38,6 +38,16 @@ public sealed class GraphicsReferencesForm : Form
         top.Controls.Add(new Label { Text = "ME / SE display", AutoSize = true, Padding = new(0, 7, 0, 0) }); top.Controls.Add(display);
         Button(top, "Refresh snapshots", RefreshAsync); Button(top, "Resolve", ResolveAsync);
         Button(top, "Previous", () => PageAsync(-1)); Button(top, "Next", () => PageAsync(1));
+        Button(top, "Where used in PLC…", async () =>
+        {
+            var index = references.CurrentRow?.Index ?? -1;
+            if (report is null || index < 0 || index >= report.References.Length || report.References[index] is not
+                { Status: "matched_in_snapshot", ProjectId: not null, ProjectSha256: not null, TagName: not null } row)
+                throw new InvalidOperationException("Resolve and select a matched PLC reference first.");
+            var current = await client.GetAsync<ProjectInfo>($"/api/projects/{row.ProjectId}");
+            if (current.CurrentSha256 != row.ProjectSha256) throw new InvalidOperationException("Mapped PLC snapshot changed. Refresh and resolve the display again.");
+            using var whereUsed = new TagReferencesForm(client, current, row.TagName, row.ProgramName); whereUsed.ShowDialog(this);
+        });
         top.SetFlowBreak(top.Controls[^1], true); top.Controls.Add(Caption("Filter")); top.Controls.Add(query);
         top.Controls.Add(new Label { Text = "Saved PLC metadata • explicit context • sources preserved", AutoSize = true, Padding = new(8, 7, 0, 0) });
 

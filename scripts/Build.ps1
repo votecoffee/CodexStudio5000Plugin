@@ -1,4 +1,4 @@
-param([switch]$WithSdk, [string]$ExtensionVersion = '0.11.0')
+param([switch]$WithSdk, [string]$ExtensionVersion = '0.12.0')
 $ErrorActionPreference = 'Stop'
 $repo = Split-Path -Parent $PSScriptRoot
 Push-Location -LiteralPath $repo

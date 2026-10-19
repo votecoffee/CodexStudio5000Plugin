@@ -36,6 +36,14 @@ public sealed class TagBrowserForm : Form
         var top = new FlowLayoutPanel { Dock = DockStyle.Top, Height = 90, Padding = new(8) };
         top.Controls.Add(projects); Button(top, "Open ACD / L5X…", OpenAsync); top.Controls.Add(search); Button(top, "Search", SearchAsync);
         top.SetFlowBreak(top.Controls[^1], true); top.Controls.Add(job); Button(top, "Load upload result", LoadJobAsync);
+        Button(top, "Where used…", async () =>
+        {
+            if (project is null || page is null || tree.SelectedNode is not { } selectedNode || !metadata.TryGetValue(selectedNode, out var node) || node.TagName is null)
+                throw new InvalidOperationException("Select a tag or member in the tree first.");
+            var current = await client.GetAsync<ProjectInfo>($"/api/projects/{project.Id}");
+            if (current.CurrentSha256 != page.SourceSha256) throw new InvalidOperationException("Snapshot changed. Refresh the browser before finding references.");
+            using var references = new TagReferencesForm(client, current, node.TagName, node.ProgramName); references.ShowDialog(this);
+        });
         var title = new Label { Text = "TAG BROWSER  /  CHECK TAGS OR MEMBERS TO BUILD A WATCH LIST", Dock = DockStyle.Top, Height = 46,
             Padding = new(12), BackColor = Color.FromArgb(24, 40, 61), ForeColor = Color.White };
         var split = new SplitContainer { Dock = DockStyle.Fill };

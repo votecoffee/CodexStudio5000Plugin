@@ -35,6 +35,8 @@ Limits: 200 rows per page, 256 query characters, 16 KiB per expression, 10000 re
 
 In the desktop, open **Resolve references…** and select a registered ME/SE display. Resolve initially without context to see occurrences and available exact scopes. On **PLC shortcuts**, enter a shortcut name, select a registered Logix snapshot and set the mapping. On **Scoped parameters**, choose/paste the exact scope, enter `#number` and its literal value, and set the binding. Resolve again to update the results. Select a row for source selectors, hashes, expansion trace and diagnostics. Search and Previous/Next page the results; removal buttons remove the selected context entry. Changing display or refreshing snapshots clears context so old scopes/hashes cannot carry over silently.
 
+Select a matched PLC reference and use **Where used in PLC…** to inspect that base tag's saved RLL/ST candidates and direct alias declarations. The linked view retains the mapped PLC hash and rejects changed snapshots. See [PLC where-used](TAG_REFERENCES.md) for lexical coverage and ladder navigation.
+
 ```json
 {
   "expectedSha256": "CURRENT_DISPLAY_SHA256",

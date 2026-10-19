@@ -160,5 +160,27 @@ public sealed class TagReferenceTests : IDisposable
         var tooManyMatches = await Register(Document([], [string.Concat(Enumerable.Repeat("Value;", 10001))]));
         Assert.Equal("tag_reference_limit", Assert.Throws<OperationException>(() => Find(tooManyMatches)).Code);
     }
+    [Fact]
+    public async Task DuplicateRungNumbersRetainDistinctSelectorsAndLadderOffsets()
+    {
+        var doc = Document(["MOV(Value,Value);", "MOV(Value,Value);"]);
+        foreach (var rung in doc.Descendants("Program").First().Descendants("Rung")) rung.SetAttributeValue("Number", "0");
+        var p = await Register(doc); var report = Find(p);
+        Assert.Equal(new int?[] { 0, 0, 1, 1 }, report.References.Select(r => r.RungIndex));
+        Assert.Equal(2, report.References.Select(r => r.SourceXPath).Distinct().Count());
+        foreach (var reference in report.References)
+        {
+            var preview = service.PreviewLadder(p.Id, new(p.CurrentSha256, reference.RoutineXPath!, reference.RungIndex!.Value, 1));
+            Assert.Equal(reference.RungIndex, Assert.Single(preview.Rungs).Index);
+        }
+    }
+    [Fact]
+    public async Task EncodedPageLimitCanBeRecoveredByRequestingFewerOccurrences()
+    {
+        var p = await Register(Document(Enumerable.Repeat("MOV(Value[" + new string('<', 3500) + "],0);", 200).ToArray()));
+        Assert.Equal("tag_reference_page_too_large", Assert.Throws<OperationException>(() => service.FindTagReferences(p.Id, new(p.CurrentSha256, "Value", "First", Limit: 200))).Code);
+        var page = service.FindTagReferences(p.Id, new(p.CurrentSha256, "Value", "First", Limit: 1));
+        Assert.Equal(200, page.Total); Assert.Single(page.References);
+    }
     public void Dispose() => service.Dispose();
 }

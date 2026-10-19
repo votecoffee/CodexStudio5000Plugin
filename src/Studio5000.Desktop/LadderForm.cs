@@ -8,6 +8,7 @@ public sealed class LadderForm : Form
 {
     private readonly ServiceClient client;
     private readonly ProjectInfo? initial;
+    private readonly TagReferenceOccurrence? initialReference;
     private readonly ComboBox projects = new() { Width = 300, DropDownStyle = ComboBoxStyle.DropDownList };
     private readonly ComboBox routines = new() { Width = 410, DropDownStyle = ComboBoxStyle.DropDownList };
     private readonly TextBox filter = new() { Width = 190, PlaceholderText = "Routine name filter" };
@@ -21,9 +22,9 @@ public sealed class LadderForm : Form
     private sealed record RoutineChoice(ElementInfo Value)
     { public override string ToString() => (Value.Program ?? "AOI/controller") + " / " + Value.Name; }
 
-    public LadderForm(ServiceClient client, ProjectInfo? initial)
+    public LadderForm(ServiceClient client, ProjectInfo? initial, TagReferenceOccurrence? initialReference = null)
     {
-        this.client = client; this.initial = initial;
+        this.client = client; this.initial = initial; this.initialReference = initialReference;
         Text = "Ladder preview"; Size = new(1380, 880); MinimumSize = new(1050, 650); Font = new("Segoe UI", 10);
         var top = new FlowLayoutPanel { Dock = DockStyle.Top, Height = 92, Padding = new(8) };
         top.Controls.Add(projects); Button(top, "Refresh snapshots", RefreshAsync); top.Controls.Add(filter); Button(top, "Find routines", FindAsync);
@@ -34,7 +35,15 @@ public sealed class LadderForm : Form
         Controls.Add(split); Controls.Add(top); Controls.Add(status);
         projects.SelectionChangeCommitted += async (_, _) => await Run(FindAsync);
         routines.SelectionChangeCommitted += (_, _) => { report = null; offset = 0; canvas.Set(null); source.Clear(); status.Text = "Routine selection changed. Select Load routine."; };
-        Shown += async (_, _) => { if (!fixture) await Run(RefreshAsync); };
+        Shown += async (_, _) => { if (!fixture) await Run(this.initialReference is not null ? LoadReferenceAsync : RefreshAsync); };
+    }
+    private async Task LoadReferenceAsync()
+    {
+        if (initial is null || initialReference is not { RoutineType: "RLL", RoutineXPath: not null } reference)
+            throw new InvalidOperationException("A saved RLL reference and its exact project hash are required.");
+        projects.Items.Add(new ReviewProjectChoice(initial)); projects.SelectedIndex = 0;
+        routines.Items.Add(new RoutineChoice(new(reference.RoutineXPath, "Routine", reference.OwnerName, reference.ProgramName))); routines.SelectedIndex = 0;
+        offset = reference.RungIndex ?? 0; await LoadAsync();
     }
     private void Button(FlowLayoutPanel parent, string text, Func<Task> action)
     {
