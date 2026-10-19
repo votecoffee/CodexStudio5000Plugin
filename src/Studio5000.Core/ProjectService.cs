@@ -61,6 +61,8 @@ public sealed partial class ProjectService : IDisposable
         factoryTalk = FactoryTalkStatus(),
         viewDesigner = ViewDesignerStatus(),
         extensions = new { protocolVersion = 1, catalog = "/api/extensions", reload = "/api/extensions/reload", fixedMcpTools = "studio_extensions_*", activation = "Versioned trusted local packages; existing calls retain their generation" },
+        savedReviews = new { comparisonSessions = "/api/comparison-sessions", mergeMappings = "/api/merge-mappings", maximumPerKind = 200,
+            maximumMappingTags = 256, rebindRequiresFreshPreview = true, connectsToController = false },
         sdk = SdkCapabilities(),
         watches = new { minimumIntervalMs = 100, maximumTags = 64, maximumActiveLists = 4, autoStartAfterRestart = false, structures = "SDK-native decorated XML; no inferred memory offsets",
             backends = new[] { "Sdk", "LibPlcTag" }, cipBridgeConfigured = File.Exists(options.CipBridgePath), cipPlan = "/api/projects/{id}/cip-watch-plan",

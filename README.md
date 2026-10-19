@@ -38,6 +38,8 @@ RockwellMCPServer gives agents and engineers a shared workspace for project insp
 | Portable watch templates | Export selections/settings, preview explicit project/program bindings and import a new stopped list with a checked review hash. |
 | Watch source rebinding | Preview declaration/scope changes and move a stopped list to a new snapshot while retaining its ID, settings and recording revisions. |
 | Tag value merge | Preview selected values from saved or uploaded PLC snapshots, check UDT/array layouts and merge into a different offline project. GUI supports capture and new L5X/ACD exports. |
+| Saved comparison sessions | Persist pinned snapshot hashes, comparison filters and ladder bookmarks; detect drift before resuming. |
+| Reusable merge mappings | Store whole-tag name pairs, bind to explicit snapshots/program scopes and generate a fresh reviewed value preview. |
 | Optional CIP reader | Read bounded scalar/UDT/array symbols through an isolated libplctag worker; plan reads offline and share watch recording/trends. Live validation pending. |
 | Trending and recording | Persist history across restarts, graph numeric/BOOL values, show quality/stale gaps and export CSV. |
 | Reloadable extensions | Discover operation schemas and reload compatible modules through MCP or the GUI while the host and chat remain running. |
@@ -159,6 +161,7 @@ XML checks, file comparisons and successful SDK calls do not establish native HM
 | [Logix SDK](docs/SDK.md) | Bound catalog, native jobs and controller target policies |
 | [Project review](docs/PROJECT_REVIEW.md) | Structural comparison, rung alignment and read-only ladder previews |
 | [Tag value merge](docs/VALUE_MERGE.md) | Offline value transfer, online source capture, layout checks and new L5X/ACD exports |
+| [Saved reviews](docs/SAVED_REVIEWS.md) | Persistent comparison sessions and reusable merge mappings, revision checks and fresh binding previews |
 | [Online edits](docs/ONLINE_EDITS.md) | Planning, import dispositions and native lifecycle |
 | [FactoryTalk View](docs/FACTORYTALK.md) | ME/SE graphics editing and native import handoff |
 | [View Designer](docs/VIEW_DESIGNER.md) | Export syntax, property editing and native handoff |
