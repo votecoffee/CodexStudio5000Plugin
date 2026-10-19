@@ -13,7 +13,8 @@ public sealed record ComparisonReviewDocument(int SchemaVersion, string Applicat
     ComparisonSnapshot Left, ComparisonSnapshot Right, string? Query, bool IncludeRungNumbers, bool IncludeXml, bool IncludeLadder,
     int TotalChanges, int Added, int Removed, int Modified, ComparisonReviewChange[] Changes, string Boundary);
 public sealed record ComparisonReviewEntry(string Id, DateTimeOffset CreatedAt, string Format, string ArtifactId, string Sha256, long Bytes,
-    ComparisonSnapshot Left, ComparisonSnapshot Right, string? Query, bool IncludeRungNumbers, bool IncludeXml, bool IncludeLadder, int TotalChanges, int IncludedChanges);
+    ComparisonSnapshot Left, ComparisonSnapshot Right, string? Query, bool IncludeRungNumbers, bool IncludeXml, bool IncludeLadder, int TotalChanges, int IncludedChanges,
+    string? CatalogSha256 = null);
 public sealed record ComparisonReviewPage(int Total, int Offset, int Limit, ComparisonReviewEntry[] Reviews);
 public sealed record ComparisonReviewDeleteRequest(string ExpectedSha256);
 public sealed record ComparisonReviewExport(Artifact Artifact, ComparisonReviewEntry Review);
@@ -107,12 +108,16 @@ public sealed partial class ProjectService
             var document = new ComparisonReviewDocument(1, WorkspaceIdentity.Version, DateTimeOffset.UtcNow, Snapshot(left), Snapshot(right), comparison.Query,
                 comparison.IncludeRungNumbers, request.IncludeXml, request.IncludeLadder, report.TotalChanges, report.Added, report.Removed, report.Modified, rows, report.Boundary + " " + ComparisonReviews.Boundary);
             var bytes = ComparisonReviews.Bytes(document, request.Format); ct.ThrowIfCancellationRequested();
+            var catalog = ComparisonAnnotations.Catalog(Hash(bytes), document.Changes);
+            var catalogBytes = JsonSerializer.SerializeToUtf8Bytes(catalog, Json);
+            if (catalogBytes.Length > ComparisonReviews.MaximumBytes) throw new OperationException("comparison_review_limit", "Change catalog exceeds 16 MiB; narrow the comparison filter.");
             var id = Guid.NewGuid().ToString("N"); var artifactDir = ArtifactDir(id); Directory.CreateDirectory(artifactDir);
             AtomicBytes(Path.Combine(artifactDir, "project." + request.Format), bytes);
+            AtomicBytes(Path.Combine(artifactDir, "changes.json"), catalogBytes);
             var artifact = new Artifact(id, id, request.Format, Hash(bytes), bytes.Length, ComparisonReviews.Boundary);
             Save(Path.Combine(artifactDir, "artifact.json"), artifact);
             var entry = new ComparisonReviewEntry(id, document.CreatedAt, request.Format, artifact.Id, artifact.Sha256, artifact.Bytes, document.Left, document.Right,
-                document.Query, document.IncludeRungNumbers, document.IncludeXml, document.IncludeLadder, document.TotalChanges, rows.Length);
+                document.Query, document.IncludeRungNumbers, document.IncludeXml, document.IncludeLadder, document.TotalChanges, rows.Length, Hash(catalogBytes));
             ReviewWrite("comparison-reviews", id, entry); return new(artifact, entry);
         }
         finally { gate.Release(); }
@@ -138,10 +143,7 @@ public sealed partial class ProjectService
         await gate.WaitAsync(ct);
         try
         {
-            var entry = ReadComparisonReview(id); var (artifact, _) = Download(entry.ArtifactId);
-            if (artifact.Sha256 != entry.Sha256 || artifact.Format != entry.Format || artifact.Bytes != entry.Bytes)
-                throw new OperationException("artifact_tampered", "Review metadata differs from its immutable artifact.");
-            return entry;
+            return VerifiedComparisonReview(id).Entry;
         }
         finally { gate.Release(); }
     }

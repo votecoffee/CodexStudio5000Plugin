@@ -43,12 +43,37 @@ internal static class ComparisonReviewIntegration
         var saved = await Tool<SavedArtifact>("studio_save_artifact", new { artifactId = html.Artifact.Id, request = new SaveArtifactRequest(Path.Combine(root, "artifacts", "exports", "comparison-review.html")) }, true);
         Check(content.Contains("<svg") && content.Contains("Content-Security-Policy") && saved.Sha256 == html.Artifact.Sha256 && ProjectService.Hash(await File.ReadAllBytesAsync(saved.Path)) == saved.Sha256,
             "REST exports optional passive ladder drawings/XML to standalone HTML and MCP saves its verified copy");
+        var annotationPage = await Tool<ComparisonAnnotationPage>("studio_comparison_annotations", new { reviewId = entry.Id, offset = 0, limit = 100 });
+        Check(annotationPage.Summary is { Revision: 0, Total: 211, Unreviewed: 211 } && annotationPage.Changes.Length == 100,
+            "MCP reads paged recorded changes with initial unreviewed progress from the retained report catalog");
+        var changeId = annotationPage.Changes[0].Change.Id; var secondId = annotationPage.Changes[1].Change.Id;
+        var updateNotes = new ComparisonAnnotationUpdateRequest(entry.Sha256, 0, [new(changeId, "reviewed", "Checked stored value"), new(secondId, "needs-attention", "Check this range")]);
+        Check((await Call("studio_comparison_annotations_update", new { reviewId = entry.Id, request = updateNotes })).IsError == true,
+            "Read-only MCP dispatch rejects annotation state changes");
+        var updatedNotes = await client.PostAsync<ComparisonAnnotationSummary>($"/api/comparison-reviews/{entry.Id}/annotations", updateNotes);
+        var filteredNotes = await Tool<ComparisonAnnotationPage>("studio_comparison_annotations", new { reviewId = entry.Id, query = "range", status = "needs-attention" });
+        Check(updatedNotes is { Revision: 1, Reviewed: 1, NeedsAttention: 1, Unreviewed: 209 } && filteredNotes.Matching == 1 && filteredNotes.Changes.Single().Change.Id == secondId,
+            "REST saves review progress and MCP searches the same status-filtered notes");
+        Check((await Call("studio_comparison_annotations_update", new { reviewId = entry.Id, request = updateNotes }, true)).IsError == true &&
+            (await Call("studio_comparison_annotations_export", new { reviewId = entry.Id, request = new ComparisonAnnotationExportRequest(entry.Sha256, 0) }, true)).IsError == true,
+            "MCP rejects outdated note saves and exports at the loaded annotation revision");
+        var htmlChanges = await client.GetAsync<ComparisonAnnotationPage>($"/api/comparison-reviews/{html.Review.Id}/annotations");
+        Check((await Call("studio_comparison_annotations_update", new { reviewId = entry.Id, request = updateNotes with { ExpectedRevision = 1, Changes = [new(changeId, "reviewed", "Must stay atomic"), new(htmlChanges.Changes[0].Change.Id, "reviewed", "Different report")] } }, true)).IsError == true &&
+            (await client.GetAsync<ComparisonAnnotationPage>($"/api/comparison-reviews/{entry.Id}/annotations")).Summary.Revision == 1,
+            "A cross-report change ID rejects an entire annotation batch without modifying previously saved notes");
+        var notesArtifact = await Tool<Artifact>("studio_comparison_annotations_export", new { reviewId = entry.Id, request = new ComparisonAnnotationExportRequest(entry.Sha256, 1) }, true);
+        var notesCopy = await Tool<SavedArtifact>("studio_save_artifact", new { artifactId = notesArtifact.Id, request = new SaveArtifactRequest(Path.Combine(root, "artifacts", "exports", "comparison-notes.json")) }, true);
+        var notesDocument = JsonSerializer.Deserialize<ComparisonAnnotationExportDocument>(await File.ReadAllBytesAsync(notesCopy.Path), ProjectService.Json)!;
+        Check(notesDocument.Summary.Revision == 1 && notesDocument.Notes.Length == 2 && notesDocument.Report.Sha256 == entry.Sha256 && notesCopy.Sha256 == notesArtifact.Sha256 && (await client.DownloadAsync(entry.ArtifactId)).SequenceEqual(bytes),
+            "MCP exports a verified notes snapshot tied to the immutable report without changing its bytes");
         var draft = await client.PostAsync<ChangePreview>($"/api/projects/{b.Id}/previews", new PreviewRequest(b.CurrentSha256,
             [new("set_attribute", "/RSLogix5000Content/Controller/Tags/Tag[@Name='Value000']/DataValue", "3", "Value")]));
         var changed = await client.PostAsync<ProjectInfo>($"/api/projects/{b.Id}/previews/{draft.Id}/apply", new ApplyRequest(b.CurrentSha256));
         var old = await client.GetAsync<ComparisonReviewEntry>("/api/comparison-reviews/" + entry.Id);
         Check(changed.Revision == 1 && old.Right.Sha256 == b.CurrentSha256 && (await Call("studio_comparison_review_export", new { request }, true)).IsError == true,
             "Retained reports remain readable after project changes while a new export rejects outdated snapshot hashes");
+        Check((await client.GetAsync<ComparisonAnnotationPage>($"/api/comparison-reviews/{entry.Id}/annotations")).Summary is { Reviewed: 1, NeedsAttention: 1, Revision: 1 },
+            "Report annotations retain their original progress after the underlying project receives an offline edit");
         var listed = await Tool<ComparisonReviewPage>("studio_comparison_reviews", new { query = exported.Review.Id, offset = 0, limit = 1 });
         Check(listed.Total == 1 && (await Call("studio_comparison_review_forget", new { reviewId = entry.Id, request = new ComparisonReviewDeleteRequest("wrong") }, true)).IsError == true,
             "MCP report history filters/paging agree with REST and forgetting requires the recorded artifact hash");
