@@ -25,7 +25,7 @@ Receipts are per `CODEX_HOME` profile under ignored `.local/codex-integration/`.
 
 ## Package and update lifecycle
 
-The installer publishes an immutable, content-addressed package under `.local/codex-marketplace/packages/`. Its public-content allowlist includes portable/compatibility plugin manifests, MCP configuration, the MIT license, three workflow skills, two supporting references and a launcher/runtime pointer. Projects, service credentials, state and build outputs are excluded. Identical content reuses the package; previous packages remain intact.
+The installer publishes an immutable, content-addressed package under `.local/codex-marketplace/packages/`. Its public-content allowlist includes portable/compatibility plugin manifests, MCP configuration, the MIT license, three workflow skills, three supporting references and a launcher/runtime pointer. Projects, service credentials, state and build outputs are excluded. Identical content reuses the package; previous packages remain intact.
 
 Only an app-owned package with the exact plugin identity and matching marketplace source is refreshed. A disabled plugin stays disabled: its update is staged without invoking the enabling `plugin add` command. Existing native per-server settings are retained. An enabled app-owned refresh requires an idle app; first-time installation only publishes a new package and can run with `Install.cmd -SkipBuild` while the independent service is working. Binary rebuilds still require stopped applications.
 

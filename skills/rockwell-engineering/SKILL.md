@@ -1,6 +1,6 @@
 ---
 name: rockwell-engineering
-description: Browse and edit Rockwell PLC snapshots, FactoryTalk ME/SE and View Designer exports, multilingual comments and HMI strings, watches, trends, diagnostics and offline transactions through the shared RockwellMCPServer service.
+description: Browse and edit Rockwell PLC snapshots, merge reviewed logic while keeping current saved tag values, validate preservation/readback, and work with FactoryTalk ME/SE, View Designer, watches, trends and offline transactions through RockwellMCPServer.
 ---
 
 Use `studio_extensions_catalog`, then `studio_extensions_describe` for the selected operation's current generation, exact arguments and effect. Invoke it through the matching `studio_extensions_read`, `studio_extensions_preview`, `studio_extensions_apply` or `studio_extensions_control` tool. Catalog entries are discovery metadata, not permission. Refresh after an extension reload or stale generation and review again before another mutation. Never automatically replay an interrupted or indeterminate operation.
@@ -8,6 +8,8 @@ Use `studio_extensions_catalog`, then `studio_extensions_describe` for the selec
 The GUI and MCP adapter use the same service. Preserve project IDs, source hashes, review tokens and job receipts across clients. App locks and revisions apply to every client. Inspect the retained outcome before retrying an uncertain write from any client.
 
 Preserve source files and work on managed copies. Register explicit source paths within configured roots, inspect the target and current revision, preview the requested change, then apply with the returned review/hash guards. Save exports to new output paths. An offline preview, XML/schema check or successful SDK job does not establish native import, runtime behavior or commissioning acceptance.
+
+For “merge logic but keep current values”, use the existing `studio_logic_value_merge_preview/apply` workflow with three pinned inputs and the supported `preserve-fresh` mode before writing a custom merge script. For generic preservation/integrity or existing native readback, discover `studio_validation_profiles` and retain the exact reviewed report with `studio_validation_record`. Read [the merge and validation workflow](references/logic-value-merge.md) for input roles, exact MESSAGE exceptions, supported scope and separate native acceptance. Inspect live schemas first: older installed versions have only bounded selected-tag merging.
 
 For PLC comments and descriptions, discover `studio_documentation_*`; for multilingual HMI exports, discover `ftview_languages_*` or `viewdesigner_languages_*`. Preserve keys, existing translations, native metadata and unrelated cells/properties. View Designer language imports can remove omitted languages: retain the full intended language set. FactoryTalk graphics import/export uses the current native application language. Binary ACD editing uses the installed SDK; direct FactoryTalk binaries and View Designer VPD/VPDR editing are unsupported.
 

@@ -5,16 +5,20 @@ namespace Studio5000.Core;
 
 public sealed record MergeSnapshot(string ProjectId, string Sha256);
 public sealed record LogicValueResolution(string TagName, string? ProgramName, string Choice);
-public sealed record LogicValueMergeRequest(MergeSnapshot Baseline, MergeSnapshot Logic, MergeSnapshot Values, TagValueMap[]? Tags = null, LogicValueResolution[]? Resolutions = null);
+public sealed record LogicValueMergeRequest(MergeSnapshot Baseline, MergeSnapshot Logic, MergeSnapshot Values, TagValueMap[]? Tags = null, LogicValueResolution[]? Resolutions = null,
+    string Mode = "three-way", MessageFieldChoice[]? ConfigurationFields = null);
 public sealed record LogicValueMergeRow(string TagName, string? ProgramName, string Status, string? Baseline, string? Logic, string? Fresh, string? Detail);
 public sealed record LogicValueMergeReport(ComparisonSnapshot Baseline, ComparisonSnapshot Logic, ComparisonSnapshot Values, string ReviewSha256,
-    string ResultSha256, bool CanApply, int CopiedValues, LogicValueMergeRow[] Rows, string[] Conflicts, string Boundary);
+    string ResultSha256, bool CanApply, int CopiedValues, LogicValueMergeRow[] Rows, string[] Conflicts, string Boundary,
+    MergeFieldFinding[]? Findings = null, MergePreservationReceipt? Preservation = null, string? PolicySha256 = null);
 public sealed record LogicValueMergeApplyRequest(LogicValueMergeRequest Preview, string ExpectedReviewSha256);
 
 public sealed partial class ProjectService
 {
     private (LogicValueMergeReport Report, byte[] Bytes) BuildLogicValueMerge(LogicValueMergeRequest request)
     {
+        if (request.Mode == "preserve-fresh") return BuildFreshPreservationMerge(request);
+        if (request.Mode != "three-way" || request.ConfigurationFields is { Length: > 0 }) throw new OperationException("merge_policy", "Select three-way or preserve-fresh; MESSAGE field choices require preserve-fresh.");
         (ProjectInfo Info, XDocument Doc) Load(MergeSnapshot snapshot)
         { var p = Get(snapshot.ProjectId); Expect(p, snapshot.Sha256); if (p.Kind != "logix") throw new OperationException("not_logix", "Select Logix snapshots."); var doc = XmlProjects.Parse(File.ReadAllBytes(RevisionFile(p.Id, p.Revision))); ProjectComparison.ValidateSize(doc); return (p, doc); }
         var (baseline, a) = Load(request.Baseline); var (logic, b) = Load(request.Logic); var (fresh, c) = Load(request.Values);

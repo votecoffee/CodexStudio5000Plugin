@@ -115,7 +115,10 @@ The v0.23 shared service adds these REST families, also exposed by 22 reloadable
 | GET / POST | `/api/trends` | List summaries or save a named view |
 | GET | `/api/trends/{id}` | Read exact saved trend definition |
 | POST | `/api/trends/{id}/delete`, `/api/trends/analyze`, `/api/trends/export` | Remove view, gather result page or export exact result |
-| POST | `/api/logic-value-merge/preview`, `/api/logic-value-merge/apply` | Reviewed common-baseline merge into a new project |
+| POST | `/api/logic-value-merge/preview`, `/api/logic-value-merge/apply` | Whole-project preserve-fresh or legacy selected-tag merge into a new project |
+| GET | `/api/logix-validation/profiles` | Named checks, scope, budgets and unsupported acceptance claims |
+| POST | `/api/logix-validation/preview`, `/api/logix-validation/record` | Exact policy/hash-bound checks and retained immutable JSON receipts |
+| GET | `/api/logix-validation/receipts/{id}?expectedSha256=...` | Verify/read a retained receipt without rerunning checks |
 | POST | `/api/version-compatibility/preview`, `/api/version-compatibility/start` | Plan or start separate offline native target-version copy |
 | GET | `/api/version-compatibility/{id}` | Conversion/readback state and configuration report |
 | POST | `/api/version-compatibility/{id}/readback` | Reopen successful converted ACD in a separate native job |

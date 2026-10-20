@@ -61,15 +61,15 @@ REST: `GET/POST /api/diagnostics/triggers`, `POST /api/diagnostics/triggers/{id}
 
 ## Logic and saved-value merging
 
-Select three independently pinned managed snapshots: common baseline, modified logic/configuration, fresh saved values. An authorized upload can first create the fresh snapshot through the existing capture workflow. This merge itself does not connect.
+For “merge logic but keep current values”, start with the [supported merge and validation workflow](../skills/rockwell-engineering/references/logic-value-merge.md), using independently pinned baseline, reviewed logic and fresh saved exports. `studio_logic_value_merge_preview/apply` remain the same operations.
 
-`studio_logic_value_merge_preview` reports per-tag baseline/logic/fresh value hashes and explicit conflicts. Modified logic/configuration is preserved. If fresh values match baseline, preserve modified values; if modified values match baseline, validated fresh values can be copied. Differing edits on both sides conflict. A new/removed tag or divergent fresh logic/configuration requires explicit review. Fresh definitions differing from both baseline and modified logic block apply.
+Mode `preserve-fresh` handles whole-project UTF-8 inputs up to 64 MiB / 1,000,000 XML elements. It preserves every fresh tag record, L5K/decorated/String/native representation and other source byte outside reviewed program routines and exact MESSAGE attribute exceptions. The preview exposes field-level conflicts, policy/review hashes and a concise preservation receipt. Layout/alias conflicts, safety routine edits and reviewed program/AOI/controller configuration changes remain blocked or unsupported. Reviewed tag descriptions stay fresh too.
 
-Resolve a value conflict per destination using `logic` or `fresh`, then preview again. Choosing fresh still requires supported, complete, compatible declarations and decorated values; it cannot bypass schema, alias or safety restrictions. Choosing logic explicitly preserves its value/removal. Whole-tag maps can select/rename source/destination scopes, with at most 256 unique destinations. For a larger project select a bounded subset. Removed-tag conflict reporting is bounded separately.
+Legacy mode `three-way` keeps its existing 256-tag standard-value transfer behavior and representation-conversion limits; it is intended for selected compatible tag values. Do not chunk that mode to emulate whole-project preservation.
 
-`studio_logic_value_merge_apply` requires the exact preview review hash and all current input hashes. It creates a new managed project, preserving the three originals. Export a separate L5X/ACD through existing operations. No automatic native build/runtime acceptance is claimed.
+`studio_validation_profiles` discovers `merge-preservation`, `offline-integrity` and `native-readback`. Preview exact checks with `studio_validation_preview`, retain a reviewed pass/fail/unsupported JSON artifact with `studio_validation_record`, and verify it with `studio_validation_receipt`. Reports bind the complete policy, source/candidate hashes and tool version. New/inherited/resolved reference findings and exact expected native differences remain visible. Native-readback consumes an existing supplied export and starts no jobs. Structural/offline checks do not establish native provenance, safety semantics or runtime/physical acceptance.
 
-REST: `POST /api/logic-value-merge/preview` (read), `/api/logic-value-merge/apply` (apply).
+REST: `POST /api/logic-value-merge/preview`, `/apply`; `GET /api/logix-validation/profiles`; `POST /api/logix-validation/preview`, `/record`; `GET /api/logix-validation/receipts/{id}?expectedSha256=...`.
 
 ## Version compatibility
 

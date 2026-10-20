@@ -117,6 +117,10 @@ app.MapPost("/api/trends/analyze", (ProjectService service, TrendAnalyzeRequest 
 app.MapPost("/api/trends/export", (ProjectService service, TrendExportRequest request) => service.ExportTrendAnalysis(request));
 app.MapPost("/api/logic-value-merge/preview", (ProjectService service, LogicValueMergeRequest request, CancellationToken ct) => service.PreviewLogicValueMergeAsync(request, ct));
 app.MapPost("/api/logic-value-merge/apply", (ProjectService service, LogicValueMergeApplyRequest request, CancellationToken ct) => service.ApplyLogicValueMergeAsync(request, ct));
+app.MapGet("/api/logix-validation/profiles", (ProjectService service) => service.LogixValidationProfiles());
+app.MapPost("/api/logix-validation/preview", (ProjectService service, LogixValidationRequest request, CancellationToken ct) => service.PreviewLogixValidationAsync(request, ct));
+app.MapPost("/api/logix-validation/record", (ProjectService service, LogixValidationRecordRequest request, CancellationToken ct) => service.RecordLogixValidationAsync(request, ct));
+app.MapGet("/api/logix-validation/receipts/{id}", (ProjectService service, string id, string expectedSha256) => service.LogixValidationReceipt(id, expectedSha256));
 app.MapPost("/api/version-compatibility/preview", (ProjectService service, VersionCompatibilityRequest request) => service.PreviewVersionCompatibility(request));
 app.MapPost("/api/version-compatibility/start", (ProjectService service, VersionCompatibilityStartRequest request, CancellationToken ct) => service.StartVersionCompatibilityAsync(request, ct));
 app.MapGet("/api/version-compatibility/{id}", (ProjectService service, string id) => service.VersionCompatibilityStatus(id));

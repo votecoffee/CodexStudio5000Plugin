@@ -18,8 +18,10 @@ public sealed class DiagnosticsForm : WorkspaceForm
             [A("diagnostic_capture", "Capture selected values"), A("diagnostic_captures", "List captures"), A("rung_evaluate", "Explain captured rung")]),
         new("Triggered recording", "Save a trigger against the selected project/watch revision, then arm it. Start the authorized watch separately in Watch lists. Inspect episodes after change, predicate, timeout or communication fault; capture a sampled frame for rung explanation. Service restart leaves triggers disarmed.",
             [A("diagnostic_trigger_save", "Create or modify trigger"), A("diagnostic_triggers", "Read trigger states and episode IDs"), A("diagnostic_trigger_arm", "Arm or disarm trigger"), A("diagnostic_episode", "Read captured episode"), A("diagnostic_episode_capture", "Capture episode frame"), A("diagnostic_trigger_delete", "Remove disarmed trigger definition")]),
-        new("Logic and saved-value merge", "Choose a common baseline, modified logic and fresh saved values. Preview reports independent value edits and conflicting fresh logic. Resolve individual tags with logic/fresh and preview again. Copy the resulting review hash into Apply. Apply creates a new managed project and preserves all three inputs.",
+        new("Merge logic, keep current values", "Choose a common baseline, reviewed logic and fresh saved values. Mode preserve-fresh retains every fresh tag representation and configuration byte outside reviewed program routines and exact MESSAGE field choices. Review field conflicts and copy the review hash into Apply. Select the merged candidate for validation and a retained receipt. Native import is separate.",
             [A("logic_value_merge_preview", "Preview three-source merge and conflicts"), A("logic_value_merge_apply", "Apply exact reviewed merge to new project")]),
+        new("Preservation and integrity validation", "Select the candidate separately from reviewed logic. Merge-preservation requires the same three-source policy and policySha256 from its preview. Review new/inherited/resolved findings and unsupported coverage; record its exact reviewSha256. Native-readback compares an existing export with the selected intended project without SDK jobs. Normalizations are explicit options.",
+            [A("validation_profiles", "Discover named checks and coverage"), A("validation_preview", "Preview merge-preservation checks"), A("validation_preview", "Preview existing native readback checks"), A("validation_record", "Retain reviewed validation receipt"), A("validation_receipt", "Read hash-bound validation receipt")]),
         new("Version compatibility", "Select a saved source and target major revision. Preview first, then supply its review hash to Start. Native conversion uses a private copy. After successful conversion, request separate ACD readback and inspect its status/configuration differences. Downgrades are unsupported; native installation and licensing are required.",
             [A("version_compatibility_preview", "Preview target-version copy"), A("version_compatibility_start", "Start reviewed native conversion"), A("version_compatibility_readback", "Reopen converted ACD for readback"), A("version_compatibility_status", "Read jobs, differences and native messages")]),
         new("Saved trends and results", "Use Trends in Watch lists for a graph, saved series/window and statistics. These editors also create/modify views, gather bounded result pages and export an exact result hash. HasMore means statistics are partial. Creating views or gathering results never starts polling.",
@@ -31,6 +33,7 @@ public sealed class DiagnosticsForm : WorkspaceForm
     private readonly ComboBox project = new() { Width = 290, DropDownStyle = ComboBoxStyle.DropDownList, DisplayMember = "Name" };
     private readonly ComboBox baseline = new() { Width = 290, DropDownStyle = ComboBoxStyle.DropDownList, DisplayMember = "Name" };
     private readonly ComboBox fresh = new() { Width = 290, DropDownStyle = ComboBoxStyle.DropDownList, DisplayMember = "Name" };
+    private readonly ComboBox candidate = new() { Width = 290, DropDownStyle = ComboBoxStyle.DropDownList, DisplayMember = "Name" };
     private readonly ComboBox watch = new() { Width = 370, DropDownStyle = ComboBoxStyle.DropDownList };
     private readonly TextBox tag = new() { Width = 200, PlaceholderText = "Tag name" };
     private readonly TextBox program = new() { Width = 200, PlaceholderText = "Program (empty = controller)" };
@@ -48,10 +51,11 @@ public sealed class DiagnosticsForm : WorkspaceForm
         this.client = client; this.initial = initial; this.initialWatch = initialWatch;
         Text = "Diagnostics, trends and project workflows"; Size = new(1240, 800); MinimumSize = new(1100, 720); Font = new("Segoe UI", 10);
         var header = new Label { Text = "DIAGNOSTICS & PROJECT WORKFLOWS", UseMnemonic = false, Dock = DockStyle.Top, Height = 52, Padding = new(14), BackColor = Color.FromArgb(24, 40, 61), ForeColor = Color.White };
-        var context = new FlowLayoutPanel { Dock = DockStyle.Top, Height = 150, Padding = new(8) };
+        var context = new FlowLayoutPanel { Dock = DockStyle.Top, Height = 185, Padding = new(8) };
         void Field(string label, Control value) { context.Controls.Add(new Label { Text = label, AutoSize = true, Padding = new(2, 7, 0, 0) }); context.Controls.Add(value); }
         Field("Project / modified logic", project); Field("Tag", tag); Field("Program", program); context.SetFlowBreak(program, true);
         Field("Common baseline", baseline); Field("Fresh saved values", fresh); context.SetFlowBreak(fresh, true);
+        Field("Candidate / native readback", candidate); context.SetFlowBreak(candidate, true);
         Field("Watch", watch); Field("Target major", target);
         var refresh = new Button { Text = "Refresh inventory", AutoSize = true }; refresh.Click += async (_, _) => await Run(RefreshAsync); context.Controls.Add(refresh);
         var split = new SplitContainer { Dock = DockStyle.Fill, FixedPanel = FixedPanel.Panel1 }; split.Panel1.Controls.Add(workflows);
@@ -60,18 +64,25 @@ public sealed class DiagnosticsForm : WorkspaceForm
         var open = new Button { Text = "Open selected operation…", AutoSize = true }; bar.Controls.Add(open);
         bar.Controls.Add(new Label { Text = "Review the populated arguments before running. Results remain copyable in the operation window.", AutoSize = true, Padding = new(8, 7, 0, 0) });
         Controls.Add(split); Controls.Add(status); Controls.Add(bar); Controls.Add(context); Controls.Add(header);
-        workflows.DataSource = Workflows; workflows.SelectedIndexChanged += (_, _) => SelectWorkflow(); SelectWorkflow();
+        workflows.Items.AddRange(Workflows); workflows.SelectedIndexChanged += (_, _) => SelectWorkflow(); workflows.SelectedIndex = 0;
         open.Click += (_, _) => { if (actions.SelectedItem is ActionItem action) { using var editor = new ExtensionsForm(client, action.Name, Seed(action.Name)); editor.ShowDialog(this); } };
         Shown += async (_, _) => { split.SplitterDistance = 280; if (!fixture) await Run(RefreshAsync); };
     }
-    private void SelectWorkflow() { if (workflows.SelectedItem is Workflow w) { help.Text = w.Help; actions.DataSource = w.Actions; } }
+    private void SelectWorkflow()
+    {
+        if (workflows.SelectedItem is not Workflow w) return;
+        help.Text = w.Help;
+        actions.BeginUpdate();
+        try { actions.Items.Clear(); actions.Items.AddRange(w.Actions); if (actions.Items.Count > 0) actions.SelectedIndex = 0; }
+        finally { actions.EndUpdate(); }
+    }
     private async Task Run(Func<Task> action)
     { Enabled = false; try { await action(); } catch (Exception ex) { status.Text = ex.Message; } finally { Enabled = true; } }
     private async Task RefreshAsync()
     {
         var projects = (await client.GetAsync<ProjectInfo[]>("/api/projects")).Where(p => p.Kind == "logix").ToArray();
         var selected = (project.SelectedItem as ProjectInfo)?.Id ?? initial?.Id;
-        foreach (var combo in new[] { project, baseline, fresh }) combo.DataSource = projects.ToArray();
+        foreach (var combo in new[] { project, baseline, fresh, candidate }) combo.DataSource = projects.ToArray();
         project.SelectedItem = projects.FirstOrDefault(p => p.Id == selected) ?? projects.FirstOrDefault();
         var watches = await client.GetAsync<WatchStatus[]>("/api/watches"); var selectedWatch = (watch.SelectedItem as WatchChoice)?.Status.Definition.Id ?? initialWatch?.Definition.Id;
         watch.DataSource = watches.Select(w => new WatchChoice(w)).ToArray();
@@ -85,7 +96,9 @@ public sealed class DiagnosticsForm : WorkspaceForm
         var b = baseline.SelectedItem as ProjectInfo; var f = fresh.SelectedItem as ProjectInfo;
         var selectedTag = new WatchTag("selected", tag.Text, string.IsNullOrWhiteSpace(program.Text) ? null : program.Text);
         var capture = captures.FirstOrDefault(c => c.ProjectId == p?.Id); var trigger = triggers.FirstOrDefault(t => t.Definition.Watch.Id == w?.Definition.Id); var view = trends.FirstOrDefault(t => t.WatchId == w?.Definition.Id);
-        var merge = new LogicValueMergeRequest(new(b?.Id ?? "", b?.CurrentSha256 ?? ""), new(p?.Id ?? "", p?.CurrentSha256 ?? ""), new(f?.Id ?? "", f?.CurrentSha256 ?? ""));
+        var merge = new LogicValueMergeRequest(new(b?.Id ?? "", b?.CurrentSha256 ?? ""), new(p?.Id ?? "", p?.CurrentSha256 ?? ""), new(f?.Id ?? "", f?.CurrentSha256 ?? ""), Mode: "preserve-fresh");
+        var selectedCandidate = candidate.SelectedItem as ProjectInfo;
+        var validation = new LogixValidationRequest("merge-preservation", new(selectedCandidate?.Id ?? "", selectedCandidate?.CurrentSha256 ?? ""), Merge: merge, ExpectedPolicySha256: "");
         var version = new VersionCompatibilityRequest(p?.Id ?? "", p?.CurrentSha256 ?? "", (int)target.Value);
         object? request = operation switch
         {
@@ -98,6 +111,8 @@ public sealed class DiagnosticsForm : WorkspaceForm
             "studio_diagnostic_episode_capture" => new DiagnosticEpisodeCaptureRequest(trigger?.Episodes.FirstOrDefault()?.Artifact.Sha256 ?? ""),
             "studio_logic_value_merge_preview" => merge,
             "studio_logic_value_merge_apply" => new LogicValueMergeApplyRequest(merge, ""),
+            "studio_validation_preview" => actions.SelectedItem is ActionItem { Title: "Preview existing native readback checks" } ? new LogixValidationRequest("native-readback", validation.Candidate, Reference: new(p?.Id ?? "", p?.CurrentSha256 ?? "")) : validation,
+            "studio_validation_record" => new LogixValidationRecordRequest(validation, ""),
             "studio_version_compatibility_preview" => version,
             "studio_version_compatibility_start" => new VersionCompatibilityStartRequest(version, ""),
             "studio_trend_view_save" => new SavedTrendRequest("Saved trend", w?.Definition.Id ?? "", w?.Definition.Revision ?? 0, w?.Definition.Settings.Tags.Select(t => t.Key).ToArray() ?? ["selected"]),
@@ -111,6 +126,7 @@ public sealed class DiagnosticsForm : WorkspaceForm
         if (operation.Contains("episode", StringComparison.Ordinal)) seed["episodeId"] = trigger?.Episodes.FirstOrDefault()?.Id ?? "";
         if (operation is "studio_trend_view_get" or "studio_trend_view_delete") seed["trendId"] = view?.Id ?? "";
         if (operation is "studio_version_compatibility_status" or "studio_version_compatibility_readback") seed["runId"] = "";
+        if (operation == "studio_validation_receipt") { seed["receiptId"] = ""; seed["expectedSha256"] = ""; }
         return seed;
     }
     internal async Task<string[]> ExerciseOfflineWorkflowForTestAsync()

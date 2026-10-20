@@ -3,6 +3,7 @@
   <ItemGroup><EmbeddedResource Include="SdkSurface.json" /></ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="../../skills/rockwell-engineering/SKILL.md" LogicalName="Workflow.engineering" />
+    <EmbeddedResource Include="../../skills/rockwell-engineering/references/logic-value-merge.md" LogicalName="Workflow.merge-reference" />
     <EmbeddedResource Include="../../skills/logix-online-edits/SKILL.md" LogicalName="Workflow.online" />
     <EmbeddedResource Include="../../skills/logix-online-edits/references/studio-workflow.md" LogicalName="Workflow.online-reference" />
     <EmbeddedResource Include="../../skills/factorytalk-studio/SKILL.md" LogicalName="Workflow.factorytalk" />

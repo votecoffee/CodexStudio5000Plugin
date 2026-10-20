@@ -11,7 +11,7 @@ public sealed class ExtensionCatalogTests
     {
         IWorkspaceExtension[] modules = [new LogixExtension(), new FactoryTalkExtension(), new ViewDesignerExtension(), new WatchesExtension()];
         var operations = modules.SelectMany(x => x.Describe()).ToArray();
-        Assert.Equal(142, operations.Length); Assert.Equal(142, operations.Select(o => o.Name).Distinct().Count());
+        Assert.Equal(146, operations.Length); Assert.Equal(146, operations.Select(o => o.Name).Distinct().Count());
         foreach (var prefix in new[] { "ftview", "viewdesigner" })
         {
             foreach (var verb in new[] { "list", "get", "browse", "preview", "verify" }) Assert.Equal("read", operations.Single(o => o.Name == prefix + "_languages_" + verb).Effect);
@@ -57,5 +57,8 @@ public sealed class ExtensionCatalogTests
         foreach (var name in new[] { "studio_logic_trace", "studio_rung_evaluate", "studio_trend_analyze", "studio_logic_value_merge_preview", "studio_version_compatibility_preview" }) Assert.Equal("read", operations.Single(o => o.Name == name).Effect);
         foreach (var name in new[] { "studio_diagnostic_capture", "studio_diagnostic_trigger_arm", "studio_trend_view_save", "studio_trend_export", "studio_logic_value_merge_apply" }) Assert.Equal("apply", operations.Single(o => o.Name == name).Effect);
         foreach (var name in new[] { "studio_version_compatibility_start", "studio_version_compatibility_readback" }) Assert.Equal("control", operations.Single(o => o.Name == name).Effect);
+        foreach (var name in new[] { "studio_validation_profiles", "studio_validation_preview", "studio_validation_receipt" }) Assert.Equal("read", operations.Single(o => o.Name == name).Effect);
+        Assert.Equal("apply", operations.Single(o => o.Name == "studio_validation_record").Effect);
+        Assert.Contains("keep current values", operations.Single(o => o.Name == "studio_logic_value_merge_preview").Description);
     }
 }

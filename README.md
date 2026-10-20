@@ -47,7 +47,9 @@ RockwellMCPServer gives agents and engineers a shared workspace for project insp
 | Diagnostic workflows | Trace readers/writers and AOI dependencies, explain captured rung conditions and record bounded pre/post trigger windows tied to a project revision. |
 | Multilingual documentation | Extract/search tag and rung comments, component/UDT/AOI descriptions and existing extended text; preview explicit language edits while preserving other translations. |
 | HMI languages | Browse/review/edit FactoryTalk ME/SE and View Designer workbook/Unicode exports, add language columns, preserve native keys and compare supplied re-exports. |
-| Project workflows | Three-source logic/value merging with explicit conflicts and separate native target-version conversion/readback jobs. |
+| Logic/value preservation | Merge reviewed program routines while retaining all fresh saved tag records/representations and configuration, with exact MESSAGE field exceptions and reviewed preservation receipts. |
+| Named validation profiles | Offline integrity, whole-project merge preservation and existing native readback comparison, with new/inherited/expected findings and immutable machine-readable receipts. |
+| Version workflows | Separate native target-version conversion/readback jobs with explicit compatibility boundaries. |
 | Reloadable extensions | Discover operation schemas and reload compatible modules through MCP or the GUI while the host and chat remain running. |
 | Codex plugin | Standalone plugin with live capability discovery and shared versioned workflow guides. |
 | Optional shared framework | App-owned Python host pinned to framework 0.17 / SDK 2.3, with immutable C# backend publications and a fixed discovery interface. |
@@ -167,7 +169,7 @@ Use **PLC where used…**, **Where used…** in the tag browser, or **Where used
 
 **Extensions…** exposes the live catalog, operation forms, reload and jobs. Compatible extension updates can be reloaded without restarting Codex. Shared host, SDK binding or contract changes can require a service restart; see [extension updating and rollback](docs/EXTENSIONS.md).
 
-**Diagnostics & workflows…** groups logic tracing, captured rung explanation, triggered recording, common-baseline logic/value merging and native version compatibility. Choose saved snapshots and watch context, then open a populated operation editor. **Trends & recording…** also saves/loads/updates trend views, gathers bounded statistics and exports hash-bound results. These workflows preserve source revisions and leave polling stopped unless it is started separately. See [diagnostic and trend workflows](docs/DIAGNOSTICS.md) for supported conditions, conflicts and native validation limits.
+**Diagnostics & workflows…** groups logic tracing, captured rung explanation, triggered recording, whole-project keep-current-values merging, preservation/integrity validation and native version compatibility. Choose saved snapshots and watch context, then open a populated operation editor. **Trends & recording…** also saves/loads/updates trend views, gathers bounded statistics and exports hash-bound results. These workflows preserve source revisions and leave polling stopped unless it is started separately. Use the separate candidate/readback selector for validation. See the [merge and validation workflow](skills/rockwell-engineering/references/logic-value-merge.md) and [diagnostic/trend workflows](docs/DIAGNOSTICS.md).
 
 **Documentation…** searches multilingual project text, stages language-specific tag/member/rung comments and component descriptions, previews before/after translations and applies a reviewed managed revision. Plain text keeps an explicit unlocalized identity; adding translations requires naming its original language. Export all matching text as JSON or hand off a separate L5X/ACD. See [multilingual documentation](docs/PROJECT_DOCUMENTATION.md).
 
