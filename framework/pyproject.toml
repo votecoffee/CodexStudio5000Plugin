@@ -4,11 +4,11 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "rockwell-framework-host"
-version = "0.29.1"
+version = "0.29.2"
 description = "Optional app-owned framework host for the RockwellMCPServer MCP adapter"
 requires-python = ">=3.11"
 license = "MIT"
-dependencies = ["universal-codex-tools==0.14.0"]
+dependencies = ["universal-codex-tools==0.16.0"]
 
 [project.optional-dependencies]
 dev = ["pytest==9.1.1", "ruff==0.17.1", "build==1.6.1"]

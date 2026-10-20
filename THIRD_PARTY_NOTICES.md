@@ -8,7 +8,7 @@ The optional `Studio5000.NativeBridge` uses RockwellAutomation.LogixDesigner.CSC
 
 The project also restores YamlDotNet, the official ModelContextProtocol C# SDK, Microsoft .NET libraries, and test dependencies from NuGet. Exact dependency versions are pinned in package lock files; see each package's license. No proprietary archive sample PLC projects are committed as examples.
 
-The optional Python app host depends on the MIT-licensed [universal-codex-tools framework](https://github.com/votecoffee/CodexMCPBroker), pinned to 0.14.0 with MCP Python SDK 2.3.0 and a separate runtime lock. It is installed from a verified wheel, not vendored here. See [framework packaging and provenance](docs/FRAMEWORK.md).
+The optional Python app host depends on the MIT-licensed [universal-codex-tools framework](https://github.com/votecoffee/CodexMCPBroker), pinned to 0.16.0 with MCP Python SDK 2.3.0 and a separate runtime lock. It is installed from a verified wheel, not vendored here. See [framework packaging and provenance](docs/FRAMEWORK.md).
 
 ## Optional libplctag watch adapter
 

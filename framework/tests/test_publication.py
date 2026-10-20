@@ -31,6 +31,11 @@ def test_read_only_publication_preserves_source_and_pins_complete_deployment(app
     document = publish(root, state)
     service = document["backends"][0]["service"]
     assert service["session_mode"] == "transient"
+    assert service["protocol_mode"] == "legacy"
+    assert service["discovery_cache_ttl_seconds"] == 0
+    assert service["watch_catalog"] is False
+    assert service["max_argument_depth"] == 64
+    assert service["max_argument_nodes"] == 100000
     assert not service["allow_writes"] and service["allowed_write_tools"] == []
     assert service["transport"]["env_vars"] == ["STUDIO5000_PLUGIN_ROOT"]
     assert document["backends"][0]["artifact"]["path"] != str(source / "Studio5000.Mcp.exe")
@@ -135,6 +140,24 @@ def test_dependency_versions_are_checked_without_downgrading(app, monkeypatch):
     with pytest.raises(ValueError, match="mcp==2.3.0"):
         publish(root, state)
     assert not (state / "application.json").exists()
+
+
+@pytest.mark.parametrize(
+    "field,value",
+    [
+        ("protocol_mode", "auto"),
+        ("discovery_cache_ttl_seconds", 10),
+        ("max_argument_depth", 65),
+        ("max_argument_nodes", 100001),
+    ],
+)
+def test_unassessed_protocol_or_budget_changes_are_rejected(app, field, value):
+    root, state, _ = app
+    document = publish(root, state)
+    document["backends"][0]["service"][field] = value
+    (state / "application.json").write_text(json.dumps(document))
+    with pytest.raises(ValueError, match="routing"):
+        verify(state)
 
 
 @pytest.mark.skipif(__import__("os").name != "nt", reason="Native Windows launch boundary")

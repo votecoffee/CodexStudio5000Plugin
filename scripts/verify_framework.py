@@ -138,6 +138,7 @@ async def exercise(root, state, output, check):
             and description["initialization"]["protocolVersion"] == "2025-11-25",
             "Independent service state uses explicit targets and transient backend adapters",
         )
+        argument_budgets = []
         for name, expected in backend_definitions.items():
             actual = data(
                 await first.call_tool("describe_tool", {"tool_id": APP_ID + "/" + name})
@@ -146,6 +147,15 @@ async def exercise(root, state, output, check):
                 actual["definition"] == expected,
                 "Complete actual C# tool definition is retained: " + name,
             )
+            argument_budgets.append(
+                actual["max_argument_bytes"] == 8388608
+                and actual["max_argument_depth"] == 64
+                and actual["max_argument_nodes"] == 100000
+            )
+        check(
+            all(argument_budgets),
+            "Framework 0.16 advertises pinned byte and structural budgets for every app tool",
+        )
 
         async def invoke(
             session, name, arguments, *, write=False, request_id=None, described=None

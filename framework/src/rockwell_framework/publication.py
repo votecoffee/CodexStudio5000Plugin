@@ -115,6 +115,11 @@ def verify(state):
         or transport.env_vars != ["STUDIO5000_PLUGIN_ROOT"]
         or backend.service.id != APP_ID
         or backend.service.session_mode != "transient"
+        or backend.service.protocol_mode != "legacy"
+        or backend.service.discovery_cache_ttl_seconds != 0
+        or backend.service.watch_catalog
+        or backend.service.max_argument_depth != 64
+        or backend.service.max_argument_nodes != 100000
     ):
         raise ValueError("Unexpected Rockwell backend routing")
     backend.verify()
@@ -185,10 +190,17 @@ def _publish(app_root, state, *, backend_root, port, allowed_write_tools):
         },
         "enabled": True,
         "session_mode": "transient",
+        # Keep the assessed wire/lifecycle profile when upgrading the framework.
+        # Modern ownership, cache, Tasks and Skills need explicit app adapters.
+        "protocol_mode": "legacy",
+        "discovery_cache_ttl_seconds": 0,
+        "watch_catalog": False,
         "resource_id": "rockwell-" + digest(os.path.normcase(str(app_root)))[:24],
         "allow_writes": bool(allowed_write_tools),
         "allowed_write_tools": list(allowed_write_tools),
         "max_argument_bytes": 8388608,
+        "max_argument_depth": 64,
+        "max_argument_nodes": 100000,
         "timeout_seconds": 60,
         "capability_catalog": {
             "schema_version": 1,
