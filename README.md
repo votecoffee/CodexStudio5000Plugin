@@ -50,7 +50,7 @@ RockwellMCPServer gives agents and engineers a shared workspace for project insp
 | Project workflows | Three-source logic/value merging with explicit conflicts and separate native target-version conversion/readback jobs. |
 | Reloadable extensions | Discover operation schemas and reload compatible modules through MCP or the GUI while the host and chat remain running. |
 | Codex plugin | Standalone plugin with live capability discovery and shared versioned workflow guides. |
-| Optional shared framework | App-owned Python host pinned to framework 0.16 / SDK 2.3, with immutable C# backend publications and a fixed discovery interface. |
+| Optional shared framework | App-owned Python host pinned to framework 0.17 / SDK 2.3, with immutable C# backend publications and a fixed discovery interface. |
 | Service settings | GUI editing for controller/file access, target scopes, SDK/HMI paths and limits; broad local profile, backups and saved-versus-running configuration. |
 | Concurrent requests and transactions | Edit independent workspaces concurrently; stage/review/commit offline changes as one revision with conflict checks, abort and durable retry receipts. Bundled stateless extensions support parallel worker pools. |
 

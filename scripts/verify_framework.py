@@ -154,7 +154,7 @@ async def exercise(root, state, output, check):
             )
         check(
             all(argument_budgets),
-            "Framework 0.16 advertises pinned byte and structural budgets for every app tool",
+            "Framework advertises pinned byte and structural budgets for every app tool",
         )
 
         async def invoke(
