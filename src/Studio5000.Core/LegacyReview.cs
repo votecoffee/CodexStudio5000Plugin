@@ -210,7 +210,7 @@ public sealed partial class ProjectService
                 var artifact = new Artifact(id, built.Plan.NativeSource.Id, format, Hash(bytes), bytes.Length, LegacyReview.Boundary); Save(Path.Combine(dir, "artifact.json"), artifact); return artifact;
             }
             var input = Retain(built.Bytes, "l5k"); var manifest = Retain(JsonSerializer.SerializeToUtf8Bytes(new LegacyReviewManifest(1, "legacy_review_input", WorkspaceIdentity.Version, DateTimeOffset.UtcNow, built.Plan), Json), "json");
-            var import = new SdkRunRequest([new("SaveAsync", [])], ExpectedSha256: input.Sha256, SourceArtifactId: input.Id);
+            var import = new SdkRunRequest([new("SaveAsAsync", new() { ["savePath"] = JsonSerializer.SerializeToElement("ReviewOnly-v32.acd") })], ExpectedSha256: input.Sha256, SourceArtifactId: input.Id);
             Audit("legacy_review_prepare", Get(built.Plan.NativeSource.Id), built.Plan.NativeExport.Sha256, input.Sha256, built.Plan.ReviewSha256);
             return new(input, manifest, built.Plan.ReviewSha256, import, "pending: preparation does not perform native import or validation", LegacyReview.Boundary);
         }

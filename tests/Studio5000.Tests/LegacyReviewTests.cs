@@ -45,7 +45,8 @@ public sealed class LegacyReviewTests : IDisposable
         var expected = L5K.Replace("IE_VER := 2.26;\r\nCONTROLLER", "IE_VER := 2.23;\r\nCONTROLLER").Replace(" Major := 35, AutoDiagsEnabled := 1, WebServerEnabled := 0, Keep := 9", " Major := 32, Keep := 9").Replace("CatalogNumber := \"DemoController\", Major := 35", "CatalogNumber := \"DemoController\", Major := 32");
         Assert.Equal(new UTF8Encoding(true).GetPreamble().Concat(Encoding.UTF8.GetBytes(expected)), bytes); Assert.Equal(plan.PreparedSha256, ProjectService.Hash(bytes));
         Assert.Equal(input.Bytes, File.ReadAllBytes(service.Download(input.Request.L5kArtifactId).Path)); Assert.Single(service.SdkJobList()); Assert.Null(prepared.ImportRequest.ControllerTargetId);
-        Assert.Equal(prepared.Input.Id, prepared.ImportRequest.SourceArtifactId); Assert.Equal(prepared.Input.Sha256, prepared.ImportRequest.ExpectedSha256); Assert.Equal("SaveAsync", Assert.Single(prepared.ImportRequest.Calls).Method);
+        Assert.Equal(prepared.Input.Id, prepared.ImportRequest.SourceArtifactId); Assert.Equal(prepared.Input.Sha256, prepared.ImportRequest.ExpectedSha256); Assert.Equal("SaveAsAsync", Assert.Single(prepared.ImportRequest.Calls).Method);
+        Assert.Equal("ReviewOnly-v32.acd", prepared.ImportRequest.Calls[0].Arguments["savePath"].GetString()); SdkCatalog.ValidateCalls(prepared.ImportRequest.Calls);
         var manifest = JsonSerializer.Deserialize<LegacyReviewManifest>(File.ReadAllBytes(service.Download(prepared.Manifest.Id).Path), ProjectService.Json)!;
         Assert.Equal("legacy_review_input", manifest.Kind); Assert.Equal(plan.ReviewSha256, manifest.Plan.ReviewSha256); Assert.StartsWith("pending", prepared.NativeAcceptance);
     }

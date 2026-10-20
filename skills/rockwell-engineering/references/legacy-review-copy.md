@@ -32,7 +32,7 @@ Call prepare with `{ "preview": <the exact request>, "expectedReviewSha256": "<p
 
 ## Explicit native acceptance
 
-Only when the user has requested the native review copy, submit the returned `importRequest` through `studio_sdk_start_job`. It opens the prepared L5K on a private copy and saves through the installed native engine; it contains no ConvertAsync or controller method. Native v32 installation, licensing and project support are still required. Retain the job ID and poll its outcome; never automatically replay an interrupted or indeterminate job.
+Only when the user has requested the native review copy, submit the returned `importRequest` through `studio_sdk_start_job`. It opens the prepared L5K on a private copy and explicitly calls `SaveAsAsync` to `ReviewOnly-v32.acd` inside that job's private output directory, matching the native import/save route used for this bounded workflow. It contains no ConvertAsync or controller method. Native v32 installation, licensing and project support are still required. Retain the job ID and poll its outcome; never automatically replay an interrupted or indeterminate job.
 
 If native import fails or reports unsupported settings, keep its diagnostics and report the gap. Do not broaden the omission policy or silently default motion settings. A successful import/save produces separate ACD/L5X artifacts; it is not yet evidence that the saved ACD reopens correctly.
 
