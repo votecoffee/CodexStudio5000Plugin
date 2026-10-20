@@ -15,12 +15,13 @@ public static partial class FactoryTalkGraphics
     [GeneratedRegex(@"^Gfx-(ME|SE)([1-9][0-9]?)\.xsd$", RegexOptions.CultureInvariant)]
     private static partial Regex SchemaNamePattern();
 
-    public static XDocument Parse(byte[] bytes)
+    public static XDocument Parse(byte[] bytes) => Parse(bytes, false);
+    private static XDocument Parse(byte[] bytes, bool tracked)
     {
         using var stream = new MemoryStream(bytes);
         using var reader = XmlReader.Create(stream, new XmlReaderSettings
         { DtdProcessing = DtdProcessing.Prohibit, XmlResolver = null, MaxCharactersInDocument = 64 * 1024 * 1024 });
-        var doc = XDocument.Load(reader, LoadOptions.PreserveWhitespace);
+        var doc = XDocument.Load(reader, LoadOptions.PreserveWhitespace | (tracked ? LoadOptions.SetLineInfo : LoadOptions.None));
         if (doc.Root?.Name != "gfx") throw new OperationException("invalid_graphics", "Expected a FactoryTalk View gfx root element.");
         _ = SchemaName(doc);
         foreach (var parent in doc.Descendants())
@@ -68,13 +69,20 @@ public static partial class FactoryTalkGraphics
         return report;
     }
 
-    public static byte[] Apply(byte[] baseline, Edit[] edits, string schemaDirectory)
+    public static byte[] Apply(byte[] baseline, Edit[] edits, string schemaDirectory, bool preserveScalarBytes = true, Action<XDocument, Edit>? beforeEdit = null)
     {
         if (edits is null || edits.Length is 0 or > 200) throw new OperationException("invalid_edits", "Provide between 1 and 200 edits.");
+        if (preserveScalarBytes && XmlScalarEdits.Supports(edits)) return XmlScalarEdits.Apply(baseline, edits, b => Parse(b, true), ApplyEdit, d => Validate(d, schemaDirectory, requireSchema: true), false, beforeEdit);
         var doc = Parse(baseline);
         var schema = SchemaName(doc);
         foreach (var edit in edits)
-        {
+        { beforeEdit?.Invoke(doc, edit); ApplyEdit(doc, edit); }
+        if (SchemaName(doc) != schema) throw new OperationException("identity_change", "Schema identity must be preserved.");
+        Validate(doc, schemaDirectory, requireSchema: true);
+        return Serialize(doc);
+    }
+    private static void ApplyEdit(XDocument doc, Edit edit)
+    {
             var target = XmlProjects.Select(doc, edit.XPath);
             if (target == doc.Root) throw new OperationException("invalid_target", "The gfx root and schema identity are preserved.");
             switch (edit.Operation)
@@ -99,10 +107,6 @@ public static partial class FactoryTalkGraphics
                     break;
                 default: throw new OperationException("unsupported_graphics_edit", "FactoryTalk update imports support set_attribute, set_text and property-only replace_element. Object creation/deletion requires a separate native workflow.");
             }
-        }
-        if (SchemaName(doc) != schema) throw new OperationException("identity_change", "Schema identity must be preserved.");
-        Validate(doc, schemaDirectory, requireSchema: true);
-        return Serialize(doc);
     }
 
     private static void RequireSameShape(XElement before, XElement after)

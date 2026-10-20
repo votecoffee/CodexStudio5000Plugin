@@ -32,7 +32,7 @@ public sealed record ElementContent(string XPath, string Xml, string CurrentSha2
 public sealed record Edit(string Operation, string XPath, string? Value = null, string? Attribute = null);
 public sealed record PreviewRequest(string ExpectedSha256, Edit[] Edits);
 public sealed record ChangePreview(string Id, string ProjectId, string BaseSha256, string ResultSha256,
-    Edit[] Edits, string Diff, DateTimeOffset CreatedAt);
+    Edit[] Edits, string Diff, DateTimeOffset CreatedAt, string? XmlPreservation = null);
 public sealed record ApplyRequest(string ExpectedSha256);
 public sealed record ExportRequest(string ExpectedSha256, string Format = "l5x");
 public sealed record SaveArtifactRequest(string Path);

@@ -8,8 +8,10 @@ namespace Studio5000.Client;
 public sealed class ServiceClient : IDisposable
 {
     private readonly HttpClient http;
-    public ServiceClient(string root)
+    private readonly Func<ServiceErrorException, Exception>? errorTranslator;
+    public ServiceClient(string root, Func<ServiceErrorException, Exception>? errorTranslator = null)
     {
+        this.errorTranslator = errorTranslator;
         var file = Path.Combine(root, ".local", "connection.json");
         if (!File.Exists(file)) throw new InvalidOperationException("Start scripts/Start-Service.ps1 first.");
         using var connection = JsonDocument.Parse(File.ReadAllText(file));
@@ -39,9 +41,13 @@ public sealed class ServiceClient : IDisposable
         await Check(response, ct);
         return await response.Content.ReadAsByteArrayAsync(ct);
     }
-    private static async Task Check(HttpResponseMessage response, CancellationToken ct)
+    private async Task Check(HttpResponseMessage response, CancellationToken ct)
     {
-        if (!response.IsSuccessStatusCode) throw new HttpRequestException(await response.Content.ReadAsStringAsync(ct), null, response.StatusCode);
+        if (!response.IsSuccessStatusCode)
+        {
+            var error = new ServiceErrorException(ServiceError.Parse(response.StatusCode, await response.Content.ReadAsStringAsync(ct)));
+            throw errorTranslator?.Invoke(error) ?? error;
+        }
     }
     public void Dispose() => http.Dispose();
 }

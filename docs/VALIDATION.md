@@ -17,6 +17,8 @@ Results are under that run's `artifacts/test-results/`, including `core.trx`, `i
 
 The checks cover:
 
+- Scalar-only XML edits: exact unselected bytes/BOM/encoding/line endings/quotes, UTF-8/16/32, escaping/CDATA splitting, self-closing nodes, namespaces, repeated/value-dependent selectors, 73-edit opaque-value fixtures and legacy draft replay. Shared MCP error checks retain backend codes/messages/HTTP status in JSON text and structured content, including overlapping independent failures.
+
 - Legacy review-copy preparation: completed offline native export provenance, exact hash/field guards, BOM and unselected byte preservation, ambiguous/unsupported syntax rejection and no native jobs. The v35-to-v32 readback profile separates readable code/ordinary values from motion/MESSAGE configuration and protected AOI envelopes/full opaque payloads. Generated fixtures establish offline behavior; native acceptance remains case-specific.
 
 - Logix XML editing, source preservation, stale hashes and component/scope validation, plus structural comparison, lexical tag where-used and passive ladder previews.

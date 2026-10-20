@@ -48,6 +48,7 @@ RockwellMCPServer gives agents and engineers a shared workspace for project insp
 | Multilingual documentation | Extract/search tag and rung comments, component/UDT/AOI descriptions and existing extended text; preview explicit language edits while preserving other translations. |
 | HMI languages | Browse/review/edit FactoryTalk ME/SE and View Designer workbook/Unicode exports, add language columns, preserve native keys and compare supplied re-exports. |
 | Logic/value preservation | Merge reviewed program routines while retaining all fresh saved tag records/representations and configuration, with exact MESSAGE field exceptions and reviewed preservation receipts. |
+| Scalar XML preservation | Edit PLC/FactoryTalk text and existing attributes while retaining source encoding, BOM, line endings and every unselected byte. |
 | Named validation profiles | Offline integrity, whole-project merge preservation and existing native readback comparison, with new/inherited/expected findings and immutable machine-readable receipts. |
 | Version workflows | Separate native upgrade/readback jobs and bounded v35-to-v32 review-only L5K preparation, with explicit compatibility boundaries. |
 | Reloadable extensions | Discover operation schemas and reload compatible modules through MCP or the GUI while the host and chat remain running. |

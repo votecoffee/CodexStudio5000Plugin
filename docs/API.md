@@ -89,11 +89,21 @@ $draft.diff
 $updated = Invoke-RestMethod -Uri ($connection.url + "/api/projects/$($project.id)/previews/$($draft.id)/apply") -Method Post -Headers $headers -ContentType 'application/json' -Body (@{ expectedSha256 = $draft.baseSha256 } | ConvertTo-Json)
 ```
 
-For `replace_element` and `add_element`, `value` is one XML element, not a complete L5X wrapper. Read a component before replacing it. Use `set_text` on a Description/Text/Comment XPath for scalar updates; `set_attribute` additionally takes `attribute`. The preview records the selected before XML and requested value. Serialization may normalize XML declaration/encoding; inspect the exported result if byte representation matters. Original bytes are retained.
+For `replace_element` and `add_element`, `value` is one XML element, not a complete L5X wrapper. Read a component before replacing it. Use `set_text` on a Description/Text/Comment XPath for scalar updates; `set_attribute` additionally takes `attribute`. The preview records the selected before XML and requested value. The preview reports its XML preservation mode; structural/mixed serialization can normalize declaration/encoding. Original source files are retained.
 
 Export body: `{"expectedSha256":"...","format":"acd"}`. Save body: `{"path":"C:\\...\\artifacts\\exports\\Machine_edited.acd"}`. The output extension must match the artifact. There is no overwrite flag.
 
 Failures include `401 unauthorized`, `403 origin_denied`, `404 not_found`, `409 stale_revision`/state mismatch, and `400` for invalid edits, paths, native failures or unavailable native support. On stale revision, read the latest project and create a new preview. Native failures include diagnostics but never return a successful artifact. HTTP requests are limited to 2 MiB; imported project files to 64 MiB; returned components to 1 MiB. Inspection pages contain at most 1,000 elements.
+
+The shared client retains bounded service errors as `{code, message, httpStatus, wrapperCodes}`. MCP returns `isError=true` with this object in `structuredContent` and readable JSON text, including nested extension backend errors such as `validation_policy`. `wrapperCodes` records recognized extension wrappers; `httpStatus` is the outer service HTTP status. Unknown/malformed HTTP bodies receive a generic `service_http_error`; arbitrary exception details are not exposed. Errors do not authorize retries of interrupted or indeterminate mutations.
+
+## Scalar XML byte preservation
+
+New scalar-only `set_text`/`set_attribute` previews and applies use `xmlPreservation="scalar-byte-spans-v1"` for Logix and FactoryTalk ME/SE. They retain the original encoding/BOM, declaration, mixed line endings, indentation, attribute quotes and all bytes outside selected values/text bodies. Repeated edits and value-dependent XPaths keep sequential edit semantics. CDATA delimiters and XML attribute whitespace are escaped without creating markup. Unchanged final values retain their original bytes.
+
+UTF-8, UTF-16 and UTF-32 are covered by generated tests. Other installed XML encodings must round-trip exactly; unrepresentable requested text or unsupported source encodings are rejected without a serialization fallback. Limits are 64 MiB, 1,000,000 XML elements, 64 levels and the existing 200 edits per request. XML newline normalization still applies to newly written CDATA text. Existing target/identity and FactoryTalk schema checks remain enforced.
+
+Structural or mixed edit requests use `xmlPreservation="document-serialization-v1"` and can normalize unrelated serialization. Old saved drafts without the new field retain their previously reviewed document-serialization result/hash. Create a fresh scalar-only preview to obtain byte preservation. Transaction XML edits use the same scalar implementation. Other specialized documentation/language/merge operations retain their own documented persistence contracts; this field does not claim native Studio acceptance.
 
 ## Multilingual documentation
 

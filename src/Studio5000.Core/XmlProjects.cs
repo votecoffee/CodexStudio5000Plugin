@@ -15,7 +15,8 @@ public static class XmlProjects
     };
     private static readonly HashSet<string> DeclarationContainers =
         ["Tags", "LocalTags", "Routines", "Programs", "DataTypes", "AddOnInstructionDefinitions", "Modules", "Tasks", "Members", "Parameters"];
-    public static XDocument Parse(byte[] bytes)
+    public static XDocument Parse(byte[] bytes) => Parse(bytes, false);
+    private static XDocument Parse(byte[] bytes, bool tracked)
     {
         using var stream = new MemoryStream(bytes);
         using var reader = XmlReader.Create(stream, new XmlReaderSettings
@@ -23,7 +24,7 @@ public static class XmlProjects
             DtdProcessing = DtdProcessing.Prohibit, XmlResolver = null,
             MaxCharactersInDocument = 64 * 1024 * 1024
         });
-        var doc = XDocument.Load(reader, LoadOptions.PreserveWhitespace);
+        var doc = XDocument.Load(reader, LoadOptions.PreserveWhitespace | (tracked ? LoadOptions.SetLineInfo : LoadOptions.None));
         Validate(doc);
         return doc;
     }
@@ -62,13 +63,25 @@ public static class XmlProjects
     public static string PathOf(XElement e) => "/" + string.Join("/", e.AncestorsAndSelf().Reverse()
         .Select(n => $"{n.Name.LocalName}[{n.ElementsBeforeSelf(n.Name).Count() + 1}]"));
 
-    public static byte[] Apply(byte[] baseline, Edit[] edits)
+    public static byte[] Apply(byte[] baseline, Edit[] edits, bool preserveScalarBytes = true, Action<XDocument, Edit>? beforeEdit = null)
     {
         if (edits is null || edits.Length is 0 or > 200)
             throw new OperationException("invalid_edits", "Provide between 1 and 200 edits.");
+        if (preserveScalarBytes && XmlScalarEdits.Supports(edits)) return XmlScalarEdits.Apply(baseline, edits, b => Parse(b, true), ApplyEdit, Validate, true, beforeEdit);
         var doc = Parse(baseline);
         foreach (var edit in edits)
+        { beforeEdit?.Invoke(doc, edit); ApplyEdit(doc, edit); }
+        Validate(doc);
+        using var stream = new MemoryStream();
+        using (var writer = XmlWriter.Create(stream, new XmlWriterSettings
         {
+            Encoding = new UTF8Encoding(false), Indent = false, NewLineHandling = NewLineHandling.None,
+            OmitXmlDeclaration = doc.Declaration is null
+        })) doc.Save(writer);
+        return stream.ToArray();
+    }
+    private static void ApplyEdit(XDocument doc, Edit edit)
+    {
             var target = Select(doc, edit.XPath);
             // Identity changes require a reference-aware operation; never silently rename a declaration.
             switch (edit.Operation)
@@ -104,15 +117,6 @@ public static class XmlProjects
                     break;
                 default: throw new OperationException("unknown_edit", $"Unknown edit operation: {edit.Operation}");
             }
-        }
-        Validate(doc);
-        using var stream = new MemoryStream();
-        using (var writer = XmlWriter.Create(stream, new XmlWriterSettings
-        {
-            Encoding = new UTF8Encoding(false), Indent = false, NewLineHandling = NewLineHandling.None,
-            OmitXmlDeclaration = doc.Declaration is null
-        })) doc.Save(writer);
-        return stream.ToArray();
     }
 
     private static XElement Fragment(string? xml)

@@ -80,6 +80,28 @@ internal static class DiagnosticWorkflowsIntegration
         var validationRequest = new LogixValidationRequest("merge-preservation", new(preservedProject.Id, preservedProject.CurrentSha256), Merge: preservation, ExpectedPolicySha256: preservedPreview.PolicySha256);
         var profiles = await Tool<JsonElement>("studio_validation_profiles");
         Check(profiles.GetProperty("profiles").GetArrayLength() == 4, "MCP discovers named offline integrity, merge preservation and existing-readback profiles");
+        var invalidPolicy = new LogixValidationRequest("native-readback", new(a.Id, a.CurrentSha256), Reference: new(a.Id, a.CurrentSha256), NativeRules: new(NormalizeProtectedPayloadWhitespace: true));
+        var rejectedPolicy = await Call("studio_validation_preview", invalidPolicy);
+        var policyError = JsonDocument.Parse(rejectedPolicy.Content.OfType<TextContentBlock>().First().Text).RootElement;
+        Check(rejectedPolicy.IsError == true && policyError.GetProperty("code").GetString() == "validation_policy" && policyError.GetProperty("message").GetString()!.Contains("legacy-review-readback") && policyError.GetProperty("httpStatus").GetInt32() == 400 && policyError.GetProperty("wrapperCodes").EnumerateArray().Any(c => c.GetString() == "extension_operation_failed"),
+            "MCP preserves structured backend validation_policy explanations through extension worker errors");
+        Check(rejectedPolicy.StructuredContent is { } structuredPolicy && structuredPolicy.GetProperty("code").GetString() == "validation_policy", "MCP domain errors include structuredContent as well as readable JSON text");
+        var directError = await mcp.CallToolAsync("studio_preview_changes", new Dictionary<string, object?> { ["projectId"] = a.Id, ["expectedSha256"] = a.CurrentSha256, ["edits"] = new[] { new Edit("set_text", "/RSLogix5000Content/Controller", "invalid non-scalar target") } });
+        var directEnvelope = JsonDocument.Parse(directError.Content.OfType<TextContentBlock>().First().Text).RootElement;
+        Check(directError.IsError == true && directEnvelope.GetProperty("code").GetString() == "invalid_target", "Fixed MCP tools also return the shared structured domain error rather than a generic invocation message");
+        var concurrentErrors = await Task.WhenAll(Call("studio_validation_preview", invalidPolicy), Call("studio_validation_preview", invalidPolicy with { Candidate = new(a.Id, new string('a', 64)) }));
+        var codes = concurrentErrors.Select(r => JsonDocument.Parse(r.Content.OfType<TextContentBlock>().First().Text).RootElement.GetProperty("code").GetString()).ToArray();
+        Check(codes.SequenceEqual(new[] { "validation_policy", "stale_revision" }), "Overlapping MCP requests retain their own structured domain errors without cross-request state");
+        var scalarPath = Path.Combine(root, "examples", "GeneratedScalarSpans.L5X");
+        var scalarText = "<?xml version='1.0' encoding='utf-8'?>\r\n<RSLogix5000Content><Controller Name='ScalarDemo'><Tags><Tag Name='Value' TagType='Base' DataType='DINT' Dimensions='2'><Description><![CDATA[old μ]]></Description>\n<Data Format='L5K'><![CDATA[[1,\r\n2]]]></Data></Tag></Tags></Controller></RSLogix5000Content>\r\n";
+        var scalarBytes = System.Text.Encoding.UTF8.GetPreamble().Concat(System.Text.Encoding.UTF8.GetBytes(scalarText)).ToArray(); File.WriteAllBytes(scalarPath, scalarBytes);
+        var scalar = await client.PostAsync<ProjectInfo>("/api/projects", new RegisterRequest(scalarPath));
+        var scalarPreview = await Tool<ChangePreview>("studio_preview_changes", new PreviewRequest(scalar.CurrentSha256, [new("set_text", "/RSLogix5000Content/Controller/Tags/Tag/Description", "new μ")]), effect: "preview", ids: [("projectId", scalar.Id)]);
+        Check(scalarPreview.XmlPreservation == "scalar-byte-spans-v1", "MCP previews declare the scalar byte-preservation contract");
+        var scalarApplied = await Tool<ProjectInfo>("studio_apply_changes", new ApplyRequest(scalar.CurrentSha256), effect: "apply", ids: [("projectId", scalar.Id), ("draftId", scalarPreview.Id)]);
+        var scalarExport = await Tool<Artifact>("studio_export_project", new ExportRequest(scalarApplied.CurrentSha256), effect: "apply", ids: [("projectId", scalar.Id)]);
+        var scalarExpected = System.Text.Encoding.UTF8.GetPreamble().Concat(System.Text.Encoding.UTF8.GetBytes(scalarText.Replace("old μ", "new μ"))).ToArray();
+        Check((await client.DownloadAsync(scalarExport.Id)).SequenceEqual(scalarExpected) && File.ReadAllBytes(scalarPath).SequenceEqual(scalarBytes), "MCP apply/export preserve the BOM, all unselected XML bytes and the original source file");
         var validation = await Tool<LogixValidationReport>("studio_validation_preview", validationRequest);
         var restValidation = await client.PostAsync<LogixValidationReport>("/api/logix-validation/preview", validationRequest);
         Check(validation.Status == "pass" && validation.ReviewSha256 == restValidation.ReviewSha256 && validation.UnsupportedCoverage.Length > 0, "REST/MCP share exact policy-bound preservation findings and explicit native/safety/runtime exclusions");

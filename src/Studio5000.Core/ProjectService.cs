@@ -59,6 +59,8 @@ public sealed partial class ProjectService : IDisposable
         name = WorkspaceIdentity.Name, version = WorkspaceIdentity.Version, nativeBridgeConfigured = native.Available,
         operations = new[] { "register", "inspect", "read_element", "preview", "apply", "export_l5x", "explode", "register_exploded", "audit", "export_acd" },
         editOperations = new[] { "set_text", "set_attribute", "replace_element", "add_element", "remove_element" },
+        scalarXmlEdits = new { preservation = XmlScalarEdits.Preservation, scope = "Scalar-only Logix and FactoryTalk preview/apply and transaction XML edits; source encoding/BOM and all unselected bytes retained.",
+            structuralEdits = XmlScalarEdits.Serialization, maximumInputBytes = 64 * 1024 * 1024, maximumXmlElements = 1000000, unsupportedEncodingFallback = false },
         exploded = new { schemaVersion = ExplodedCompatibility.SchemaVersion, acceptsUnstampedLegacy = true,
             protectedAois = false, structuredTextXmlMetadata = false, unsafeDependencyBypass = false },
         allowedRoots = roots,
@@ -189,16 +191,11 @@ public sealed partial class ProjectService : IDisposable
             var info = Get(id);
             Expect(info, request.ExpectedSha256);
             var baseline = await File.ReadAllBytesAsync(RevisionFile(id, info.Revision, info.Kind), ct);
-            var bytes = ApplyDocument(info, baseline, request.Edits);
             var diffParts = new List<string>();
-            var intermediate = baseline;
-            foreach (var edit in request.Edits)
-            {
-                diffParts.Add(DescribeEdit(info, intermediate, edit));
-                intermediate = ApplyDocument(info, intermediate, [edit]);
-            }
+            var bytes = ApplyDocument(info, baseline, request.Edits, beforeEdit: (doc, edit) => diffParts.Add(DescribeEdit(doc, edit)));
             var diff = string.Join("\n\n", diffParts);
-            var preview = new ChangePreview(Guid.NewGuid().ToString("N"), id, info.CurrentSha256, Hash(bytes), request.Edits, diff, DateTimeOffset.UtcNow);
+            var preservation = XmlScalarEdits.Supports(request.Edits) ? XmlScalarEdits.Preservation : XmlScalarEdits.Serialization;
+            var preview = new ChangePreview(Guid.NewGuid().ToString("N"), id, info.CurrentSha256, Hash(bytes), request.Edits, diff, DateTimeOffset.UtcNow, preservation);
             Save(Path.Combine(ProjectDir(id), preview.Id + ".draft.json"), preview);
             Audit("preview", info, info.CurrentSha256, preview.ResultSha256, preview.Id);
             return preview;
@@ -218,7 +215,8 @@ public sealed partial class ProjectService : IDisposable
                 throw new OperationException("stale_revision", "Apply must use the preview's exact base hash.");
             if (info.CurrentSha256 == draft.ResultSha256) return info; // retry after a lost response
             Expect(info, request.ExpectedSha256);
-            var bytes = ApplyDocument(info, await File.ReadAllBytesAsync(RevisionFile(id, info.Revision, info.Kind), ct), draft.Edits);
+            if (draft.XmlPreservation is not (null or XmlScalarEdits.Preservation or XmlScalarEdits.Serialization)) throw new OperationException("draft_tampered", "Unknown XML preservation mode.");
+            var bytes = ApplyDocument(info, await File.ReadAllBytesAsync(RevisionFile(id, info.Revision, info.Kind), ct), draft.Edits, preserveScalarBytes: draft.XmlPreservation == XmlScalarEdits.Preservation);
             if (Hash(bytes) != draft.ResultSha256) throw new OperationException("draft_tampered", "Draft result does not match preview hash.");
             var next = info with { CurrentSha256 = draft.ResultSha256, Revision = info.Revision + 1 };
             AtomicBytes(RevisionFile(id, next.Revision, next.Kind), bytes);
@@ -370,9 +368,9 @@ public sealed partial class ProjectService : IDisposable
                     .Where(e => id is null || e.ProjectId == id).TakeLast(500).ToArray() : [];
     }
 
-    private static string DescribeEdit(ProjectInfo info, byte[] baseline, Edit edit)
+    private static string DescribeEdit(XDocument document, Edit edit)
     {
-        var before = XmlProjects.Select(ParseDocument(info, baseline), edit.XPath).ToString();
+        var before = XmlProjects.Select(document, edit.XPath).ToString();
         return $"{edit.Operation} {edit.XPath}{(edit.Attribute is null ? "" : " @" + edit.Attribute)}\nBEFORE\n{before}\nREQUESTED VALUE\n{edit.Value ?? "(remove)"}";
     }
 
@@ -473,7 +471,7 @@ public sealed partial class ProjectService : IDisposable
         lock (auditGate) File.AppendAllText(Path.Combine(state, "audit.jsonl"), JsonSerializer.Serialize(e) + "\n", Encoding.UTF8);
     }
     private static XDocument ParseDocument(ProjectInfo info, byte[] bytes) => FactoryTalkGraphics.IsFactoryTalk(info.Kind) ? FactoryTalkGraphics.Parse(bytes) : XmlProjects.Parse(bytes);
-    private byte[] ApplyDocument(ProjectInfo info, byte[] bytes, Edit[] edits) => FactoryTalkGraphics.IsFactoryTalk(info.Kind)
-        ? FactoryTalkGraphics.Apply(bytes, edits, options.FactoryTalkSchemaDirectory) : XmlProjects.Apply(bytes, edits);
+    private byte[] ApplyDocument(ProjectInfo info, byte[] bytes, Edit[] edits, bool preserveScalarBytes = true, Action<XDocument, Edit>? beforeEdit = null) => FactoryTalkGraphics.IsFactoryTalk(info.Kind)
+        ? FactoryTalkGraphics.Apply(bytes, edits, options.FactoryTalkSchemaDirectory, preserveScalarBytes, beforeEdit) : XmlProjects.Apply(bytes, edits, preserveScalarBytes, beforeEdit);
     public void Dispose() { DisposeWatches(); DisposeSdkJobs(); instanceLock.Dispose(); gate.Dispose(); compatibilityGate.Dispose(); }
 }
