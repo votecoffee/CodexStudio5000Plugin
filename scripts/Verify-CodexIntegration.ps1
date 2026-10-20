@@ -59,6 +59,9 @@ function Reject([scriptblock]$Action, [string]$Message) {
     Check $rejected $Message
 }
 try {
+    $installerAst = [Management.Automation.Language.Parser]::ParseFile((Join-Path $PSScriptRoot 'Install.ps1'), [ref]$null, [ref]$null)
+    $integrationParameter = $installerAst.ParamBlock.Parameters | Where-Object { $_.Name.VariablePath.UserPath -eq 'CodexIntegration' }
+    Check ($integrationParameter.DefaultValue.Value -ceq 'Standalone') 'Normal installation defaults to the standalone plugin independently of Universal Tools'
     Case 'absent'
     $plan = Set-RockwellCodexIntegration -Root $caseRoot -PlanOnly
     Check ($plan.route -eq 'Standalone' -and !(Test-Path -LiteralPath (Join-Path $caseRoot '.local'))) 'Planning an absent-broker fallback performs no installation or local-state writes'
@@ -88,6 +91,15 @@ try {
     Check (Test-RockwellOwnedStandalone $inventory[0] $caseRoot) 'Owned-package detection handles Windows extended-length marketplace paths'
     $inventory[0].source.path = Join-Path $caseRoot '.local/codex-marketplace/packages-other/foreign'
     Check (!(Test-RockwellOwnedStandalone $inventory[0] $caseRoot)) 'A similarly prefixed foreign package is not adopted by the installer'
+
+    Case 'fresh-plugin-busy-runtime'
+    [IO.File]::WriteAllText((Join-Path $caseRoot 'scripts/Assert-ApplicationsStopped.ps1'), "throw 'Generated busy app runtime.'")
+    Set-RockwellCodexIntegration -Root $caseRoot -Route Standalone | Out-Null
+    Check (@($commands | Where-Object { $_ -like 'codex plugin add rockwell*' }).Count -eq 1) 'A first standalone plugin can be installed without stopping the independently running app'
+    $busyBundle = New-RockwellStandalonePackage $caseRoot
+    $script:inventory = @([pscustomobject]@{ pluginId = 'rockwell-mcp-server@rockwell-mcp-server-local'; name = 'rockwell-mcp-server'; installed = $true; enabled = $true;
+        source = [pscustomobject]@{ source = 'local'; path = $busyBundle.package }; marketplaceSource = [pscustomobject]@{ source = $busyBundle.marketplace } })
+    Reject { Set-RockwellCodexIntegration -Root $caseRoot -Route Standalone } 'Refreshing an enabled owned plugin still requires an idle app'
 
     foreach ($mode in @('disabled','incompatible','missing-runtime','acceptance-pending')) {
         Case $mode

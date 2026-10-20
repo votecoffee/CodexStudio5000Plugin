@@ -201,7 +201,10 @@ function Set-RockwellCodexIntegration {
     $ownedStandalone = $standalone.Count -eq 1 -and (Test-RockwellOwnedStandalone $standalone[0] $Root)
     $refreshRequired = $ownedStandalone -and $standalone[0].enabled -ne $true
     if (!$PlanOnly) {
-        if (!$prior -or $prior.route -ne 'Standalone' -or ($ownedStandalone -and !$refreshRequired)) { & (Join-Path $Root 'scripts/Assert-ApplicationsStopped.ps1') }
+        # A first plugin installation publishes only a new immutable package.
+        # Binary rebuilds are guarded by Install.ps1; replacing an enabled plugin
+        # or switching a recorded broker route still requires an idle app.
+        if (($prior -and $prior.route -eq 'Broker') -or ($ownedStandalone -and !$refreshRequired)) { & (Join-Path $Root 'scripts/Assert-ApplicationsStopped.ps1') }
         if (!$standalone.Count -or $ownedStandalone) {
             $bundle = New-RockwellStandalonePackage $Root
             if (!$standalone.Count) { Invoke-RockwellCodex @('plugin','marketplace','add',$bundle.marketplace,'--json') | Out-Null }

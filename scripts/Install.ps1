@@ -1,5 +1,5 @@
 param([switch]$WithSdk, [switch]$WithCip, [switch]$SkipBuild, [switch]$NoShortcut,
-    [ValidateSet('Auto','Standalone','Broker','None')][string]$CodexIntegration = 'Auto',
+    [ValidateSet('Auto','Standalone','Broker','None')][string]$CodexIntegration = 'Standalone',
     [string]$BrokerRoot, [switch]$AcceptBrokerRoute)
 $ErrorActionPreference = 'Stop'
 $repo = Split-Path -Parent $PSScriptRoot

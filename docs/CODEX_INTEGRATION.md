@@ -6,7 +6,7 @@ An [optional app-owned framework host](FRAMEWORK.md) is also available as a sepa
 
 ## Installation choices
 
-`Install.cmd` defaults to `-CodexIntegration Auto`. Inspect or select integration separately:
+`Install.cmd` defaults to `-CodexIntegration Standalone` and installs Rockwell's own plugin without requiring Universal Tools. A disabled app-owned plugin stays disabled on reinstall. Use Auto or Broker only when explicitly selecting those optional policies. An existing recorded broker route still requires the normal reconciliation acknowledgment before switching. Inspect or select integration separately:
 
 ```powershell
 .\scripts\Configure-Codex.ps1 -Route Auto -PlanOnly
@@ -28,6 +28,8 @@ Receipts are per `CODEX_HOME` profile under ignored `.local/codex-integration/`.
 Standalone packages use an explicit public-content allowlist under `.local/codex-marketplace/packages/`. Identical bytes reuse an immutable package. Only manifests, the MIT license, Markdown skills/references, a launcher and its private runtime pointer enter the plugin cache. Never register the whole checkout as a plugin source: it contains local files and build outputs. Keep the app checkout in place or rerun installation after moving it.
 
 Reinstallation republishes current guidance for app-owned standalone installations and refreshes an already enabled plugin through the Codex CLI. Ownership requires the exact plugin identity and matching marketplace/package paths; another installation's plugin is retained. The app must be idle before refreshing an enabled package. Older source packages remain unchanged. Disabled plugins receive an updated marketplace package without calling `codex plugin add`, which would enable them. The result reports `pluginRefreshRequired: true`; refresh the staged package through Codex when needed. Disabled upgrades preserve existing configuration/cache bytes. Native CLI refresh of enabled plugins may normalize configuration newlines while preserving settings. Updated native skills still need the host's normal refresh/new-chat lifecycle.
+
+A first standalone plugin installation only publishes a new immutable package and registers it with Codex. `Install.cmd -SkipBuild` can perform that step while the independent service keeps working. Binary rebuilds, enabled-plugin refreshes and switching a recorded broker route retain their idle/reconciliation guards.
 
 Missing Codex tooling or an integration error in Auto mode leaves the application installed and reports the limitation. Explicit route failures are errors. Plugin installation/new skills can require a fresh chat; see [OpenAI's packaging documentation](https://developers.openai.com/plugins/build/plugins).
 
