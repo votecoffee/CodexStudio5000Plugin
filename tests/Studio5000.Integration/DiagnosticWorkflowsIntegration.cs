@@ -98,7 +98,7 @@ internal static class DiagnosticWorkflowsIntegration
         var scalar = await client.PostAsync<ProjectInfo>("/api/projects", new RegisterRequest(scalarPath));
         var scalarPreview = await Tool<ChangePreview>("studio_preview_changes", new PreviewRequest(scalar.CurrentSha256, [new("set_text", "/RSLogix5000Content/Controller/Tags/Tag/Description", "new μ")]), effect: "preview", ids: [("projectId", scalar.Id)]);
         Check(scalarPreview.XmlPreservation == "scalar-byte-spans-v1", "MCP previews declare the scalar byte-preservation contract");
-        var scalarApplied = await Tool<ProjectInfo>("studio_apply_changes", new ApplyRequest(scalar.CurrentSha256), effect: "apply", ids: [("projectId", scalar.Id), ("draftId", scalarPreview.Id)]);
+        var scalarApplied = await Tool<ProjectInfo>("studio_apply_changes", new ApplyRequest(scalar.CurrentSha256), effect: "apply", ids: [("projectId", scalar.Id), ("previewId", scalarPreview.Id)]);
         var scalarExport = await Tool<Artifact>("studio_export_project", new ExportRequest(scalarApplied.CurrentSha256), effect: "apply", ids: [("projectId", scalar.Id)]);
         var scalarExpected = System.Text.Encoding.UTF8.GetPreamble().Concat(System.Text.Encoding.UTF8.GetBytes(scalarText.Replace("old μ", "new μ"))).ToArray();
         Check((await client.DownloadAsync(scalarExport.Id)).SequenceEqual(scalarExpected) && File.ReadAllBytes(scalarPath).SequenceEqual(scalarBytes), "MCP apply/export preserve the BOM, all unselected XML bytes and the original source file");
