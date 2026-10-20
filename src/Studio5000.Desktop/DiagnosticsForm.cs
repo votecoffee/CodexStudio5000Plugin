@@ -24,6 +24,8 @@ public sealed class DiagnosticsForm : WorkspaceForm
             [A("validation_profiles", "Discover named checks and coverage"), A("validation_preview", "Preview merge-preservation checks"), A("validation_preview", "Preview existing native readback checks"), A("validation_record", "Retain reviewed validation receipt"), A("validation_receipt", "Read hash-bound validation receipt")]),
         new("Version compatibility", "Select a saved source and target major revision. Preview first, then supply its review hash to Start. Native conversion uses a private copy. After successful conversion, request separate ACD readback and inspect its status/configuration differences. Downgrades are unsupported; native installation and licensing are required.",
             [A("version_compatibility_preview", "Preview target-version copy"), A("version_compatibility_start", "Start reviewed native conversion"), A("version_compatibility_readback", "Reopen converted ACD for readback"), A("version_compatibility_status", "Read jobs, differences and native messages")]),
+        new("Legacy review copy", "REVIEW ONLY v35-to-v32 legacy input, separate from upgrade-only version conversion. Supply a completed offline SDK native L5K export job/artifact and its hash. Preview exact fields, then prepare with its review hash. Native import/save/readback are explicit separate SDK jobs. Compare actual v32 readback against the intended v35 source; review motion changes and protected AOI envelope/payload findings. Preparation does not establish compatibility or authorize deployment.",
+            [A("legacy_review_preview", "Preview exact legacy review-input edits"), A("legacy_review_prepare", "Prepare immutable review input and manifest"), A("validation_preview", "Preview legacy review readback checks")]),
         new("Saved trends and results", "Use Trends in Watch lists for a graph, saved series/window and statistics. These editors also create/modify views, gather bounded result pages and export an exact result hash. HasMore means statistics are partial. Creating views or gathering results never starts polling.",
             [A("trend_views", "List saved trend views"), A("trend_view_get", "Read saved view"), A("trend_view_save", "Create or modify saved trend view"), A("trend_analyze", "Gather trend values, statistics and gaps"), A("trend_export", "Export exact analyzed results"), A("trend_view_delete", "Remove saved view")])
     ];
@@ -100,6 +102,7 @@ public sealed class DiagnosticsForm : WorkspaceForm
         var selectedCandidate = candidate.SelectedItem as ProjectInfo;
         var validation = new LogixValidationRequest("merge-preservation", new(selectedCandidate?.Id ?? "", selectedCandidate?.CurrentSha256 ?? ""), Merge: merge, ExpectedPolicySha256: "");
         var version = new VersionCompatibilityRequest(p?.Id ?? "", p?.CurrentSha256 ?? "", (int)target.Value);
+        var legacy = new LegacyReviewRequest("", "", "", "Review-only legacy copy");
         object? request = operation switch
         {
             "studio_logic_trace" => new LogicTraceRequest(p?.CurrentSha256 ?? "", tag.Text, selectedTag.ProgramName),
@@ -111,7 +114,9 @@ public sealed class DiagnosticsForm : WorkspaceForm
             "studio_diagnostic_episode_capture" => new DiagnosticEpisodeCaptureRequest(trigger?.Episodes.FirstOrDefault()?.Artifact.Sha256 ?? ""),
             "studio_logic_value_merge_preview" => merge,
             "studio_logic_value_merge_apply" => new LogicValueMergeApplyRequest(merge, ""),
-            "studio_validation_preview" => actions.SelectedItem is ActionItem { Title: "Preview existing native readback checks" } ? new LogixValidationRequest("native-readback", validation.Candidate, Reference: new(p?.Id ?? "", p?.CurrentSha256 ?? "")) : validation,
+            "studio_validation_preview" => actions.SelectedItem is ActionItem { Title: "Preview existing native readback checks" or "Preview legacy review readback checks" } selected ? new LogixValidationRequest(selected.Title.Contains("legacy", StringComparison.Ordinal) ? "legacy-review-readback" : "native-readback", validation.Candidate, Reference: new(p?.Id ?? "", p?.CurrentSha256 ?? "")) : validation,
+            "studio_legacy_review_preview" => legacy,
+            "studio_legacy_review_prepare" => new LegacyReviewPrepareRequest(legacy, ""),
             "studio_validation_record" => new LogixValidationRecordRequest(validation, ""),
             "studio_version_compatibility_preview" => version,
             "studio_version_compatibility_start" => new VersionCompatibilityStartRequest(version, ""),

@@ -5,7 +5,7 @@ using System.Xml.Linq;
 
 namespace Studio5000.Core;
 
-public sealed record NativeReadbackRules(bool NormalizeMessageFormatting = false, bool NormalizeL5KWhitespace = false, bool IgnoreRungNumbers = false, bool NormalizeRllWhitespace = false);
+public sealed record NativeReadbackRules(bool NormalizeMessageFormatting = false, bool NormalizeL5KWhitespace = false, bool IgnoreRungNumbers = false, bool NormalizeRllWhitespace = false, bool NormalizeProtectedPayloadWhitespace = false);
 public sealed record LogixExpectedDifference(string Check, string Location, string? ExpectedSha256, string? ActualSha256, string Reason);
 public sealed record LogixValidationRequest(string Profile, MergeSnapshot Candidate, MergeSnapshot? Baseline = null,
     MergeSnapshot? Reference = null, LogicValueMergeRequest? Merge = null, string? ExpectedPolicySha256 = null, NativeReadbackRules? NativeRules = null, LogixExpectedDifference[]? ExpectedDifferences = null);
@@ -28,12 +28,13 @@ internal static class LogixValidation
         profiles = new[] {
             new { id = "merge-preservation", purpose = "Validate reviewed logic while keeping all current saved values and configuration; exact MESSAGE exceptions only.", requires = "candidate + preserve-fresh merge policy + expectedPolicySha256", checks = new[]{"reviewed-program-routines-and-annotations","fresh-tag-identities-definitions-aliases","all-stored-representations","message-field-exceptions","untouched-module-task-safety-AOI-configuration","direct-RLL-JSR-and-main-routine-references"} },
             new { id = "native-readback", purpose = "Compare an already supplied native export/readback with its intended saved project, without running native jobs.", requires = "candidate readback + reference intended project; optional explicit nativeRules", checks = new[]{"program-and-readable-AOI-routines","tag-definitions-aliases-and-all-representations","message-configuration","other-configuration","direct-RLL-JSR-and-main-routine-references"} },
+            new { id = "legacy-review-readback", purpose = "Review-only v35-to-v32 comparison: keep application/readable AOI code and ordinary values; report motion configuration and protected AOI envelopes/payloads separately.", requires = "candidate native v32 readback + reference intended v35 project; optional explicit nativeRules and exact expected metadata/configuration differences", checks = new[]{"target-software-controller-Local-revisions","readable-routine-code","ordinary-tag-layouts-and-values","motion-configuration","protected-AOI-envelope-and-complete-opaque-payload","other-configuration","direct-RLL-JSR-and-main-routine-references"} },
             new { id = "offline-integrity", purpose = "Check direct saved-project routine references and distinguish inherited/new/resolved findings against an optional baseline.", requires = "candidate; optional baseline", checks = new[]{"direct-RLL-JSR-and-main-routine-references"} }
         }, maximumXmlElements = 1000000, maximumFindings = 10000, maximumReceiptBytes = 8 * 1024 * 1024,
         retainedReceipt = "studio_validation_record binds the complete report, reviewed policy, source/candidate hashes and tool version. Re-read with studio_validation_receipt; save with studio_save_artifact.", boundary = Boundary
     };
     private static string? Hash(XElement? node, bool rungNumbers = true) => node is null ? null : ProjectService.Hash(Encoding.UTF8.GetBytes(ProjectComparison.Normalize(node, rungNumbers).ToString(SaveOptions.DisableFormatting)));
-    private static XElement ProjectConfiguration(XElement node)
+    private static XElement ProjectConfiguration(XElement node, bool separateProtected = false)
     {
         var result = new XElement(node.Name, node.Attributes().Select(a => new XAttribute(a)));
         foreach (var content in node.Nodes())
@@ -42,7 +43,8 @@ internal static class LogixValidation
             {
                 if (child.Name == "Tag" && child.Parent?.Name == "Tags" && child.Parent.Parent?.Name.LocalName is "Program" or "Controller") continue;
                 if (child.Name == "Routines" && child.Parent?.Name == "Program") continue;
-                result.Add(ProjectConfiguration(child));
+                if (separateProtected && Protected(child)) continue;
+                result.Add(ProjectConfiguration(child, separateProtected));
             }
             else if (content is XCData data) result.Add(new XCData(data.Value));
             else if (content is XText text && (!node.HasElements || !string.IsNullOrWhiteSpace(text.Value))) result.Add(new XText(text.Value));
@@ -53,6 +55,38 @@ internal static class LogixValidation
     }
     private static Dictionary<string, XElement> AllRoutines(XDocument doc) => LogixPreservation.Index(doc.Descendants("Routine").Where(r => r.Parent?.Name == "Routines" && r.Parent.Parent?.Name.LocalName is "Program" or "AddOnInstructionDefinition"),
         r => r.Parent!.Parent!.Name.LocalName + "/" + (string?)r.Parent.Parent.Attribute("Name") + "/" + (string?)r.Attribute("Name"));
+    private static bool Protected(XElement node) => node.Name == "EncodedData" && node.Parent?.Name == "AddOnInstructionDefinitions" && (string?)node.Attribute("EncodedType") == "AddOnInstructionDefinition";
+    private static bool Motion(XElement tag) => (string?)tag.Attribute("DataType") == "MOTION_GROUP" || ((string?)tag.Attribute("DataType"))?.StartsWith("AXIS_", StringComparison.OrdinalIgnoreCase) == true || tag.Elements("Data").Any(d => (string?)d.Attribute("Format") is "MotionGroup" or "Axis");
+    private static string? ProtectedPayload(XElement? node, bool normalize)
+    {
+        if (node is null) return null;
+        // XElement represents the text after child elements as direct XText/CDATA nodes too.
+        // Child parameter/description elements belong to the separately compared envelope.
+        var text = string.Concat(node.Nodes().OfType<XText>().Select(t => t.Value));
+        if (string.IsNullOrWhiteSpace(text)) throw new OperationException("validation_unsupported", "Protected AOI has no supported direct opaque text/CDATA payload; nested or missing payloads are not assumed equivalent.");
+        if (!normalize) return LogixPreservation.TextHash(text);
+        try
+        {
+            var bytes = Convert.FromBase64String(text);
+            if (bytes.Length == 0) throw new FormatException();
+            return ProjectService.Hash(bytes);
+        }
+        catch (FormatException) { throw new OperationException("validation_unsupported", "Protected payload whitespace normalization requires a nonempty valid base64 payload; opaque semantics are not checked."); }
+    }
+    private static XElement? RoutineCode(XElement? node)
+    {
+        if (node is null) return null;
+        var copy = new XElement(node); copy.Attribute("Use")?.Remove();
+        copy.Descendants().Where(e => e.Name.LocalName is "Description" or "Comment" or "LocalizedDescription" or "LocalizedComment").Remove(); return copy;
+    }
+    private static XElement LegacyLayout(XElement controller, string section)
+    {
+        var copy = LogixPreservation.LayoutContract(controller, section);
+        // Export dependency inventories are reported in untouched-configuration;
+        // the member/parameter declarations remain enforced as layout.
+        if (section == "DataTypes") copy.Elements("DataType").Elements("Dependencies").Remove();
+        return copy;
+    }
     private static string L5K(string text)
     {
         var output = new StringBuilder(text.Length); char quote = '\0';
@@ -122,16 +156,27 @@ internal static class LogixValidation
     public static LogixValidationReport Run(LogixValidationRequest request, ProjectInfo candidate, XDocument actual,
         ProjectInfo? reference, XDocument? expected, XDocument? reviewed, XDocument? baseline)
     {
-        if (request.Profile is not ("merge-preservation" or "native-readback" or "offline-integrity")) throw new OperationException("validation_profile", "Discover a named validation profile first.");
-        if (request.Profile != "native-readback" && request.NativeRules is not null) throw new OperationException("validation_policy", "Native normalization choices apply only to native-readback.");
+        if (request.Profile is not ("merge-preservation" or "native-readback" or "legacy-review-readback" or "offline-integrity")) throw new OperationException("validation_profile", "Discover a named validation profile first.");
+        var legacy = request.Profile == "legacy-review-readback"; var nativeComparison = request.Profile == "native-readback" || legacy;
+        if (!nativeComparison && request.NativeRules is not null) throw new OperationException("validation_policy", "Native normalization choices apply only to readback comparisons.");
         var rules = request.NativeRules ?? new(); var fields = request.Merge?.ConfigurationFields ?? [];
+        if (rules.NormalizeProtectedPayloadWhitespace && !legacy) throw new OperationException("validation_policy", "Protected payload normalization is available in legacy-review-readback only.");
         var exceptions = request.ExpectedDifferences ?? [];
-        if (exceptions.Length > 1000 || (request.Profile != "native-readback" && exceptions.Length > 0) || exceptions.Any(e => e is null || string.IsNullOrWhiteSpace(e.Reason) || e.Reason.Length > 500 || string.IsNullOrWhiteSpace(e.Location) || e.Location.Length > 8192 || string.IsNullOrWhiteSpace(e.Check) || e.Check.Length > 128 ||
+        if (exceptions.Length > 1000 || (!nativeComparison && exceptions.Length > 0) || exceptions.Any(e => e is null || string.IsNullOrWhiteSpace(e.Reason) || e.Reason.Length > 500 || string.IsNullOrWhiteSpace(e.Location) || e.Location.Length > 8192 || string.IsNullOrWhiteSpace(e.Check) || e.Check.Length > 128 ||
             (e.ExpectedSha256 is null && e.ActualSha256 is null) || (e.ExpectedSha256 is not null && !Regex.IsMatch(e.ExpectedSha256, "^[a-fA-F0-9]{64}$")) || (e.ActualSha256 is not null && !Regex.IsMatch(e.ActualSha256, "^[a-fA-F0-9]{64}$"))))
             throw new OperationException("validation_policy", "Use at most 1000 exact, reasoned, hash-bound native-readback differences; no wildcard approval.");
+        if (legacy && exceptions.Any(e => e.Check is "target-version" or "readable-routine-code" or "ordinary-tag-layout" or "ordinary-tag-values" or "aoi-default-values" or "data-type-layouts"))
+            throw new OperationException("validation_policy", "Legacy review cannot waive target revisions, code, ordinary tag layouts/values or UDT/AOI layouts as metadata/configuration exceptions.");
         var findings = new List<LogixValidationFinding>(); var counts = new Dictionary<string, int>();
         void Count(string check) => counts[check] = counts.GetValueOrDefault(check) + 1;
         void Fail(string check, string location, string detail, XElement? a, XElement? b) => findings.Add(new(check, location, "fail", "new", detail, Hash(a), Hash(b)));
+        if (legacy)
+        {
+            Count("target-version");
+            bool Version(XDocument? document, string major) => ((string?)document?.Root?.Attribute("SoftwareRevision"))?.Split('.')[0] == major && (string?)document?.Root?.Element("Controller")?.Attribute("MajorRev") == major &&
+                document.Root.Element("Controller")!.Elements("Modules").Elements("Module").Count(m => (string?)m.Attribute("Name") == "Local" && (string?)m.Attribute("Major") == major) == 1;
+            if (!Version(expected, "35") || !Version(actual, "32")) findings.Add(new("target-version", "SoftwareRevision/Controller.MajorRev/Local.Major", "fail", "new", "Require consistent v35 reference and actual v32 software/controller/Local native readback fields; header edits alone are not acceptance."));
+        }
         void Diff(string check, string path, XElement? a, XElement? b)
         {
             if (findings.Count >= 10000) throw new OperationException("validation_limit", "More than 10000 findings; reduce the project scope. No partial receipt was produced.");
@@ -200,17 +245,25 @@ internal static class LogixValidation
             foreach (var key in et.Keys.Union(at.Keys, StringComparer.OrdinalIgnoreCase))
             {
                 et.TryGetValue(key, out var old); at.TryGetValue(key, out var current); Count("tag-identities-definitions-aliases");
-                if (old is null || current is null) { Fail("tag-identities-definitions-aliases", key, "Tag identity was added/removed.", old, current); continue; }
+                if (legacy) Count("ordinary-tag-layout");
+                if (old is null || current is null)
+                { Fail("tag-identities-definitions-aliases", key, "Tag identity was added/removed.", old, current); if (legacy) Fail("ordinary-tag-layout", key, "Tag identity was added/removed.", old, current); continue; }
                 Diff("tag-identities-definitions-aliases", key, LogixPreservation.Declaration(old), LogixPreservation.Declaration(current));
+                if (legacy)
+                {
+                    if (LogixPreservation.TagContract(old) != LogixPreservation.TagContract(current)) Fail("ordinary-tag-layout", key, "Tag type/dimensions/alias/class changed.", old, current);
+                }
                 var left = old.Elements("Data").ToArray(); var right = current.Elements("Data").ToArray();
                 var formats = left.Select(d => (string?)d.Attribute("Format") ?? "unknown").Union(right.Select(d => (string?)d.Attribute("Format") ?? "unknown"));
                 foreach (var format in formats)
                 {
-                    var av = left.Where(d => (string?)d.Attribute("Format") == format).ToArray(); var bv = right.Where(d => (string?)d.Attribute("Format") == format).ToArray(); Count("stored-value-representations");
-                    if (av.Length != 1 || bv.Length != 1) { Fail("stored-value-representations", key + "/Data[" + format + "]", "Missing/duplicate representation; none was silently discarded.", av.FirstOrDefault(), bv.FirstOrDefault()); continue; }
+                    var valueCheck = !legacy ? "stored-value-representations" : Motion(old) || Motion(current) ? "motion-configuration" :
+                        (string?)old.Attribute("DataType") == "MESSAGE" || (string?)current.Attribute("DataType") == "MESSAGE" ? "message-configuration" : "ordinary-tag-values";
+                    var av = left.Where(d => (string?)d.Attribute("Format") == format).ToArray(); var bv = right.Where(d => (string?)d.Attribute("Format") == format).ToArray(); Count(valueCheck);
+                    if (av.Length != 1 || bv.Length != 1) { Fail(valueCheck, key + "/Data[" + format + "]", "Missing/duplicate representation; none was silently discarded.", av.FirstOrDefault(), bv.FirstOrDefault()); continue; }
                     XElement x; XElement y;
                     try { x = Data(av[0], rules); y = Data(bv[0], rules); }
-                    catch (OperationException ex) { findings.Add(new("stored-value-representations", key, "unsupported", "new", ex.Message)); continue; }
+                    catch (OperationException ex) { findings.Add(new(valueCheck, key, "unsupported", "new", ex.Message)); continue; }
                     if (request.Profile == "merge-preservation" && format == "Message")
                     {
                         foreach (var choice in fields.Where(f => LogixPreservation.Key(f.ProgramName, f.TagName).Equals(key, StringComparison.OrdinalIgnoreCase)))
@@ -221,17 +274,49 @@ internal static class LogixValidation
                             x.Element("MessageParameters")?.Attribute(choice.Attribute)?.Remove(); y.Element("MessageParameters")?.Attribute(choice.Attribute)?.Remove();
                         }
                     }
-                    Diff("stored-value-representations", key + "/Data[" + format + "]", x, y);
+                    Diff(valueCheck, key + "/Data[" + format + "]", x, y);
                 }
             }
             var er = request.Profile == "merge-preservation" ? LogixPreservation.Routines(reviewed!) : AllRoutines(expected); var ar = request.Profile == "merge-preservation" ? LogixPreservation.Routines(actual) : AllRoutines(actual);
             foreach (var key in er.Keys.Union(ar.Keys, StringComparer.OrdinalIgnoreCase))
             {
                 er.TryGetValue(key, out var a); ar.TryGetValue(key, out var b); Count("routines-and-annotations");
-                try { Diff("routines-and-annotations", key, Routine(a, rules), Routine(b, rules)); }
+                try
+                {
+                    var before = Routine(a, rules); var after = Routine(b, rules); Diff("routines-and-annotations", key, before, after);
+                    if (legacy) { Count("readable-routine-code"); Diff("readable-routine-code", key, RoutineCode(before), RoutineCode(after)); }
+                }
                 catch (OperationException ex) when (ex.Code == "validation_unsupported") { findings.Add(new("routines-and-annotations", key, "unsupported", "new", ex.Message)); }
             }
-            Count("untouched-configuration"); Diff("untouched-configuration", "/RSLogix5000Content", ProjectConfiguration(expected.Root!), ProjectConfiguration(actual.Root!));
+            if (legacy)
+            {
+                foreach (var section in new[] { "DataTypes", "AddOnInstructionDefinitions" })
+                { Count("data-type-layouts"); Diff("data-type-layouts", section, LegacyLayout(expected.Root!.Element("Controller")!, section), LegacyLayout(actual.Root!.Element("Controller")!, section)); }
+                static Dictionary<string, XElement> Defaults(XDocument doc) => LogixPreservation.Index(doc.Descendants("AddOnInstructionDefinition").Elements().Where(e => e.Name.LocalName is "Parameters" or "LocalTags").Elements(),
+                    e => (string?)e.Parent!.Parent!.Attribute("Name") + "/" + e.Parent.Name.LocalName + "/" + (string?)e.Attribute("Name"));
+                var oldDefaults = Defaults(expected); var newDefaults = Defaults(actual);
+                foreach (var key in oldDefaults.Keys.Union(newDefaults.Keys, StringComparer.OrdinalIgnoreCase))
+                {
+                    Count("aoi-default-values"); oldDefaults.TryGetValue(key, out var a); newDefaults.TryGetValue(key, out var b);
+                    static XElement? Values(XElement? e) => e is null ? null : new XElement("Defaults", e.Elements().Where(c => c.Name.LocalName is "Data" or "DefaultData"));
+                    Diff("aoi-default-values", "AOI/" + key, Values(a), Values(b));
+                }
+                var before = LogixPreservation.Index(expected.Descendants().Where(Protected), e => (string)e.Attribute("Name")!);
+                var after = LogixPreservation.Index(actual.Descendants().Where(Protected), e => (string)e.Attribute("Name")!);
+                foreach (var key in before.Keys.Union(after.Keys, StringComparer.OrdinalIgnoreCase))
+                {
+                    before.TryGetValue(key, out var a); after.TryGetValue(key, out var b); Count("protected-aoi-envelope"); Count("protected-aoi-payload");
+                    static XElement? Envelope(XElement? e) => e is null ? null : new XElement(e.Name, e.Attributes(), e.Elements());
+                    Diff("protected-aoi-envelope", "EncodedAOI/" + key, Envelope(a), Envelope(b));
+                    try
+                    {
+                        var oldHash = ProtectedPayload(a, rules.NormalizeProtectedPayloadWhitespace); var newHash = ProtectedPayload(b, rules.NormalizeProtectedPayloadWhitespace);
+                        if (oldHash != newHash || oldHash is null) findings.Add(new("protected-aoi-payload", "EncodedAOI/" + key, "fail", "new", "Complete direct opaque text/CDATA payload differs or is missing; envelope metadata is compared separately. No payload semantics inferred.", oldHash, newHash));
+                    }
+                    catch (OperationException ex) { findings.Add(new("protected-aoi-payload", "EncodedAOI/" + key, "unsupported", "new", ex.Message)); }
+                }
+            }
+            Count("untouched-configuration"); Diff("untouched-configuration", "/RSLogix5000Content", ProjectConfiguration(expected.Root!, legacy), ProjectConfiguration(actual.Root!, legacy));
         }
         var inherited = baseline is null ? new Dictionary<string, (string Location, string Detail)>() : References(baseline); var currentReferences = References(actual);
         Count("direct-routine-references");
@@ -250,10 +335,11 @@ internal static class LogixValidation
             findings.Count(f => f.Check == k.Key && f.Status == "fail" && f.Classification == "new"), findings.Count(f => f.Check == k.Key && f.Classification == "inherited"), findings.Count(f => f.Check == k.Key && f.Classification == "expected"))).ToArray();
         var policyHash = request.Profile == "merge-preservation" ? LogixPreservation.PolicyHash(request.Merge!) : ProjectService.Hash(JsonSerializer.SerializeToUtf8Bytes(new { request.Profile, request.Reference, request.NativeRules, request.ExpectedDifferences }, ProjectService.Json));
         var unsupported = new[] { "Native import/build execution and provenance are not established by supplied files.", "Safety semantics, dynamic/AOI parameter binding and complete instruction/reference compilation are not checked.", "Stored representations are compared, not decoded to prove cross-encoding semantic equivalence or simultaneous live values.", "Runtime, live values and physical/commissioning acceptance are not checked." };
+        if (legacy) unsupported = [..unsupported, "Protected AOI semantics are uninspected. Matching envelope metadata, matching payload bytes or explicitly reviewed re-encoding differences do not establish opaque-code equivalence."];
         var review = ProjectService.Hash(JsonSerializer.SerializeToUtf8Bytes(new { request, policyHash, toolVersion = WorkspaceIdentity.Version, checks, findings }, ProjectService.Json));
         static ComparisonSnapshot Snapshot(ProjectInfo p) => new(p.Id, p.Name, p.Revision, p.CurrentSha256);
         var report = new LogixValidationReport(1, request.Profile, WorkspaceIdentity.Version, Snapshot(candidate), reference is null ? null : Snapshot(reference), policyHash, review,
-            checks.Any(c => c.Status == "fail") ? "fail" : checks.Any(c => c.Status == "unsupported") ? "unsupported" : "pass", checks, findings.ToArray(), unsupported, Boundary, request);
+            checks.Any(c => c.Status == "fail") ? "fail" : checks.Any(c => c.Status == "unsupported") ? "unsupported" : "pass", checks, findings.ToArray(), unsupported, legacy ? "REVIEW ONLY v35-to-v32. " + Boundary : Boundary, request);
         if (JsonSerializer.SerializeToUtf8Bytes(report, ProjectService.Json).Length > 8 * 1024 * 1024) throw new OperationException("validation_limit", "Validation report exceeds 8 MiB; no partial report was produced.");
         return report;
     }
@@ -278,7 +364,7 @@ public sealed partial class ProjectService
             LogixPreservation.ValidateChoices(merge.ConfigurationFields ?? []);
             var fresh = Load(merge.Values); reference = fresh.Info; expected = fresh.Doc; reviewed = Load(merge.Logic).Doc; baseline = Load(merge.Baseline).Doc;
         }
-        else if (request.Profile == "native-readback")
+        else if (request.Profile is "native-readback" or "legacy-review-readback")
         { var original = Load(request.Reference ?? throw new OperationException("validation_policy", "Provide the intended saved project as reference.")); reference = original.Info; expected = original.Doc; baseline = request.Baseline is null ? original.Doc : Load(request.Baseline).Doc; }
         else if (request.Baseline is not null) baseline = Load(request.Baseline).Doc;
         return LogixValidation.Run(request, candidate.Info, candidate.Doc, reference, expected, reviewed, baseline);

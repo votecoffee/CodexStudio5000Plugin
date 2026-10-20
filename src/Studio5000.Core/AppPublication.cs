@@ -12,7 +12,7 @@ public static class AppPublication
     private sealed record Guide(string Id, string Description, string Source, string[] Tools, (string Id, string Source)[] References);
     private static readonly Guide[] Guides = [
         new("rockwell-engineering", "Rockwell PLC and HMI offline engineering, multilingual text, tag/UDT browsing, watches, trends, diagnostics and transactions.", "engineering",
-            ["studio_extensions_catalog", "studio_extensions_describe", "studio_extensions_read", "studio_extensions_preview", "studio_extensions_apply", "studio_extensions_control"], [("logic-value-merge", "merge-reference")]),
+            ["studio_extensions_catalog", "studio_extensions_describe", "studio_extensions_read", "studio_extensions_preview", "studio_extensions_apply", "studio_extensions_control"], [("logic-value-merge", "merge-reference"), ("legacy-review-copy", "legacy-review-reference")]),
         new("logix-online-edits", "Logix online rung/routine import and native Test, Untest, Assemble or finalize workflow and evidence boundaries.", "online",
             ["studio_sdk_catalog", "studio_sdk_inspect_source", "studio_online_edit_plan", "studio_sdk_start_job", "studio_sdk_get_job"], [("studio-workflow", "online-reference")]),
         new("factorytalk-studio", "FactoryTalk View ME/SE graphics editing, native import/re-export and language-specific verification.", "factorytalk",

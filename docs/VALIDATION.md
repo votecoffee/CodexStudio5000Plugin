@@ -17,6 +17,8 @@ Results are under that run's `artifacts/test-results/`, including `core.trx`, `i
 
 The checks cover:
 
+- Legacy review-copy preparation: completed offline native export provenance, exact hash/field guards, BOM and unselected byte preservation, ambiguous/unsupported syntax rejection and no native jobs. The v35-to-v32 readback profile separates readable code/ordinary values from motion/MESSAGE configuration and protected AOI envelopes/full opaque payloads. Generated fixtures establish offline behavior; native acceptance remains case-specific.
+
 - Logix XML editing, source preservation, stale hashes and component/scope validation, plus structural comparison, lexical tag where-used and passive ladder previews.
 - Whole-tag value merging: exact UDT/array layout checks, malformed/incomplete values, explicit mappings, stale review/hash rejection, original/metadata/logic preservation and separate offline L5X export. Online capture is rejected with no job/connection in isolated validation.
 - Independent routine/ladder comparison: program/AOI identity, changed/unchanged/one-sided routines, aligned insertion gaps, changed-row filtering, both diagrams and retained parse diagnostics. Generated GUI renders cover the merge window and integrated ladder browser.

@@ -101,7 +101,7 @@ Failures include `401 unauthorized`, `403 origin_denied`, `404 not_found`, `409 
 
 ## Diagnostic and trend workflows
 
-The v0.23 shared service adds these REST families, also exposed by 22 reloadable extension operations. See [diagnostics and trends](DIAGNOSTICS.md) for request fields, instruction coverage, limits and step ordering.
+The shared service exposes these REST families through reloadable extension operations. See [diagnostics and trends](DIAGNOSTICS.md) for request fields, instruction coverage, limits and step ordering.
 
 | Method | Path | Purpose |
 |---|---|---|
@@ -116,6 +116,7 @@ The v0.23 shared service adds these REST families, also exposed by 22 reloadable
 | GET | `/api/trends/{id}` | Read exact saved trend definition |
 | POST | `/api/trends/{id}/delete`, `/api/trends/analyze`, `/api/trends/export` | Remove view, gather result page or export exact result |
 | POST | `/api/logic-value-merge/preview`, `/api/logic-value-merge/apply` | Whole-project preserve-fresh or legacy selected-tag merge into a new project |
+| POST | `/api/legacy-review/preview`, `/api/legacy-review/prepare` | Exact reviewed v35-to-v32 legacy L5K input and manifest from a completed native export; no SDK job started |
 | GET | `/api/logix-validation/profiles` | Named checks, scope, budgets and unsupported acceptance claims |
 | POST | `/api/logix-validation/preview`, `/api/logix-validation/record` | Exact policy/hash-bound checks and retained immutable JSON receipts |
 | GET | `/api/logix-validation/receipts/{id}?expectedSha256=...` | Verify/read a retained receipt without rerunning checks |

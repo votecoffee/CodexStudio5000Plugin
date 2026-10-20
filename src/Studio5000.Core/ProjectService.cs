@@ -93,6 +93,8 @@ public sealed partial class ProjectService : IDisposable
         logicValueMerge = new { preview = "/api/logic-value-merge/preview", apply = "/api/logic-value-merge/apply", recommendedMode = "preserve-fresh",
             workflow = "Merge reviewed logic but keep current saved values: baseline + logic + values; explicit MESSAGE attribute exceptions; validate and retain a receipt before separate export/native acceptance.",
             validationProfiles = "/api/logix-validation/profiles", maximumXmlElements = 1000000, maximumInputBytes = 64 * 1024 * 1024, preservesAllSavedRepresentations = true, connectsToController = false },
+        legacyReview = new { preview = "/api/legacy-review/preview", prepare = "/api/legacy-review/prepare", profile = "v35-to-v32-review", readbackProfile = "legacy-review-readback",
+            reviewOnly = true, startsNativeJob = false, connectsToController = false, boundary = LegacyReview.Boundary },
         watches = new { minimumIntervalMs = 100, maximumTags = 64, maximumActiveLists = 4, autoStartAfterRestart = false, structures = "SDK-native decorated XML; no inferred memory offsets",
             backends = new[] { "Sdk", "LibPlcTag" }, cipBridgeConfigured = File.Exists(options.CipBridgePath), cipPlan = "/api/projects/{id}/cip-watch-plan",
             preflight = "/api/watches/preflight",

@@ -79,7 +79,7 @@ internal static class DiagnosticWorkflowsIntegration
         var preservedProject = await Tool<ProjectInfo>("studio_logic_value_merge_apply", new LogicValueMergeApplyRequest(preservation, preservedPreview.ReviewSha256), effect: "apply");
         var validationRequest = new LogixValidationRequest("merge-preservation", new(preservedProject.Id, preservedProject.CurrentSha256), Merge: preservation, ExpectedPolicySha256: preservedPreview.PolicySha256);
         var profiles = await Tool<JsonElement>("studio_validation_profiles");
-        Check(profiles.GetProperty("profiles").GetArrayLength() == 3, "MCP discovers named offline integrity, merge preservation and existing-readback profiles");
+        Check(profiles.GetProperty("profiles").GetArrayLength() == 4, "MCP discovers named offline integrity, merge preservation and existing-readback profiles");
         var validation = await Tool<LogixValidationReport>("studio_validation_preview", validationRequest);
         var restValidation = await client.PostAsync<LogixValidationReport>("/api/logix-validation/preview", validationRequest);
         Check(validation.Status == "pass" && validation.ReviewSha256 == restValidation.ReviewSha256 && validation.UnsupportedCoverage.Length > 0, "REST/MCP share exact policy-bound preservation findings and explicit native/safety/runtime exclusions");
@@ -88,6 +88,33 @@ internal static class DiagnosticWorkflowsIntegration
         var retained = await Tool<LogixValidationDocument>("studio_validation_receipt", ids: [("receiptId", receipt.Artifact.Id), ("expectedSha256", receipt.Artifact.Sha256)]);
         Check(retained.Report.ReviewSha256 == validation.ReviewSha256 && ProjectService.Hash(await client.DownloadAsync(receipt.Artifact.Id)) == receipt.Artifact.Sha256, "Complete machine-readable validation receipt remains hash-bound through MCP and artifact download");
         Check((await Call("studio_validation_preview", validationRequest with { ExpectedPolicySha256 = "unreviewed" })).IsError == true, "Validation rejects an unrelated expected-change policy hash");
+        // Synthetic completed-export provenance is allowed only inside the owned
+        // offline fixture. Never insert these records into a normal app workspace.
+        if (Directory.GetParent(Path.GetFullPath(root))?.Name == "isolated-validation")
+        {
+            var state = Path.Combine(root, ".local", "state"); var artifactId = Guid.NewGuid().ToString("N"); var jobId = Guid.NewGuid().ToString("N");
+            var sourceName = (string)XDocument.Load(a.SourcePath).Root!.Element("Controller")!.Attribute("Name")!;
+            var l5k = System.Text.Encoding.UTF8.GetPreamble().Concat(System.Text.Encoding.UTF8.GetBytes("(* Generated fixture μ; no native acceptance *)\r\nIE_VER := 2.26;\r\nCONTROLLER " + sourceName + " (Major := 35, AutoDiagsEnabled := 1)\r\nMODULE Local (Major := 35)\r\nEND_MODULE\r\nEND_CONTROLLER\r\n")).ToArray();
+            var artifact = new Artifact(artifactId, a.Id, "l5k", ProjectService.Hash(l5k), l5k.Length, "Generated offline integration fixture");
+            var artifactDir = Path.Combine(state, "artifacts", artifactId); Directory.CreateDirectory(artifactDir); File.WriteAllBytes(Path.Combine(artifactDir, "project.l5k"), l5k); File.WriteAllBytes(Path.Combine(artifactDir, "artifact.json"), JsonSerializer.SerializeToUtf8Bytes(artifact, ProjectService.Json));
+            var job = new SdkJob(jobId, "succeeded", DateTimeOffset.UnixEpoch, ["SaveAsAsync"], a.CurrentSha256, null, false, [], [], [artifact], a);
+            var jobDir = Path.Combine(state, "sdk-jobs", jobId); Directory.CreateDirectory(jobDir); File.WriteAllBytes(Path.Combine(jobDir, "job.json"), JsonSerializer.SerializeToUtf8Bytes(job, ProjectService.Json));
+            var legacyRequest = new LegacyReviewRequest(jobId, artifactId, artifact.Sha256, "Generated review-only integration");
+            var legacyPlan = await Tool<LegacyReviewPlan>("studio_legacy_review_preview", legacyRequest); var restPlan = await client.PostAsync<LegacyReviewPlan>("/api/legacy-review/preview", legacyRequest);
+            Check(legacyPlan.ReviewOnly && legacyPlan.ReviewSha256 == restPlan.ReviewSha256 && legacyPlan.Edits.Length == 4, "REST/MCP share exact review-only legacy fields and native-export provenance without starting jobs");
+            var prepare = new LegacyReviewPrepareRequest(legacyRequest, legacyPlan.ReviewSha256);
+            Check((await Call("studio_legacy_review_prepare", prepare)).IsError == true, "Read-only dispatch cannot prepare legacy input artifacts");
+            var prepared = await Tool<LegacyReviewPrepared>("studio_legacy_review_prepare", prepare, effect: "apply"); var preparedBytes = await client.DownloadAsync(prepared.Input.Id);
+            Check(preparedBytes.AsSpan().StartsWith(new byte[] { 239, 187, 191 }) && ProjectService.Hash(preparedBytes) == legacyPlan.PreparedSha256 && (await client.GetAsync<SdkJob[]>("/api/sdk/jobs")).Length == 1, "Prepared legacy input retains its UTF-8 BOM and creates no import/controller job");
+            var manifest = JsonSerializer.Deserialize<LegacyReviewManifest>(await client.DownloadAsync(prepared.Manifest.Id), ProjectService.Json)!;
+            Check(manifest.Plan.ReviewOnly && manifest.Plan.NativeExport.Sha256 == artifact.Sha256 && prepared.ImportRequest.SourceArtifactId == prepared.Input.Id && prepared.ImportRequest.Calls.Single().Method == "SaveAsync", "Retained review manifest and explicit unexecuted SDK request pin exact input/source hashes");
+            Check((await Call("studio_legacy_review_prepare", prepare with { ExpectedReviewSha256 = "stale" }, effect: "apply")).IsError == true, "Legacy preparation rejects stale reviewed fields without starting native work");
+            var legacyValidation = new LogixValidationRequest("legacy-review-readback", new(a.Id, a.CurrentSha256), Reference: new(a.Id, a.CurrentSha256));
+            var legacyResult = await Tool<LogixValidationReport>("studio_validation_preview", legacyValidation); var legacyRest = await client.PostAsync<LogixValidationReport>("/api/logix-validation/preview", legacyValidation);
+            Check(legacyResult.ReviewSha256 == legacyRest.ReviewSha256 && legacyResult.Checks.Any(c => c.Name == "target-version" && c.Status == "fail") && legacyResult.Boundary.StartsWith("REVIEW ONLY"), "REST/MCP legacy readback reports a wrong native target revision rather than accepting source headers");
+            var legacyReceipt = await Tool<LogixValidationReceipt>("studio_validation_record", new LogixValidationRecordRequest(legacyValidation, legacyResult.ReviewSha256), effect: "apply");
+            Check(legacyReceipt.Status == "fail" && ProjectService.Hash(await client.DownloadAsync(legacyReceipt.Artifact.Id)) == legacyReceipt.Artifact.Sha256, "Review-only failed readback findings remain retained and hash-bound through MCP");
+        }
         var jobsBefore = (await client.GetAsync<SdkJob[]>("/api/sdk/jobs")).Length;
         var plan = await Tool<VersionCompatibilityPlan>("studio_version_compatibility_preview", new VersionCompatibilityRequest(a.Id, a.CurrentSha256, 38));
         var downgrade = await Tool<VersionCompatibilityPlan>("studio_version_compatibility_preview", plan.Request with { TargetRevision = 34 });

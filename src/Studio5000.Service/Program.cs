@@ -117,6 +117,8 @@ app.MapPost("/api/trends/analyze", (ProjectService service, TrendAnalyzeRequest 
 app.MapPost("/api/trends/export", (ProjectService service, TrendExportRequest request) => service.ExportTrendAnalysis(request));
 app.MapPost("/api/logic-value-merge/preview", (ProjectService service, LogicValueMergeRequest request, CancellationToken ct) => service.PreviewLogicValueMergeAsync(request, ct));
 app.MapPost("/api/logic-value-merge/apply", (ProjectService service, LogicValueMergeApplyRequest request, CancellationToken ct) => service.ApplyLogicValueMergeAsync(request, ct));
+app.MapPost("/api/legacy-review/preview", (ProjectService service, LegacyReviewRequest request, CancellationToken ct) => service.PreviewLegacyReviewAsync(request, ct));
+app.MapPost("/api/legacy-review/prepare", (ProjectService service, LegacyReviewPrepareRequest request, CancellationToken ct) => service.PrepareLegacyReviewAsync(request, ct));
 app.MapGet("/api/logix-validation/profiles", (ProjectService service) => service.LogixValidationProfiles());
 app.MapPost("/api/logix-validation/preview", (ProjectService service, LogixValidationRequest request, CancellationToken ct) => service.PreviewLogixValidationAsync(request, ct));
 app.MapPost("/api/logix-validation/record", (ProjectService service, LogixValidationRecordRequest request, CancellationToken ct) => service.RecordLogixValidationAsync(request, ct));

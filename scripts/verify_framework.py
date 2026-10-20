@@ -219,12 +219,27 @@ async def exercise(root, state, output, check):
             )
             query = detail["discovery"]
             name = query["tool_id"].split("/", 1)[1]
+            direct_guide = await direct.call_tool(name, query["arguments"])
             check(
-                wire(await direct.call_tool(name, query["arguments"]))
+                wire(direct_guide)
                 == wire(await invoke(first, name, query["arguments"])),
                 "Complete standalone workflow content matches its framework route: "
                 + guide["capability_id"],
             )
+            for reference in data(direct_guide)["references"]:
+                reader = reference["read"]
+                direct_reference = await direct.call_tool(
+                    reader["tool"], reader["arguments"]
+                )
+                check(
+                    wire(direct_reference)
+                    == wire(await invoke(first, reader["tool"], reader["arguments"]))
+                    and hashlib.sha256(
+                        data(direct_reference)["content"].encode("utf-8")
+                    ).hexdigest() == reference["sha256"],
+                    "Complete pinned workflow reference matches its framework route: "
+                    + reference["id"],
+                )
 
         # A new complete deployment is a new publication, while both MCP clients stay connected.
         previous = data(
