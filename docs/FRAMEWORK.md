@@ -4,7 +4,7 @@ The `rockwell-framework-host` Python package adds an experimental, app-owned hos
 
 The existing standalone Codex plugin, 59-tool adapter, GUI and REST service remain available. The optional host exposes the framework's fourteen fixed discovery/invocation tools and discovers the C# adapter behind them. All project state, review hashes, target authorization, concurrent transactions and native jobs remain in the shared .NET service. A universal broker is not required to run this host.
 
-This is an optional source/package integration. Normal installation and `Run.cmd` retain their existing route. Preparing this environment does not install plugins, register services, change installed runtime pointers or connect to a controller. Moving an installed client to this front door requires separate acceptance and explicit configuration. Optional aggregation of this framework host through another broker has not been assessed.
+This is an optional source/package integration. Normal installation uses the standalone plugin; `Run.cmd` starts the shared service and GUI. Preparing this environment does not install plugins, register services, change installed runtime pointers or connect to a controller. Moving an installed client to this front door requires separate acceptance and explicit configuration.
 
 ## Dependency and package preparation
 
@@ -72,11 +72,10 @@ Write request IDs are durably claimed by the framework. Inspect `get_request_sta
 & $python -m pytest -q framework/tests
 .\scripts\Verify-Isolated.ps1
 & $python scripts/verify_framework.py --workspace-root <isolated-profile>
-& $python scripts/verify_broker.py --broker-root C:\Tools\CodexMCPBroker --workspace-root <isolated-profile>
 ```
 
 The framework profile rejects controller-enabled profiles, configured targets and SDK/CIP bridges. It starts only its own offline service/host/stdio children, uses the installed wheel, and retains private evidence under ignored paths. It compares all actual C# tool definitions and complete selected results, checks both connected frontends through deployment replacement, preserves workflow contents, rejects stale revisions and unauthorized write channels, exercises Core preview/apply and durable receipts, and verifies the framework's app-error reconciliation barrier. Pure tests cover publication defaults, full dependency tampering, routing, competing publishers and link rejection.
 
 Raw selected results are retained with wire aliases and unset model fields excluded. Result comparison normalizes only the optional success default: the C# SDK omits `isError: false`, while the Python server emits it. Content, structured data, metadata and true error flags remain part of the comparison.
 
-The assessed wire contract is the negotiated `2025-11-25` protocol, with SDK 2 snake_case Python attributes, typed pagination and `by_alias=True` wire serialization. This profile does not exercise app-origin forms/progress, modern SDK discovery/cache/input-required behavior, native projects/devices, Codex activation, performance or UI acceptance. The library's own synthetic tests are separate evidence. The direct broker profile uses the installed framework package and the actual C# adapter; it does not import framework implementation from a source checkout. See [upstream framework boundaries](https://github.com/votecoffee/CodexMCPBroker/blob/52478c3868b18faf821ca22fd2bc38e5d0599b9b/docs/app-framework.md) and [validation](VALIDATION.md).
+The assessed wire contract is the negotiated `2025-11-25` protocol, with SDK 2 snake_case Python attributes, typed pagination and `by_alias=True` wire serialization. This profile does not exercise app-origin forms/progress, modern SDK discovery/cache/input-required behavior, native projects/devices, Codex activation, performance or UI acceptance. The library's own synthetic tests are separate evidence. The app-host profile uses the installed framework package and the actual C# adapter; it does not import framework implementation from a source checkout. See [upstream framework boundaries](https://github.com/votecoffee/CodexMCPBroker/blob/52478c3868b18faf821ca22fd2bc38e5d0599b9b/docs/app-framework.md) and [validation](VALIDATION.md).

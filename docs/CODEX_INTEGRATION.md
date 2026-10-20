@@ -1,81 +1,58 @@
-# Codex plugins and Universal Tools
+# Standalone Codex integration
 
-RockwellMCPServer remains an independent desktop/REST/MCP application and continues shipping its own Codex plugin. Universal Tools from [CodexMCPBroker](https://github.com/votecoffee/CodexMCPBroker) provides another route to the same app-owned service. Broker users can use one Universal Tools plugin; standalone users need no broker.
+RockwellMCPServer ships its own Codex plugin. It connects directly to the app-owned stdio MCP adapter, which calls the same authenticated service as the GUI and REST clients. Installation never selects or registers an external broker.
 
-An [optional app-owned framework host](FRAMEWORK.md) is also available as a separate Python package pinned to framework 0.14 / MCP Python SDK 2.3. It wraps the C# adapter without changing normal installation, installed plugins or route selection. The .NET SDK stays independently pinned at 2.2.0; a native .NET framework binding is not available upstream.
+The optional [app-owned framework host](FRAMEWORK.md) remains a separate package for clients that need its fixed discovery interface. It does not change the standalone plugin or require a universal daemon/plugin.
 
-## Installation choices
+## Install and configure
 
-`Install.cmd` defaults to `-CodexIntegration Standalone` and installs Rockwell's own plugin without requiring Universal Tools. A disabled app-owned plugin stays disabled on reinstall. Use Auto or Broker only when explicitly selecting those optional policies. An existing recorded broker route still requires the normal reconciliation acknowledgment before switching. Inspect or select integration separately:
+`Install.cmd` defaults to `-CodexIntegration Standalone`. Inspect or configure the plugin separately:
 
 ```powershell
-.\scripts\Configure-Codex.ps1 -Route Auto -PlanOnly
-.\scripts\Configure-Codex.ps1 -Route Standalone
+.\scripts\Configure-Codex.ps1 -PlanOnly
+.\scripts\Configure-Codex.ps1
 .\Install.cmd -CodexIntegration None
 ```
 
-| Route | Behavior |
-| --- | --- |
-| Auto, existing receipt | Retain that route. A failed broker prerequisite never installs a fallback or replays work through another route. |
-| Auto, existing app plugin | Preserve standalone, including a disabled choice. Never remove/disable it because a broker appears. |
-| Auto, fresh profile | Prefer enabled compatible Universal Tools with explicit acceptance for this app version; otherwise install standalone. A conflicting registration blocks selection. |
-| Standalone | Install the app plugin when absent. Refresh enabled app-owned packages; stage disabled updates while preserving settings. No broker required. |
-| Broker | Require enabled Universal Tools, matching initialized local runtime, compatible versions and accepted workflow parity. Register the app when absent; skip the app plugin. |
-| None | Skip optional integration, retain existing plugins/registrations and preserve the choice on future auto installs. |
+| Choice | Behavior |
+|---|---|
+| Standalone (default) | Install the app plugin when absent. Refresh enabled app-owned packages; stage disabled updates while preserving their disabled setting. |
+| None | Skip Codex integration without changing any installed plugin. Every invocation must explicitly select None to skip installation. |
 
-Receipts are per `CODEX_HOME` profile under ignored `.local/codex-integration/`. Detection uses `codex plugin list --json`, installed/enabled flags and exact `universal-tools@universal-tools-local` identity. Cache folders alone do not establish availability. This adapter supports the broker's local `plugins/universal-tools/runtime.json` layout, plugin/runtime **0.11.1 or later** and `shared` sessions. Installed plugin version, runtime version and app acceptance each must pass; an updated checkout alone does not update installed packages. A different distribution needs an assessed adapter.
+`Auto`, `Broker`, `BrokerRoot` and `AcceptBrokerRoute` are no longer supported. Removed options fail parameter validation before installation work starts. Other installed plugins do not affect the choice. Existing plugins belonging to another installation are retained.
 
-Standalone packages use an explicit public-content allowlist under `.local/codex-marketplace/packages/`. Identical bytes reuse an immutable package. Only manifests, the MIT license, Markdown skills/references, a launcher and its private runtime pointer enter the plugin cache. Never register the whole checkout as a plugin source: it contains local files and build outputs. Keep the app checkout in place or rerun installation after moving it.
+Receipts are per `CODEX_HOME` profile under ignored `.local/codex-integration/`. A legacy broker receipt is never invoked or reused as a routing policy. Migration to standalone requires an idle app, archives the exact receipt bytes under `legacy/`, then records standalone. External registrations, policy and recovery state remain untouched; retire any independently configured external registration in its owning application after reconciling its work. Plan-only mode writes no receipt or package.
 
-Reinstallation republishes current guidance for app-owned standalone installations and refreshes an already enabled plugin through the Codex CLI. Ownership requires the exact plugin identity and matching marketplace/package paths; another installation's plugin is retained. The app must be idle before refreshing an enabled package. Older source packages remain unchanged. Disabled plugins receive an updated marketplace package without calling `codex plugin add`, which would enable them. The result reports `pluginRefreshRequired: true`; refresh the staged package through Codex when needed. Disabled upgrades preserve existing configuration/cache bytes. Native CLI refresh of enabled plugins may normalize configuration newlines while preserving settings. Updated native skills still need the host's normal refresh/new-chat lifecycle.
+## Package and update lifecycle
 
-A first standalone plugin installation only publishes a new immutable package and registers it with Codex. `Install.cmd -SkipBuild` can perform that step while the independent service keeps working. Binary rebuilds, enabled-plugin refreshes and switching a recorded broker route retain their idle/reconciliation guards.
+The installer publishes an immutable, content-addressed package under `.local/codex-marketplace/packages/`. Its public-content allowlist includes portable/compatibility plugin manifests, MCP configuration, the MIT license, three workflow skills, two supporting references and a launcher/runtime pointer. Projects, service credentials, state and build outputs are excluded. Identical content reuses the package; previous packages remain intact.
 
-Missing Codex tooling or an integration error in Auto mode leaves the application installed and reports the limitation. Explicit route failures are errors. Plugin installation/new skills can require a fresh chat; see [OpenAI's packaging documentation](https://developers.openai.com/plugins/build/plugins).
+Only an app-owned package with the exact plugin identity and matching marketplace source is refreshed. A disabled plugin stays disabled: its update is staged without invoking the enabling `plugin add` command. Existing native per-server settings are retained. An enabled app-owned refresh requires an idle app; first-time installation only publishes a new package and can run with `Install.cmd -SkipBuild` while the independent service is working. Binary rebuilds still require stopped applications.
 
-## Broker acceptance and selection
+Start the service with `Run.cmd` or `Start-Service.ps1`. A new Codex chat may be needed to load updated plugin tools/skills. Compatible extension operations continue to reload through the live app catalog without reinstalling the plugin. The REST service URL is not an HTTP MCP endpoint.
 
-Complete the broker's [migration acceptance](https://github.com/votecoffee/CodexMCPBroker/blob/main/MIGRATION.md) in a disposable profile first. In a **Universal Tools-only fresh chat**, verify workflow discovery, guide/reference availability, exact tool/target/review bindings, required host features and confirmation behavior. Protocol fixtures do not prove native UI, controller behavior or Codex skill activation. Keep native acceptance separately scoped; development does not authorize a controller connection.
+## App discovery and versioned guides
 
-Finish/reconcile active jobs, prepared operations and uncertain outcomes, close clients and stop the app. Explicit selection records the operator's acceptance for this app version:
-
-```powershell
-.\scripts\Configure-Codex.ps1 -Route Broker -BrokerRoot 'C:\Tools\CodexMCPBroker' -AcceptBrokerRoute
-```
-
-`-AcceptBrokerRoute` acknowledges completed workflow checks and reconciliation; it does not perform or certify them. It is also available with `Install.cmd -CodexIntegration Broker`. Auto can use it for a fresh profile, while preserving any existing standalone choice. Acceptance binds the app/plugin/runtime versions and broker installation/state; changes require reassessment. Switching from a recorded broker route back to Standalone uses the same acknowledgment after reconciliation, and retains broker registration/recovery evidence. These commands never remove an existing app plugin, change native approval settings or fail over a running operation.
-
-The generated manifest is `.local/broker/rockwell-mcp-server.service.json`. It launches absolute PowerShell and app `Start-Mcp.ps1` paths; start the app service with `Run.cmd` or `Start-Service.ps1`. Registration uses the broker's administrative CLI without starting/reloading it or probing native targets. Existing transport, shared session and catalog provider must match; conflicting/disabled registrations fail without replacement. Administrator write policy remains byte-for-byte unchanged on reinstall.
-
-New registrations are **read-only** (`allow_writes: false`, `allowed_write_tools: []`). A broker administrator can review/edit the local manifest and intentionally replace it with the broker's `Register-App.ps1 -Replace`. Enable only required exact outer tool names. For example, staging/applying extension changes requires `studio_extensions_preview` and `studio_extensions_apply`; native control uses `studio_extensions_control`. An outer-tool allowlist cannot restrict individual inner operations. App scope, effects, hashes, previews and controller gates remain authoritative. The installer never broadens policy.
-
-Start the app, call `refresh_services` in Universal Tools, then search/describe the app tools. Shared broker sessions serialize adapter calls; other clients use the same service coordinator. Broker ownership does not fence the GUI/direct clients. Failures, lost sessions and uncertain writes require reconciliation before a deliberate route change.
-
-## Discovery and workflow contract
-
-Three explicitly read-only tools augment the direct MCP surface (59 tools total):
+These read-only tools expose the same workflow content used by the standalone plugin:
 
 | Tool | Purpose |
-| --- | --- |
-| `rockwell_broker_capabilities` | Normalized capability catalog v1 with active extension operations and three workflow entries. |
-| `rockwell_read_workflow` | Read an exact named guide revision with instructions, tool bindings and reference hashes. |
-| `rockwell_read_workflow_reference` | Read a named packaged UTF-8 reference with workflow revision/SHA-256 checks. |
+|---|---|
+| `rockwell_broker_capabilities` | Normalized installation capability catalog v1 with active extension operations and three workflow entries. Its historical name is retained for API compatibility; it performs no broker registration or routing. |
+| `rockwell_read_workflow` | Read a named workflow at its exact catalog revision, including related tool names and hash-bound reference readers. |
+| `rockwell_read_workflow_reference` | Read a named packaged reference at the exact workflow revision and SHA-256. |
 
-Register `capability_catalog: {"schema_version":1,"tool":"rockwell_broker_capabilities","arguments":{}}`. Operation IDs `<extensionId>.<operation>` point to `studio_extensions_describe` with pinned generation. Workflow IDs are `workflow.rockwell-engineering`, `workflow.logix-online-edits` and `workflow.factorytalk-studio`. Core embeds the same Markdown sources packaged by the standalone plugin and adds explicit broker invocation guidance.
+Operation IDs `<extensionId>.<operation>` point to `studio_extensions_describe` with the pinned generation. Workflow IDs are `workflow.rockwell-engineering`, `workflow.logix-online-edits` and `workflow.factorytalk-studio`. Shared Core embeds the same Markdown sources packaged by the standalone plugin and adds app invocation guidance.
 
-Catalogs contain installation metadata, never selected projects, targets, credentials or private workspaces. Normal catalog access can initialize installed extension metadata workers; it never reloads a module or executes a domain operation. Incomplete/oversized catalogs fail without partial hints. Entries are discovery-only. Preserve broker tool/capability revisions, app generations, workflow revisions and target/review hashes independently. Named reference readers reject caller paths, stale hashes/revisions and external fetching. Publication grants no authorization and cannot install code, change policy or retry uncertain work.
+Catalogs contain installation metadata, never selected projects, targets, credentials or private workspaces. Reading a catalog can initialize installed extension metadata workers; it never reloads a module or executes a domain operation. Incomplete/oversized catalogs fail without partial hints. Entries are discovery-only. Preserve app generations, workflow revisions and target/review hashes independently. Named reference readers reject caller paths, stale hashes/revisions and external fetching. Publication grants no authorization and cannot install code, change policy or retry uncertain work.
 
-Authenticated REST equivalents: `GET /api/broker/capabilities`, `/api/broker/workflow?workflowId=...&expectedRevision=...` and `/api/broker/reference?workflowId=...&expectedRevision=...&referenceId=...&expectedSha256=...`. MCP and REST use shared Core.
+For API compatibility the authenticated REST paths remain `GET /api/broker/capabilities`, `/api/broker/workflow?workflowId=...&expectedRevision=...` and `/api/broker/reference?workflowId=...&expectedRevision=...&referenceId=...&expectedSha256=...`. These metadata endpoints use shared Core and do not route operations through a broker.
 
 ## Validation
 
 ```powershell
 .\scripts\Verify-CodexIntegration.ps1
-# Optional real CLI install/upgrade checks in a disposable CODEX_HOME:
 .\scripts\Verify-CodexPluginCli.ps1
 .\scripts\Verify-Isolated.ps1
-# Installed framework 0.14 / Python SDK 2.3 environment (see FRAMEWORK.md):
-.local\framework-runtime\Scripts\python.exe scripts\verify_broker.py --broker-root C:\Tools\CodexMCPBroker --workspace-root <isolated-profile>
 ```
 
-Installer fixtures mock administrative commands and cover route preservation, fallback, conflicts, acceptance, package ownership and enabled/disabled upgrades under PowerShell 7 and Windows PowerShell. The optional real CLI script checks install, updated cache content, retained per-server policy, staged disabled updates and preserved old packages using generated content and a disposable profile. It starts no app or native worker. The optional Python check uses the installed framework/broker package with its own state, generated L5X and a profile from `Verify-Isolated.ps1`; all native bridges/targets must be disabled. It checks the fourteen-tool broker frontend, guides/references, inner schemas, read/write policy, review guards and idempotent app receipts. Normal registrations/Codex settings remain untouched. Fresh-chat/native acceptance remains an operator task.
+Installer fixtures mock Codex commands and cover standalone installation, immutable packages, ownership, enabled/disabled upgrades, removed-option rejection, legacy receipt archival, app-only installation and missing CLI behavior under PowerShell 7 and Windows PowerShell. The optional real CLI script checks install, updated cache content, retained per-server policy, staged disabled updates and preserved old packages using generated content and a disposable profile. It starts no app or native worker. Normal Codex settings remain untouched. Isolated REST/MCP checks verify the metadata contract and exact workflow/reference hashes. Native Studio/controller/HMI acceptance remains separate.

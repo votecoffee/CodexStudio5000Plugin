@@ -1,6 +1,6 @@
+[CmdletBinding()]
 param([switch]$WithSdk, [switch]$WithCip, [switch]$SkipBuild, [switch]$NoShortcut,
-    [ValidateSet('Auto','Standalone','Broker','None')][string]$CodexIntegration = 'Standalone',
-    [string]$BrokerRoot, [switch]$AcceptBrokerRoute)
+    [ValidateSet('Standalone','None')][string]$CodexIntegration = 'Standalone')
 $ErrorActionPreference = 'Stop'
 $repo = Split-Path -Parent $PSScriptRoot
 $configPath = Join-Path $repo 'service.local.json'
@@ -54,10 +54,5 @@ if (!$NoShortcut) {
     }
     Write-Output "Created Start Menu shortcut: $shortcutPath"
 }
-try {
-    & (Join-Path $PSScriptRoot 'Configure-Codex.ps1') -Route $CodexIntegration -BrokerRoot $BrokerRoot -AcceptBrokerRoute:$AcceptBrokerRoute
-} catch {
-    if ($CodexIntegration -ne 'Auto') { throw }
-    Write-Warning ('Application installed; Codex integration retained without switching routes: ' + $_.Exception.Message)
-}
+& (Join-Path $PSScriptRoot 'Configure-Codex.ps1') -Route $CodexIntegration
 Write-Output 'Installation complete. Run Run.cmd or open RockwellMCPServer from the Start Menu.'

@@ -4,11 +4,6 @@ function Invoke-RockwellCodex([string[]]$Arguments) {
     if ($LASTEXITCODE -ne 0) { throw 'Codex plugin command failed; existing integration was retained.' }
     return ($raw -join "`n") | ConvertFrom-Json
 }
-function Invoke-RockwellBroker([object]$Runtime, [string[]]$Arguments) {
-    $raw = & $Runtime.python -m universal_tools @Arguments
-    if ($LASTEXITCODE -ne 0) { throw 'Universal Tools administrative command failed; no route was selected.' }
-    return ($raw -join "`n")
-}
 function Write-RockwellIntegrationJson([string]$Path, [object]$Value) {
     New-Item -ItemType Directory -Path (Split-Path -Parent $Path) -Force | Out-Null
     $temporary = $Path + '.' + [guid]::NewGuid().ToString('N') + '.tmp'
@@ -73,51 +68,6 @@ function New-RockwellStandalonePackage([string]$Root) {
     }
     return [pscustomobject]@{ marketplace = $marketplace; package = $destination; sha256 = $contentId }
 }
-function Get-RockwellBrokerRuntime([object]$Plugin, [string]$BrokerRoot) {
-    if (!$Plugin -or $Plugin.installed -ne $true -or $Plugin.enabled -ne $true) { throw 'Universal Tools is absent or disabled in this Codex profile.' }
-    if ([version]$Plugin.version -lt [version]'0.11.1') { throw 'Universal Tools 0.11.1 or newer is required for assessed shared sessions and workflow guidance.' }
-    if ($Plugin.source.source -ne 'local' -or !$Plugin.source.path) { throw 'A supported local Universal Tools installation is required.' }
-    $source = [IO.Path]::GetFullPath($Plugin.source.path).TrimEnd('\', '/')
-    if (!$BrokerRoot) { $BrokerRoot = Split-Path -Parent (Split-Path -Parent $source) }
-    $BrokerRoot = [IO.Path]::GetFullPath($BrokerRoot).TrimEnd('\', '/')
-    if ([IO.Path]::GetFullPath((Join-Path $BrokerRoot 'plugins/universal-tools')).TrimEnd('\', '/') -ine $source) {
-        throw 'BrokerRoot does not match the enabled plugin source; select the intended Codex profile.'
-    }
-    $runtimeFile = Join-Path $source 'runtime.json'
-    if (!(Test-Path -LiteralPath $runtimeFile -PathType Leaf)) { throw 'Universal Tools runtime pointer is missing; complete broker setup first.' }
-    $runtime = Get-Content -LiteralPath $runtimeFile -Raw | ConvertFrom-Json
-    if (![IO.Path]::IsPathRooted($runtime.python) -or !(Test-Path -LiteralPath $runtime.python -PathType Leaf) -or
-        ![IO.Path]::IsPathRooted($runtime.state) -or !(Test-Path -LiteralPath (Join-Path $runtime.state 'settings.json') -PathType Leaf)) {
-        throw 'Universal Tools runtime or initialized state is unavailable.'
-    }
-    $version = (Invoke-RockwellBroker $runtime @('--version')).Trim()
-    if ([version]$version -lt [version]'0.11.1') { throw 'The broker runtime must be version 0.11.1 or newer.' }
-    return [pscustomobject]@{ python = $runtime.python; state = $runtime.state; root = $BrokerRoot; version = $version }
-}
-function New-RockwellBrokerManifest([string]$Root) {
-    return [ordered]@{
-        schema_version = 1; id = 'rockwell-mcp-server'; display_name = 'RockwellMCPServer'
-        description = 'App-owned Rockwell PLC/HMI engineering service, live extensions and versioned workflow guidance.'
-        transport = [ordered]@{ type = 'stdio'; command = (Join-Path $env:SystemRoot 'System32/WindowsPowerShell/v1.0/powershell.exe');
-            args = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', (Join-Path $Root 'scripts/Start-Mcp.ps1')); cwd = $Root; env_vars = @() }
-        enabled = $true; allow_writes = $false; allowed_write_tools = @(); read_only_tools = @()
-        timeout_seconds = 240; max_argument_bytes = 8388608
-        session_mode = 'shared'; lease_seconds = 900; resource_id = 'rockwell-mcp-server'
-        capability_catalog = [ordered]@{ schema_version = 1; tool = 'rockwell_broker_capabilities'; arguments = @{} }
-    }
-}
-function Assert-RockwellBrokerRegistration([object]$Existing, [object]$Desired) {
-    # Never overwrite a registration, broaden its policy or adopt a foreign endpoint.
-    if ($Existing.id -cne $Desired.id -or $Existing.enabled -ne $true -or $Existing.session_mode -cne 'shared' -or
-        $Existing.transport.type -cne 'stdio' -or $Existing.transport.command -ine $Desired.transport.command -or
-        $Existing.transport.cwd -ine $Desired.transport.cwd -or
-        (@($Existing.transport.args) -join "`n") -cne (@($Desired.transport.args) -join "`n") -or
-        @($Existing.transport.env_vars).Count -ne 0 -or $Existing.capability_catalog.tool -cne 'rockwell_broker_capabilities' -or
-        $Existing.capability_catalog.schema_version -ne 1 -or
-        @($Existing.capability_catalog.arguments.PSObject.Properties).Count -ne 0) {
-        throw 'The broker registration differs or is disabled. Review it with the broker administrator; the installer will not replace it.'
-    }
-}
 function Test-RockwellOwnedStandalone([object]$Plugin, [string]$Root) {
     if ($Plugin.pluginId -cne 'rockwell-mcp-server@rockwell-mcp-server-local' -or $Plugin.source.source -cne 'local' -or
         !$Plugin.source.path -or !$Plugin.marketplaceSource.source) { return $false }
@@ -126,9 +76,22 @@ function Test-RockwellOwnedStandalone([object]$Plugin, [string]$Root) {
     $packageSource = [IO.Path]::GetFullPath(($Plugin.source.path -replace '^\\\\\?\\', ''))
     return $marketplaceSource -ieq $marketplace -and $packageSource.StartsWith(($marketplace + '\packages\'), [StringComparison]::OrdinalIgnoreCase)
 }
+# Retired integration records are evidence, never a routing policy. Preserve exact
+# bytes before replacing one; external registrations are outside this installer.
+function Save-RockwellLegacyIntegrationReceipt([string]$Path) {
+    $bytes = [IO.File]::ReadAllBytes($Path)
+    $digest = [Security.Cryptography.SHA256]::Create()
+    try { $hash = ([BitConverter]::ToString($digest.ComputeHash($bytes))).Replace('-', '').ToLowerInvariant() }
+    finally { $digest.Dispose() }
+    $archive = Join-Path (Split-Path -Parent $Path) ('legacy/' + [IO.Path]::GetFileNameWithoutExtension($Path) + '-' + $hash + '.json')
+    New-Item -ItemType Directory -Path (Split-Path -Parent $archive) -Force | Out-Null
+    if (Test-Path -LiteralPath $archive) {
+        if ((Get-FileHash -LiteralPath $archive -Algorithm SHA256).Hash -ine $hash) { throw 'Legacy integration archive has different bytes.' }
+    } else { [IO.File]::WriteAllBytes($archive, $bytes) }
+}
 function Set-RockwellCodexIntegration {
-    param([string]$Root, [ValidateSet('Auto','Standalone','Broker','None')][string]$Route = 'Auto',
-        [string]$BrokerRoot, [switch]$AcceptBrokerRoute, [switch]$PlanOnly)
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][string]$Root, [ValidateSet('Standalone','None')][string]$Route = 'Standalone', [switch]$PlanOnly)
     $Root = [IO.Path]::GetFullPath($Root)
     $codexHome = if ($env:CODEX_HOME) { [IO.Path]::GetFullPath($env:CODEX_HOME) } else { Join-Path ([Environment]::GetFolderPath('UserProfile')) '.codex' }
     $digest = [Security.Cryptography.SHA256]::Create()
@@ -139,72 +102,31 @@ function Set-RockwellCodexIntegration {
     if (Test-Path -LiteralPath $receiptPath) {
         $prior = Get-Content -LiteralPath $receiptPath -Raw | ConvertFrom-Json
         if ($prior.schemaVersion -ne 1 -or $prior.profile -ine $codexHome -or $prior.root -ine $Root -or $prior.route -notin @('Standalone','Broker','None')) {
-            throw 'Invalid integration receipt; inspect local installation state before selecting a route.'
+            throw 'Invalid integration receipt; inspect local installation state before configuring the plugin.'
         }
     }
-    if ($Route -eq 'Auto' -and $prior) { $Route = $prior.route }
+    $legacy = $prior -and $prior.route -eq 'Broker'
     if ($Route -eq 'None') {
-        if (!$PlanOnly) { Write-RockwellIntegrationJson $receiptPath @{ schemaVersion = 1; root = $Root; profile = $codexHome; route = 'None' } }
-        return [pscustomobject]@{ route = 'None'; ready = $true; reason = 'Codex integration skipped; existing plugins and registrations retained.' }
+        if (!$PlanOnly) {
+            if ($legacy) { Save-RockwellLegacyIntegrationReceipt $receiptPath }
+            Write-RockwellIntegrationJson $receiptPath @{ schemaVersion = 1; root = $Root; profile = $codexHome; route = 'None' }
+        }
+        return [pscustomobject]@{ route = 'None'; ready = $true; reason = 'Codex integration skipped; existing plugins and external registrations retained.' }
     }
-    if (!(Get-Command codex -ErrorAction SilentlyContinue)) {
-        if ($Route -ne 'Auto') { throw 'Codex CLI with plugin commands is required for this integration route.' }
-        return [pscustomobject]@{ route = 'None'; ready = $false; reason = 'Codex CLI unavailable; app installation is independent. Run Configure-Codex.ps1 later.' }
-    }
+    if (!(Get-Command codex -ErrorAction SilentlyContinue)) { throw 'Codex CLI with plugin commands is required. Use -Route None for app-only installation, or run Configure-Codex.ps1 later.' }
     $plugins = Invoke-RockwellCodex @('plugin','list','--json')
     if ($null -eq $plugins.installed) { throw 'Unrecognized Codex plugin inventory; no integration was changed.' }
-    $universal = @($plugins.installed | Where-Object pluginId -CEQ 'universal-tools@universal-tools-local')
     $standalone = @($plugins.installed | Where-Object { $_.name -ceq 'rockwell-mcp-server' -and $_.installed -eq $true })
-    if ($universal.Count -gt 1 -or $standalone.Count -gt 1) { throw 'Ambiguous plugin inventory; choose one profile and integration before installation.' }
-    $appVersion = (Get-Content -LiteralPath (Join-Path $Root 'plugin.json') -Raw | ConvertFrom-Json).version
-    $runtime = $null; $reason = 'Standalone integration explicitly selected or preserved.'
-    $accepted = $AcceptBrokerRoute -or ($prior -and $prior.route -eq 'Broker' -and $prior.acceptedAppVersion -ceq $appVersion)
-    if ($Route -eq 'Auto') {
-        if ($standalone.Count) { $Route = 'Standalone'; $reason = 'Preserved the existing standalone plugin and its enabled/disabled choice.' }
-        else {
-            try {
-                $runtime = Get-RockwellBrokerRuntime ($universal | Select-Object -First 1) $BrokerRoot
-                if (!$accepted) { throw 'Broker workflow acceptance is pending; use explicit Broker selection after the documented fresh-chat checks.' }
-                $Route = 'Broker'; $reason = 'Compatible enabled Universal Tools and accepted workflow route are available.'
-            } catch { $Route = 'Standalone'; $reason = 'Standalone fallback: ' + $_.Exception.Message }
-        }
-    }
-    if ($Route -eq 'Broker') {
-        if (!$runtime) { $runtime = Get-RockwellBrokerRuntime ($universal | Select-Object -First 1) $BrokerRoot }
-        if (!$accepted) { throw 'Broker workflow acceptance is required for this app version. After fresh-chat checks and reconciliation, pass -AcceptBrokerRoute.' }
-        if ($prior -and $prior.route -eq 'Broker' -and !$AcceptBrokerRoute -and
-            ($prior.brokerRoot -ine $runtime.root -or $prior.brokerState -ine $runtime.state -or $prior.brokerPython -ine $runtime.python -or
-             $prior.acceptedBrokerVersion -cne $runtime.version -or $prior.acceptedPluginVersion -cne $universal[0].version)) {
-            throw 'The accepted broker installation/version changed. Reconcile the prior route and renew acceptance before selecting the new one.'
-        }
-        if ($prior -and $prior.route -ne 'Broker' -and !$AcceptBrokerRoute) { throw 'Explicit route switching requires -AcceptBrokerRoute after reconciling outstanding work.' }
-        $manifest = New-RockwellBrokerManifest $Root
-        $registeredPath = Join-Path $runtime.state 'services/rockwell-mcp-server.json'
-        $existing = Test-Path -LiteralPath $registeredPath
-        if ($existing) { Assert-RockwellBrokerRegistration (Get-Content -LiteralPath $registeredPath -Raw | ConvertFrom-Json) $manifest }
-        if (!$PlanOnly) {
-            # Changing integrations requires an idle app; this does not stop anything.
-            if (!$prior -or $prior.route -ne 'Broker') { & (Join-Path $Root 'scripts/Assert-ApplicationsStopped.ps1') }
-            $manifestPath = Join-Path $Root '.local/broker/rockwell-mcp-server.service.json'
-            if (!$existing) {
-                Write-RockwellIntegrationJson $manifestPath $manifest
-                Invoke-RockwellBroker $runtime @('--state', $runtime.state, 'register', $manifestPath) | Out-Null
-                Assert-RockwellBrokerRegistration (Get-Content -LiteralPath $registeredPath -Raw | ConvertFrom-Json) $manifest
-            }
-            Write-RockwellIntegrationJson $receiptPath @{ schemaVersion = 1; root = $Root; profile = $codexHome; route = 'Broker'; brokerRoot = $runtime.root;
-                brokerState = $runtime.state; brokerPython = $runtime.python; acceptedAppVersion = $appVersion;
-                acceptedBrokerVersion = $runtime.version; acceptedPluginVersion = $universal[0].version }
-        }
-        return [pscustomobject]@{ route = 'Broker'; ready = $true; reason = 'Use Universal Tools; standalone package retained. Existing plugins and broker write policy preserved. Start the app service, then refresh_services.' }
-    }
-    if ($prior -and $prior.route -eq 'Broker' -and !$AcceptBrokerRoute) { throw 'Route changes require -AcceptBrokerRoute as acknowledgment that broker work and uncertain outcomes have been reconciled.' }
+    if ($standalone.Count -gt 1) { throw 'Ambiguous Rockwell plugin inventory; select the intended Codex profile before installation.' }
+    $reason = 'Standalone Codex plugin selected.'
     $ownedStandalone = $standalone.Count -eq 1 -and (Test-RockwellOwnedStandalone $standalone[0] $Root)
     $refreshRequired = $ownedStandalone -and $standalone[0].enabled -ne $true
     if (!$PlanOnly) {
-        # A first plugin installation publishes only a new immutable package.
-        # Binary rebuilds are guarded by Install.ps1; replacing an enabled plugin
-        # or switching a recorded broker route still requires an idle app.
-        if (($prior -and $prior.route -eq 'Broker') -or ($ownedStandalone -and !$refreshRequired)) { & (Join-Path $Root 'scripts/Assert-ApplicationsStopped.ps1') }
+        # A first installation only publishes a new immutable package. Binary
+        # rebuilds are guarded by Install.ps1. Enabled-plugin refreshes and
+        # migrating retired integration records still require an idle app.
+        if ($legacy -or ($ownedStandalone -and !$refreshRequired)) { & (Join-Path $Root 'scripts/Assert-ApplicationsStopped.ps1') }
+        if ($legacy) { Save-RockwellLegacyIntegrationReceipt $receiptPath }
         if (!$standalone.Count -or $ownedStandalone) {
             $bundle = New-RockwellStandalonePackage $Root
             if (!$standalone.Count) { Invoke-RockwellCodex @('plugin','marketplace','add',$bundle.marketplace,'--json') | Out-Null }
@@ -214,6 +136,7 @@ function Set-RockwellCodexIntegration {
         }
         Write-RockwellIntegrationJson $receiptPath @{ schemaVersion = 1; root = $Root; profile = $codexHome; route = 'Standalone' }
     }
+    if ($legacy) { $reason += ' Retired integration receipt is archived on apply; external registrations and their recovery state are retained without invocation.' }
     if ($refreshRequired) {
         if ($PlanOnly) { $reason += ' An updated package would be staged while the plugin stays disabled; no files have changed.' }
         else { $reason += ' Updated package staged; plugin remains disabled. Refresh it through Codex when needed.' }

@@ -49,7 +49,7 @@ RockwellMCPServer gives agents and engineers a shared workspace for project insp
 | HMI languages | Browse/review/edit FactoryTalk ME/SE and View Designer workbook/Unicode exports, add language columns, preserve native keys and compare supplied re-exports. |
 | Project workflows | Three-source logic/value merging with explicit conflicts and separate native target-version conversion/readback jobs. |
 | Reloadable extensions | Discover operation schemas and reload compatible modules through MCP or the GUI while the host and chat remain running. |
-| Codex integration choices | Retain the standalone plugin or register with Universal Tools, including live capability discovery and shared versioned workflow guides. |
+| Codex plugin | Standalone plugin with live capability discovery and shared versioned workflow guides. |
 | Optional shared framework | App-owned Python host pinned to framework 0.14 / SDK 2.3, with immutable C# backend publications and a fixed discovery interface. |
 | Service settings | GUI editing for controller/file access, target scopes, SDK/HMI paths and limits; broad local profile, backups and saved-versus-running configuration. |
 | Concurrent requests and transactions | Edit independent workspaces concurrently; stage/review/commit offline changes as one revision with conflict checks, abort and durable retry receipts. Bundled stateless extensions support parallel worker pools. |
@@ -85,13 +85,13 @@ cd RockwellMCPServer
 
 You can also double-click **Install.cmd**, then **Run.cmd** in File Explorer. Installation builds the shared service, MCP adapter, GUI and extensions, initializes local settings on first use and creates a **RockwellMCPServer** shortcut in the current user's Start Menu. The executable, application windows and shortcut use the bundled PLC/HMI artwork, with eight exact-size Windows icon frames for different display scales. No administrator access is needed. The shortcut starts the shared service and GUI with no console window; startup errors appear in a dialog.
 
-Installation defaults to Rockwell's **standalone Codex plugin**, preserving its enabled/disabled choice on reinstall. No Universal Tools plugin is required. Use `Install.cmd -CodexIntegration None` for the app alone. The optional `-CodexIntegration Auto` mode preserves an existing route and considers an accepted compatible broker on a fresh profile; explicit Broker selection remains available. A previously recorded broker route still requires reconciliation before changing routes. See [plugin installation and optional broker choices](docs/CODEX_INTEGRATION.md).
+Installation uses Rockwell's **standalone Codex plugin**, preserving its enabled/disabled choice on reinstall. Use `Install.cmd -CodexIntegration None` for the app alone. Broker routing and automatic route selection have been removed. See [standalone plugin installation](docs/CODEX_INTEGRATION.md).
 
 Reinstallation refreshes enabled standalone plugins owned by this installation. For disabled plugins, it publishes updated guidance for a later host refresh and keeps them disabled. Existing packages from other installations are retained.
 
 Run **Install.cmd** again after updating the checkout. Finish jobs, stop watch polling, close clients and run `.\scripts\Stop-Service.ps1` first; the installer refuses to rebuild applications that are running from this checkout. Existing `service.local.json` is preserved. Bundled extensions receive content-qualified build versions and are selected for the next service startup; earlier immutable versions remain available for rollback. Use `Install.cmd -NoShortcut` to omit the shortcut, or `Install.cmd -SkipBuild` to configure an already published build and recreate its shortcut without changing extension selections. Keep the checkout in place; rerun installation if you move it. Delete the Start Menu shortcut to remove that entry.
 
-Adding the standalone plugin for the first time with `-SkipBuild` can leave the service running. Refreshing an already enabled plugin or changing a recorded broker route still requires an idle app.
+Adding the standalone plugin for the first time with `-SkipBuild` can leave the service running. Refreshing an already enabled plugin still requires an idle app. Legacy integration receipts are archived when migrating to standalone; external registrations remain untouched.
 
 This starts with the generated inputs under `examples/`. Add an existing source directory with `.\scripts\Initialize.ps1 -AllowedRoot 'C:\Projects\Rockwell'`. Initialization protects local credentials/state for the current Windows user and SYSTEM. The lower-level `Build.ps1`, `Initialize.ps1`, `Start-Service.ps1` and `Start-Gui.ps1` scripts remain available under `scripts/`.
 
@@ -125,7 +125,7 @@ Use `scripts/Start.ps1` for the equivalent PowerShell entry point, `Start-Servic
 
 ### Connect an MCP client
 
-Start the service first. Installation packages a small standalone Codex plugin with portable/compatibility manifests, three workflow skills and a launcher pointing at the app installation. It excludes projects, credentials, build outputs and service state. To configure integration separately, run `.\scripts\Configure-Codex.ps1 -Route Auto -PlanOnly`, inspect the result, then run without `-PlanOnly`. Broker registration uses the same app-owned stdio adapter; the REST URL is not an HTTP MCP endpoint.
+Start the service first. Installation packages a small standalone Codex plugin with portable/compatibility manifests, three workflow skills and a launcher pointing at the app installation. It excludes projects, credentials, build outputs and service state. To configure integration separately, run `.\scripts\Configure-Codex.ps1 -PlanOnly`, inspect the result, then run without `-PlanOnly`. The REST URL is not an HTTP MCP endpoint.
 
 For direct Codex MCP registration, run from this checkout:
 
@@ -133,7 +133,7 @@ For direct Codex MCP registration, run from this checkout:
 codex mcp add rockwell-mcp-server -- powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path (Get-Location) 'scripts\Start-Mcp.ps1')
 ```
 
-The launcher starts the stdio MCP adapter and connects it to the shared service. Direct MCP registration does not install the bundled workflow skills; they are available under [skills/](skills/). Universal Tools can discover/read the same guide text through versioned, hash-bound app tools without installing the Rockwell plugin.
+The launcher starts the stdio MCP adapter and connects it to the shared service. Direct MCP registration does not install the bundled workflow skills; they are available under [skills/](skills/). Other MCP clients can read the same guide text through versioned, hash-bound app tools.
 
 Example chat request using the generated L5X fixture:
 
@@ -191,7 +191,7 @@ XML checks, file comparisons and successful SDK calls do not establish native HM
 |---|---|
 | [Architecture](docs/ARCHITECTURE.md) | Shared service, storage, authentication and process boundaries |
 | [Settings and access](docs/SETTINGS.md) | GUI configuration, broad local preset, target policies, backups and pending restart state |
-| [Codex integration](docs/CODEX_INTEGRATION.md) | Standalone plugin packaging, Universal Tools discovery, workflow guides and accepted route selection |
+| [Codex integration](docs/CODEX_INTEGRATION.md) | Standalone plugin packaging, app discovery and versioned workflow guides |
 | [Optional app framework](docs/FRAMEWORK.md) | Separate host package, pinned dependencies, backend publication, isolation and verification boundaries |
 | [Logix SDK](docs/SDK.md) | Bound catalog, native jobs and controller target policies |
 | [Diagnostics and trends](docs/DIAGNOSTICS.md) | Logic tracing, captured conditions, trigger windows, saved trend results, baseline merging and native compatibility |

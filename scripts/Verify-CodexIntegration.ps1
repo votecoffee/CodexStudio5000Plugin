@@ -17,16 +17,6 @@ function Invoke-RockwellCodex([string[]]$Arguments) {
     if ($Arguments[1] -eq 'list') { return [pscustomobject]@{ installed = @($script:inventory) } }
     return [pscustomobject]@{ ok = $true }
 }
-function Invoke-RockwellBroker([object]$Runtime, [string[]]$Arguments) {
-    $script:commands.Add('broker ' + ($Arguments -join ' '))
-    if ($Arguments[0] -eq '--version') { return '0.11.1' }
-    if ($Arguments[2] -eq 'register') {
-        $manifest = Get-Content -LiteralPath $Arguments[3] -Raw | ConvertFrom-Json
-        Write-RockwellIntegrationJson (Join-Path $Runtime.state 'services/rockwell-mcp-server.json') $manifest
-        return '{}'
-    }
-    throw 'Unexpected fixture broker command.'
-}
 function Case([string]$Name) {
     $script:caseRoot = Join-Path $ResultsDirectory $Name
     New-Item -ItemType Directory -Path (Join-Path $caseRoot 'scripts') -Force | Out-Null
@@ -38,19 +28,6 @@ function Case([string]$Name) {
     $plugin = Get-Content -LiteralPath (Join-Path $caseRoot 'plugin.json') -Raw | ConvertFrom-Json
     $plugin.version = 'fixture-1'; Write-RockwellIntegrationJson (Join-Path $caseRoot 'plugin.json') $plugin
     $script:inventory = @(); $script:commands.Clear()
-    $script:brokerRoot = Join-Path $caseRoot 'broker with spaces'
-    $script:brokerSource = Join-Path $brokerRoot 'plugins/universal-tools'
-    $script:brokerState = Join-Path $brokerRoot 'private state'
-    New-Item -ItemType Directory -Path $brokerSource -Force | Out-Null
-    New-Item -ItemType Directory -Path $brokerState -Force | Out-Null
-    $python = Join-Path $brokerRoot 'fixture-python.exe'
-    [IO.File]::WriteAllText($python, 'generated inert fixture')
-    Write-RockwellIntegrationJson (Join-Path $brokerSource 'runtime.json') @{ python = $python; state = $brokerState }
-    Write-RockwellIntegrationJson (Join-Path $brokerState 'settings.json') @{}
-}
-function Universal([bool]$Enabled = $true, [string]$Version = '0.11.1') {
-    [pscustomobject]@{ pluginId = 'universal-tools@universal-tools-local'; name = 'universal-tools'; installed = $true; enabled = $Enabled; version = $Version;
-        source = [pscustomobject]@{ source = 'local'; path = $brokerSource } }
 }
 function Receipt { Get-Content -LiteralPath (Get-ChildItem -LiteralPath (Join-Path $caseRoot '.local/codex-integration') -File | Select-Object -First 1).FullName -Raw | ConvertFrom-Json }
 function Reject([scriptblock]$Action, [string]$Message) {
@@ -61,12 +38,12 @@ function Reject([scriptblock]$Action, [string]$Message) {
 try {
     $installerAst = [Management.Automation.Language.Parser]::ParseFile((Join-Path $PSScriptRoot 'Install.ps1'), [ref]$null, [ref]$null)
     $integrationParameter = $installerAst.ParamBlock.Parameters | Where-Object { $_.Name.VariablePath.UserPath -eq 'CodexIntegration' }
-    Check ($integrationParameter.DefaultValue.Value -ceq 'Standalone') 'Normal installation defaults to the standalone plugin independently of Universal Tools'
+    Check ($integrationParameter.DefaultValue.Value -ceq 'Standalone') 'Normal installation defaults to the standalone plugin'
     Case 'absent'
     $plan = Set-RockwellCodexIntegration -Root $caseRoot -PlanOnly
-    Check ($plan.route -eq 'Standalone' -and !(Test-Path -LiteralPath (Join-Path $caseRoot '.local'))) 'Planning an absent-broker fallback performs no installation or local-state writes'
+    Check ($plan.route -eq 'Standalone' -and !(Test-Path -LiteralPath (Join-Path $caseRoot '.local'))) 'Planning standalone installation performs no installation or local-state writes'
     Set-RockwellCodexIntegration -Root $caseRoot | Out-Null
-    Check (($commands | Where-Object { $_ -like 'codex plugin add rockwell*' }).Count -eq 1 -and (Receipt).route -eq 'Standalone') 'Fresh installation without Universal Tools installs the standalone plugin with skills'
+    Check (($commands | Where-Object { $_ -like 'codex plugin add rockwell*' }).Count -eq 1 -and (Receipt).route -eq 'Standalone') 'Fresh installation installs the standalone plugin with skills'
     $bundle = New-RockwellStandalonePackage $caseRoot
     $files = @(Get-ChildItem -LiteralPath $bundle.package -Recurse -File)
     Check ($files.Count -eq 12 -and !($files | Where-Object { $_.FullName.Substring($bundle.package.Length) -match '[\\/](artifacts|\.local)[\\/]' })) 'Standalone package contains only manifests, MIT license, three guides, two references and a runtime launcher/pointer'
@@ -101,68 +78,74 @@ try {
         source = [pscustomobject]@{ source = 'local'; path = $busyBundle.package }; marketplaceSource = [pscustomobject]@{ source = $busyBundle.marketplace } })
     Reject { Set-RockwellCodexIntegration -Root $caseRoot -Route Standalone } 'Refreshing an enabled owned plugin still requires an idle app'
 
-    foreach ($mode in @('disabled','incompatible','missing-runtime','acceptance-pending')) {
-        Case $mode
-        $script:inventory = @(Universal)
-        if ($mode -eq 'disabled') { $inventory[0].enabled = $false }
-        if ($mode -eq 'incompatible') { $inventory[0].version = '0.8.0' }
-        if ($mode -eq 'missing-runtime') { Remove-Item -LiteralPath (Join-Path $brokerSource 'runtime.json') }
-        $plan = Set-RockwellCodexIntegration -Root $caseRoot -PlanOnly
-        Check ($plan.route -eq 'Standalone' -and !($commands | Where-Object { $_ -like '* register *' -or $_ -like 'codex plugin add *' })) ("Auto uses standalone when broker is $mode and does not probe native targets")
-    }
-    Case 'accepted'
-    $script:inventory = @(Universal)
-    Set-RockwellCodexIntegration -Root $caseRoot -Route Broker -AcceptBrokerRoute | Out-Null
-    $registration = Join-Path $brokerState 'services/rockwell-mcp-server.json'
-    $manifest = Get-Content -LiteralPath $registration -Raw | ConvertFrom-Json
-    Check ((Receipt).route -eq 'Broker' -and $manifest.allow_writes -eq $false -and @($manifest.allowed_write_tools).Count -eq 0 -and
-        $manifest.session_mode -eq 'shared' -and $manifest.capability_catalog.tool -eq 'rockwell_broker_capabilities') 'Accepted broker selection registers the app with read-only defaults, shared service routing and normalized metadata'
-    Check (!($commands | Where-Object { $_ -like 'codex plugin add *' })) 'Broker selection skips the standalone plugin installation'
-    $manifest.allow_writes = $true; $manifest.allowed_write_tools = @('studio_extensions_apply')
-    Write-RockwellIntegrationJson $registration $manifest
-    $hash = (Get-FileHash -LiteralPath $registration).Hash
-    $commands.Clear()
+    Case 'other-plugins'
+    $script:inventory = @([pscustomobject]@{ pluginId = 'universal-tools@universal-tools-local'; name = 'universal-tools'; installed = $true; enabled = $true; version = '99.0.0' })
     Set-RockwellCodexIntegration -Root $caseRoot | Out-Null
-    Check ((Get-FileHash -LiteralPath $registration).Hash -eq $hash -and !($commands | Where-Object { $_ -like '* register *' })) 'Reinstallation preserves the selected broker route and exact administrator write policy without replacing registration'
-    $inventory[0].version = '0.11.2'
-    Reject { Set-RockwellCodexIntegration -Root $caseRoot } 'Changed broker plugin version requires reassessment instead of silently adopting a different integration'
-    $inventory[0].version = '0.11.1'
-    $runtimePath = Join-Path $brokerSource 'runtime.json'
-    $runtimePointer = Get-Content -LiteralPath $runtimePath -Raw | ConvertFrom-Json
-    $originalState = $runtimePointer.state
-    $runtimePointer.state = Join-Path $caseRoot 'another broker state'
-    Write-RockwellIntegrationJson (Join-Path $runtimePointer.state 'settings.json') @{}
-    Write-RockwellIntegrationJson $runtimePath $runtimePointer
-    Reject { Set-RockwellCodexIntegration -Root $caseRoot } 'A changed broker state cannot reuse acceptance for the previous route'
-    $runtimePointer.state = $originalState; Write-RockwellIntegrationJson $runtimePath $runtimePointer
-    $inventory[0].enabled = $false
-    Reject { Set-RockwellCodexIntegration -Root $caseRoot } 'Disabled broker on an existing broker route fails without silently switching to standalone'
-    Check (!($commands | Where-Object { $_ -like 'codex plugin add *' })) 'Broker failure never triggers a cross-route installation or write retry'
-    $inventory[0].enabled = $true
-    Write-RockwellIntegrationJson (Join-Path $caseRoot 'plugin.json') @{ version = 'fixture-2' }
-    Reject { Set-RockwellCodexIntegration -Root $caseRoot } 'Changed app version requires renewed broker workflow acceptance'
-    Set-RockwellCodexIntegration -Root $caseRoot -Route Broker -AcceptBrokerRoute | Out-Null
-    Reject { Set-RockwellCodexIntegration -Root $caseRoot -Route Standalone } 'Changing a broker route requires explicit reconciliation acknowledgment'
-    Set-RockwellCodexIntegration -Root $caseRoot -Route Standalone -AcceptBrokerRoute | Out-Null
-    Check ((Receipt).route -eq 'Standalone' -and (Get-FileHash -LiteralPath $registration).Hash -eq $hash) 'Explicit standalone restoration retains the broker registration and its recovery/policy evidence'
+    Check ((Receipt).route -eq 'Standalone' -and @($commands | Where-Object { $_ -like 'codex plugin add rockwell*' }).Count -eq 1) 'Other plugins never select an alternate route or suppress standalone installation'
+    Check (!($commands | Where-Object { $_ -notmatch '^codex plugin (list --json|marketplace add .+ --json|add rockwell-mcp-server@rockwell-mcp-server-local --json)$' })) 'Installer only lists plugins and installs its own marketplace/package'
 
-    Case 'foreign'
-    $script:inventory = @(Universal)
-    $foreign = New-RockwellBrokerManifest $caseRoot; $foreign.transport.cwd = 'C:\DifferentApplication'
-    $registration = Join-Path $brokerState 'services/rockwell-mcp-server.json'
-    Write-RockwellIntegrationJson $registration $foreign
-    $hash = (Get-FileHash -LiteralPath $registration).Hash
-    Reject { Set-RockwellCodexIntegration -Root $caseRoot -Route Broker -AcceptBrokerRoute } 'A conflicting broker registration is rejected instead of adopted or overwritten'
-    Check ((Get-FileHash -LiteralPath $registration).Hash -eq $hash) 'Foreign registration bytes remain unchanged'
-    Reject { Set-RockwellCodexIntegration -Root $caseRoot -Route Broker -BrokerRoot $ResultsDirectory -AcceptBrokerRoute } 'Broker source/profile mismatch fails before administrative registration'
+    Case 'foreign-standalone'
+    $script:inventory = @([pscustomobject]@{ name = 'rockwell-mcp-server'; installed = $true; enabled = $false })
+    $plan = Set-RockwellCodexIntegration -Root $caseRoot
+    Check ($plan.route -eq 'Standalone' -and !($commands | Where-Object { $_ -notlike '* list *' }) -and !(Test-Path -LiteralPath (Join-Path $caseRoot '.local/codex-marketplace'))) 'A foreign disabled standalone plugin and its package are preserved'
+    $script:inventory += $inventory[0]
+    Reject { Set-RockwellCodexIntegration -Root $caseRoot } 'Ambiguous Rockwell plugin installations fail before package changes'
 
-    Case 'existing-disabled-standalone'
-    $script:inventory = @((Universal), [pscustomobject]@{ name = 'rockwell-mcp-server'; installed = $true; enabled = $false })
-    $plan = Set-RockwellCodexIntegration -Root $caseRoot -AcceptBrokerRoute
-    Check ($plan.route -eq 'Standalone' -and !($commands | Where-Object { $_ -notlike '* list *' })) 'Auto preserves an existing disabled standalone choice even when Universal Tools is ready'
+    Case 'app-only'
+    Set-RockwellCodexIntegration -Root $caseRoot -Route None -PlanOnly | Out-Null
+    Check ($commands.Count -eq 0 -and !(Test-Path -LiteralPath (Join-Path $caseRoot '.local'))) 'App-only planning needs no Codex inventory and writes no state'
     Set-RockwellCodexIntegration -Root $caseRoot -Route None | Out-Null
+    Check ((Receipt).route -eq 'None' -and $commands.Count -eq 0) 'Explicit app-only installation skips Codex completely'
+    Set-RockwellCodexIntegration -Root $caseRoot | Out-Null
+    Check ((Receipt).route -eq 'Standalone') 'A later default install explicitly selects standalone regardless of the earlier app-only receipt'
+
+    Case 'removed-options'
+    foreach ($route in @('Auto','Broker')) {
+        Reject { Set-RockwellCodexIntegration -Root $caseRoot -Route $route } ("Retired $route route is rejected")
+        Reject { & (Join-Path $PSScriptRoot 'Install.ps1') -CodexIntegration $route -SkipBuild -NoShortcut } ("Installer rejects retired $route selection before installing")
+        Reject { & (Join-Path $PSScriptRoot 'Configure-Codex.ps1') -Route $route -PlanOnly } ("Configuration command rejects retired $route selection")
+    }
+    Reject { Set-RockwellCodexIntegration -Root $caseRoot -BrokerRoot $caseRoot } 'Removed broker-root parameter is rejected by integration function'
+    Reject { & (Join-Path $PSScriptRoot 'Install.ps1') -AcceptBrokerRoute -SkipBuild -NoShortcut } 'Removed acceptance parameter is rejected before any installer work'
+    Reject { & (Join-Path $PSScriptRoot 'Configure-Codex.ps1') -BrokerRoot $caseRoot -PlanOnly } 'Removed broker-root parameter is rejected by configuration command'
+    Check ($commands.Count -eq 0 -and !(Test-Path -LiteralPath (Join-Path $caseRoot '.local'))) 'Rejected options never invoke Codex or write installation state'
+
+    Case 'legacy-receipt'
+    Set-RockwellCodexIntegration -Root $caseRoot -Route None | Out-Null
+    $receiptPath = (Get-ChildItem -LiteralPath (Join-Path $caseRoot '.local/codex-integration') -File | Select-Object -First 1).FullName
+    $legacy = Receipt; $legacy.route = 'Broker'
+    Write-RockwellIntegrationJson $receiptPath $legacy
+    $legacyHash = (Get-FileHash -LiteralPath $receiptPath).Hash
+    $externalState = Join-Path $caseRoot 'external-service-registration.json'
+    [IO.File]::WriteAllText($externalState, 'Generated registration and recovery evidence, not owned by this installer.')
+    $externalHash = (Get-FileHash -LiteralPath $externalState).Hash
     $commands.Clear()
-    Check ((Set-RockwellCodexIntegration -Root $caseRoot).route -eq 'None' -and $commands.Count -eq 0) 'App-only installation stays independent and preserves its choice on later auto installs'
+    $plan = Set-RockwellCodexIntegration -Root $caseRoot -PlanOnly
+    Check ($plan.route -eq 'Standalone' -and (Get-FileHash -LiteralPath $receiptPath).Hash -eq $legacyHash -and !(Test-Path -LiteralPath (Join-Path $caseRoot '.local/codex-integration/legacy'))) 'A retired receipt plans standalone without invoking its old route or archiving during preview'
+    [IO.File]::WriteAllText((Join-Path $caseRoot 'scripts/Assert-ApplicationsStopped.ps1'), "throw 'Generated busy app runtime.'")
+    Reject { Set-RockwellCodexIntegration -Root $caseRoot } 'Migrating a retired integration receipt requires an idle app'
+    Check ((Get-FileHash -LiteralPath $receiptPath).Hash -eq $legacyHash -and !($commands | Where-Object { $_ -notlike '* list *' })) 'Busy migration preserves the receipt and makes no plugin changes'
+    [IO.File]::WriteAllText((Join-Path $caseRoot 'scripts/Assert-ApplicationsStopped.ps1'), '# Generated idle app runtime.')
+    Set-RockwellCodexIntegration -Root $caseRoot | Out-Null
+    $archive = @(Get-ChildItem -LiteralPath (Join-Path $caseRoot '.local/codex-integration/legacy') -File)
+    Check ((Receipt).route -eq 'Standalone' -and $archive.Count -eq 1 -and (Get-FileHash -LiteralPath $archive[0].FullName).Hash -eq $legacyHash) 'Standalone migration archives the exact retired receipt bytes'
+    Check ((Get-FileHash -LiteralPath $externalState).Hash -eq $externalHash) 'Migration preserves external registrations and recovery evidence without managing them'
+    [IO.File]::WriteAllBytes($receiptPath, [IO.File]::ReadAllBytes($archive[0].FullName))
+    [IO.File]::WriteAllText($archive[0].FullName, 'Generated conflicting archive fixture.')
+    $commands.Clear()
+    Reject { Set-RockwellCodexIntegration -Root $caseRoot } 'A conflicting legacy archive prevents migration before changing the plugin'
+    Check ((Get-FileHash -LiteralPath $receiptPath).Hash -eq $legacyHash -and !($commands | Where-Object { $_ -notlike '* list *' })) 'Archive failure preserves the receipt and makes no plugin changes'
+    $invalid = Receipt; $invalid.profile = Join-Path $ResultsDirectory 'wrong profile'
+    Write-RockwellIntegrationJson $receiptPath $invalid
+    Reject { Set-RockwellCodexIntegration -Root $caseRoot } 'A mismatched profile receipt cannot be adopted'
+
+    Case 'missing-cli'
+    function Get-Command { param([string]$Name, $ErrorAction) if ($Name -ne 'codex') { throw 'Unexpected command lookup.' } }
+    try {
+        Reject { Set-RockwellCodexIntegration -Root $caseRoot } 'Standalone installation reports a missing Codex CLI'
+        Set-RockwellCodexIntegration -Root $caseRoot -Route None | Out-Null
+        Check ((Receipt).route -eq 'None' -and $commands.Count -eq 0) 'App-only installation works without Codex installed'
+    } finally { Remove-Item Function:Get-Command }
     [pscustomobject]@{ passed = $checks.Count; checks = $checks; realCodexModified = $false; nativeConnectionAttempted = $false } |
         ConvertTo-Json -Depth 6 | Set-Content -LiteralPath (Join-Path $ResultsDirectory 'summary.json') -Encoding utf8
     Write-Output "$($checks.Count) Codex integration fixture checks passed: $ResultsDirectory"

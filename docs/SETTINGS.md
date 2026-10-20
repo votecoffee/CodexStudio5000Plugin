@@ -32,7 +32,7 @@ To stage the broad preset while a separate installed service keeps running, use 
 
 The **Always enforced** tab lists integrity and transport rules. HTTP stays on an authenticated loopback endpoint, browser-origin calls are rejected, originals are preserved, existing exports are not overwritten, preview/revision/hash and schema/SDK checks remain active, links/junctions are rejected, and audit/uncertain-job receipts are retained. These are separate from configurable target and file-access policy.
 
-Codex and Universal Tools also have their own approval/write policies. This editor does not change another application's settings, broker registrations or chat approval mode. App settings do not authorize retrying an uncertain operation or substitute for its target/review arguments.
+Codex and other MCP clients also have their own approval/write policies. This editor does not change another application's settings or chat approval mode. App settings do not authorize retrying an uncertain operation or substitute for its target/review arguments.
 
 ## REST and validation
 

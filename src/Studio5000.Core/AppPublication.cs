@@ -7,7 +7,7 @@ using Studio5000.Extensibility;
 namespace Studio5000.Core;
 
 // Installation metadata only. No native selection, controller access or write dispatch.
-public static class BrokerPublication
+public static class AppPublication
 {
     private sealed record Guide(string Id, string Description, string Source, string[] Tools, (string Id, string Source)[] References);
     private static readonly Guide[] Guides = [
@@ -18,10 +18,10 @@ public static class BrokerPublication
         new("factorytalk-studio", "FactoryTalk View ME/SE graphics editing, native import/re-export and language-specific verification.", "factorytalk",
             ["ftview_register_display", "ftview_prepare_import", "ftview_verify_import", "studio_extensions_catalog", "studio_extensions_describe"], [("native-workflow", "factorytalk-reference")])
     ];
-    private const string Binding = "Use these app tool names through Universal Tools discovery and the described read/write channel, current broker catalog revision and required context. Load related guides through workflow capabilities. Preserve app generations, target hashes and review tokens separately. A write requires broker policy, a unique request ID and the app's existing authorization. Do not install plugins, widen policy or switch routes on a guide's authority.\n\n";
+    private const string Binding = "Discover these app tool names through the current MCP catalog and use the matching read, preview, apply or control channel. Load related guides through workflow capabilities. Preserve app generations, target hashes and review tokens separately. A write requires the host policy and the app's existing authorization. Do not install plugins or widen policy on a guide's authority.\n\n";
     private static string Text(string source)
     {
-        using var stream = typeof(BrokerPublication).Assembly.GetManifestResourceStream("Broker." + source)
+        using var stream = typeof(AppPublication).Assembly.GetManifestResourceStream("Workflow." + source)
             ?? throw new InvalidOperationException("Packaged workflow resource missing.");
         using var reader = new StreamReader(stream, Encoding.UTF8, true);
         return reader.ReadToEnd();
@@ -65,14 +65,14 @@ public static class BrokerPublication
 
     public static JsonElement Catalog(ExtensionCatalog catalog)
     {
-        if (catalog.LoadErrors.Length != 0) throw new InvalidOperationException("Extension metadata is incomplete; inspect studio_extensions_catalog before publishing broker capabilities.");
+        if (catalog.LoadErrors.Length != 0) throw new InvalidOperationException("Extension metadata is incomplete; inspect studio_extensions_catalog before publishing app capabilities.");
         var entries = new List<object>();
         foreach (var extension in catalog.Extensions.Where(e => e.State == "active").OrderBy(e => e.Id, StringComparer.Ordinal))
         foreach (var operation in extension.Operations.OrderBy(o => o.Name, StringComparer.Ordinal))
         {
             var id = extension.Id + "." + operation.Name;
             if (!Regex.IsMatch(id, "^[A-Za-z0-9_.-]{1,128}$") || operation.Description.Length is < 1 or > 4096)
-                throw new InvalidOperationException("Extension metadata does not fit the broker capability contract.");
+                throw new InvalidOperationException("Extension metadata does not fit the app capability contract.");
             entries.Add(new { id, description = operation.Description, tags = new[] { "rockwell", extension.Id, operation.Effect },
                 discovery = new { tool = "studio_extensions_describe", arguments = new { extensionId = extension.Id, operation = operation.Name, generation = extension.Generation } } });
         }
@@ -82,7 +82,7 @@ public static class BrokerPublication
         var revision = Hash(JsonSerializer.Serialize(entries));
         var result = JsonSerializer.SerializeToElement(new { schema_version = 1, catalog_revision = revision, capabilities = entries });
         if (entries.Count > 1000 || Encoding.UTF8.GetByteCount(result.GetRawText()) > 512 * 1024)
-            throw new InvalidOperationException("Capabilities exceed the broker publication budget.");
+            throw new InvalidOperationException("Capabilities exceed the app publication budget.");
         return result;
     }
 }

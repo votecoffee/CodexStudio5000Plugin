@@ -1,5 +1,5 @@
-param([ValidateSet('Auto','Standalone','Broker','None')][string]$Route = 'Auto',
-    [string]$BrokerRoot, [switch]$AcceptBrokerRoute, [switch]$PlanOnly)
+[CmdletBinding()]
+param([ValidateSet('Standalone','None')][string]$Route = 'Standalone', [switch]$PlanOnly)
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'CodexIntegration.ps1')
-Set-RockwellCodexIntegration -Root (Split-Path -Parent $PSScriptRoot) -Route $Route -BrokerRoot $BrokerRoot -AcceptBrokerRoute:$AcceptBrokerRoute -PlanOnly:$PlanOnly
+Set-RockwellCodexIntegration -Root (Split-Path -Parent $PSScriptRoot) -Route $Route -PlanOnly:$PlanOnly

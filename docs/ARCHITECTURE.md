@@ -1,6 +1,6 @@
 # Architecture
 
-The optional [Universal Tools route](CODEX_INTEGRATION.md) connects the broker to the existing app-owned stdio MCP adapter. Standalone Codex, GUI and REST remain independent clients of the same service. Core publishes installation-level capabilities and versioned guides; it does not delegate authorization or target state to the broker.
+The [standalone Codex plugin](CODEX_INTEGRATION.md), GUI and REST are clients of the same service. Core publishes installation-level capabilities and versioned guides. The optional [app-owned framework host](FRAMEWORK.md) wraps the stdio adapter without changing domain operations or target authorization.
 
 Version 0.7 adds `Studio5000.Extensibility` (stable contract), `Studio5000.ExtensionWorker` (one isolated process per selected/draining version), and `Studio5000.Extensions.Rockwell` (reloadable operation catalogs/compositions). The shared Core `ExtensionHost` validates packages, publishes generations and pins in-flight work. REST and the ten stable MCP tools use that host; the desktop generates operation fields from the same schemas. Existing endpoints/tools remain compatible. [EXTENSIONS.md](EXTENSIONS.md) describes lifecycle, jobs, trust and limits.
 

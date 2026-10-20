@@ -35,7 +35,7 @@ public sealed class SettingsForm : WorkspaceForm
         access.Controls.Add(controller); access.Controls.Add(anyController); access.Controls.Add(anySource); access.Controls.Add(anyOutput);
         access.Controls.Add(new Label { Text = "Allowed source directories (one per line; preferred roots when unrestricted)", AutoSize = true }); access.Controls.Add(sources);
         access.Controls.Add(new Label { Text = "Output directories (one per line; preferred save locations when unrestricted)", AutoSize = true }); access.Controls.Add(outputs);
-        access.Controls.Add(new Label { Text = "Codex and Universal Tools approval policies are managed by their own host. An explicit target and operation are still selected for each controller request.", Dock = DockStyle.Fill });
+        access.Controls.Add(new Label { Text = "Codex and other MCP clients manage their own approval policies. An explicit target and operation are still selected for each controller request.", Dock = DockStyle.Fill });
         for (var i = 0; i < 9; i++) access.RowStyles.Add(i is 5 or 7 ? new(SizeType.Percent, 50) : new(SizeType.Absolute, i == 8 ? 60 : 38));
         accessPage.Controls.Add(access);
         var targetPage = new TabPage("Controller targets"); var targetActions = new FlowLayoutPanel { Dock = DockStyle.Top, Height = 48, Padding = new(8) };
