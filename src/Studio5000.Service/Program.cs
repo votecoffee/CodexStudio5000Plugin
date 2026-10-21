@@ -122,6 +122,9 @@ app.MapPost("/api/legacy-review/prepare", (ProjectService service, LegacyReviewP
 app.MapGet("/api/logix-validation/profiles", (ProjectService service) => service.LogixValidationProfiles());
 app.MapPost("/api/controller-tag-rename/preview", (ProjectService service, ControllerTagRenameRequest request, CancellationToken ct) => service.PreviewControllerTagRenameAsync(request, ct));
 app.MapPost("/api/controller-tag-rename/apply", (ProjectService service, ControllerTagRenameApplyRequest request, CancellationToken ct) => service.ApplyControllerTagRenameAsync(request, ct));
+app.MapPost("/api/module-connections/browse", (ProjectService service, ModuleConnectionBrowseRequest request, CancellationToken ct) => service.BrowseModuleConnectionsAsync(request, ct));
+app.MapPost("/api/module-connections/preview", (ProjectService service, ModuleConnectionEditRequest request, CancellationToken ct) => service.PreviewModuleConnectionsAsync(request, ct));
+app.MapPost("/api/module-connections/apply", (ProjectService service, ModuleConnectionApplyRequest request, CancellationToken ct) => service.ApplyModuleConnectionsAsync(request, ct));
 app.MapPost("/api/logix-validation/preview", (ProjectService service, LogixValidationRequest request, CancellationToken ct) => service.PreviewLogixValidationAsync(request, ct));
 app.MapPost("/api/logix-validation/record", (ProjectService service, LogixValidationRecordRequest request, CancellationToken ct) => service.RecordLogixValidationAsync(request, ct));
 app.MapGet("/api/logix-validation/receipts/{id}", (ProjectService service, string id, string expectedSha256) => service.LogixValidationReceipt(id, expectedSha256));

@@ -127,6 +127,8 @@ The shared service exposes these REST families through reloadable extension oper
 | POST | `/api/trends/{id}/delete`, `/api/trends/analyze`, `/api/trends/export` | Remove view, gather result page or export exact result |
 | POST | `/api/logic-value-merge/preview`, `/api/logic-value-merge/apply` | Whole-project preserve-fresh or legacy selected-tag merge into a new project |
 | POST | `/api/controller-tag-rename/preview`, `/api/controller-tag-rename/apply` | Hash-bound controller declaration/reference rename to a separate byte-preserved project and receipt; [workflow](../skills/rockwell-engineering/references/controller-tag-rename.md) |
+| POST | `/api/module-connections/browse` | Hash-bound paged connection identities, existing timing fields, safety metadata and unsupported connection elements |
+| POST | `/api/module-connections/preview`, `/api/module-connections/apply` | Exact existing RPI/NetworkDelayMultiplier/ReactionTimeLimit scalar edits to a separate review copy/receipt; [workflow](../skills/rockwell-engineering/references/module-connections.md) |
 | POST | `/api/legacy-review/preview`, `/api/legacy-review/prepare` | Exact reviewed v35-to-v32 legacy L5K input and manifest from a completed native export; no SDK job started |
 | GET | `/api/logix-validation/profiles` | Named checks, scope, budgets and unsupported acceptance claims |
 | POST | `/api/logix-validation/preview`, `/api/logix-validation/record` | Exact policy/hash-bound checks and retained immutable JSON receipts |

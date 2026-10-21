@@ -16,6 +16,8 @@ public sealed class DiagnosticsForm : WorkspaceForm
             [A("logic_trace", "Trace readers, writers and dependencies")]),
         new("Rename controller tag", "Select the source project and controller tag. Preview an exact new name in the operation editor. Review scoped references, program-local shadowing and capture conflicts. Unknown operands require exact reasoned decisions. Copy reviewSha256 into Apply to publish a separate project and receipt; source/data stay unchanged. Safety changes block by default and require explicit review-only handling. Native compile and external/HMI references require separate review.",
             [A("controller_tag_rename_preview", "Preview controller-tag rename and references"), A("controller_tag_rename_apply", "Apply reviewed rename to new project")]),
+        new("Module connection timing", "Select the source project. Browse exact module/connection names, existing timing values and safety metadata; fill those identities and before-values in Preview. Supports RPI, NetworkDelayMultiplier and ReactionTimeLimit only. Safety edits block by default; explicitly choose review-only when authorized. Copy reviewSha256 into Apply to publish a separate review copy and receipt. Related values are not recalculated; native import/readback and safety acceptance remain separate.",
+            [A("module_connections", "Browse connection timing and safety metadata"), A("module_connections_preview", "Preview exact connection attribute edits"), A("module_connections_apply", "Apply reviewed timing to new review copy")]),
         new("Captured rung explanation", "Freeze saved values or an existing sample, then evaluate a rung using the returned capture ID/hash and the exact routine XPath. Conditions are true, false or unknown. This explains captured predicates; it does not simulate controller execution.",
             [A("diagnostic_capture", "Capture selected values"), A("diagnostic_captures", "List captures"), A("rung_evaluate", "Explain captured rung")]),
         new("Triggered recording", "Save a trigger against the selected project/watch revision, then arm it. Start the authorized watch separately in Watch lists. Inspect episodes after change, predicate, timeout or communication fault; capture a sampled frame for rung explanation. Service restart leaves triggers disarmed.",
@@ -106,11 +108,15 @@ public sealed class DiagnosticsForm : WorkspaceForm
         var version = new VersionCompatibilityRequest(p?.Id ?? "", p?.CurrentSha256 ?? "", (int)target.Value);
         var legacy = new LegacyReviewRequest("", "", "", "Review-only legacy copy");
         var rename = new ControllerTagRenameRequest(p?.Id ?? "", p?.CurrentSha256 ?? "", tag.Text, "");
+        var connections = new ModuleConnectionEditRequest(p?.Id ?? "", p?.CurrentSha256 ?? "", [new("", "", "RPI", "", "")]);
         object? request = operation switch
         {
             "studio_logic_trace" => new LogicTraceRequest(p?.CurrentSha256 ?? "", tag.Text, selectedTag.ProgramName),
             "studio_controller_tag_rename_preview" => rename,
             "studio_controller_tag_rename_apply" => new ControllerTagRenameApplyRequest(rename, ""),
+            "studio_module_connections" => new ModuleConnectionBrowseRequest(p?.Id ?? "", p?.CurrentSha256 ?? ""),
+            "studio_module_connections_preview" => connections,
+            "studio_module_connections_apply" => new ModuleConnectionApplyRequest(connections, ""),
             "studio_diagnostic_capture" => new DiagnosticCaptureRequest(p?.Id ?? "", p?.CurrentSha256 ?? "", w?.Definition.Settings.Tags ?? [selectedTag]),
             "studio_rung_evaluate" => new RungEvaluationRequest(capture?.Id ?? "", capture?.Artifact.Sha256 ?? "", "/RSLogix5000Content/Controller/Programs/Program[@Name='" + program.Text + "']/Routines/Routine[@Name='main']", 0),
             "studio_diagnostic_trigger_save" => new DiagnosticTriggerSaveRequest("Diagnostic window", p?.Id ?? "", p?.CurrentSha256 ?? "", w?.Definition.Id ?? "", w?.Definition.Revision ?? 0, new("change", w?.Definition.Settings.Tags.FirstOrDefault()?.Key)),

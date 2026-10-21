@@ -11,7 +11,10 @@ public sealed class ExtensionCatalogTests
     {
         IWorkspaceExtension[] modules = [new LogixExtension(), new FactoryTalkExtension(), new ViewDesignerExtension(), new WatchesExtension()];
         var operations = modules.SelectMany(x => x.Describe()).ToArray();
-        Assert.Equal(150, operations.Length); Assert.Equal(150, operations.Select(o => o.Name).Distinct().Count());
+        Assert.Equal(153, operations.Length); Assert.Equal(153, operations.Select(o => o.Name).Distinct().Count());
+        Assert.Equal("read", operations.Single(o => o.Name == "studio_module_connections").Effect);
+        Assert.Equal("read", operations.Single(o => o.Name == "studio_module_connections_preview").Effect);
+        Assert.Equal("apply", operations.Single(o => o.Name == "studio_module_connections_apply").Effect);
         Assert.Equal("read", operations.Single(o => o.Name == "studio_controller_tag_rename_preview").Effect);
         Assert.Equal("apply", operations.Single(o => o.Name == "studio_controller_tag_rename_apply").Effect);
         foreach (var prefix in new[] { "ftview", "viewdesigner" })

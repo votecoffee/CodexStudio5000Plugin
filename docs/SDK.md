@@ -42,6 +42,8 @@ Poll `GET /api/sdk/jobs/{id}` / `studio_sdk_get_job`. Results contain status (`q
 
 `GET /api/sdk/jobs` lists the last 100 jobs. `POST /api/sdk/jobs/{id}/cancel` requests cancellation; poll its terminal status. Client disconnection does not cancel submitted work. Cancellation is not rollback. Timeout, child-process termination or a service restart can leave effects indeterminate; inspect any external target before retrying. The service never automatically retries. Per-call results remain relevant if a later call or final publication fails.
 
+Native steps/events are currently buffered until the helper returns, then published with its result. A running job can therefore have empty steps/events/artifacts throughout a lengthy open/export. Empty lists do not establish failure, a stall or progress within a specific call. Do not restart/replay a job merely because those lists are empty.
+
 `studio_sdk_inspect_source` / `POST /api/sdk/source` with `{ "path": "C:\\Projects\\Machine.acd" }` reads a source hash without opening it in the SDK. Jobs snapshot and rehash inputs again, rejecting stale hashes. `SaveAsync` saves the private copy. Source ACD/L5X/L5K and external XML files require an allowed root; managed artifact inputs are verified in storage.
 
 Output `savePath` / partial-export `filePath` values are simple new filenames, remapped into the job directory. SaveAs accepts ACD/L5X/L5K; partial export accepts XML/L5X. Overwrite mode, traversal, duplicate names and reserved input/import/created/final names are rejected. Factory paths are injected: omit `projectFilePath` and conversion `projectPath`.
