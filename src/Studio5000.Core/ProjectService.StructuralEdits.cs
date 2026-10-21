@@ -9,7 +9,7 @@ public sealed partial class ProjectService
     private (ProjectInfo Project, byte[] Bytes) StructuralSource(string id, string sha256, int revision)
     { var source = PreservationSource(new(id, sha256)); if (source.Project.Revision != revision) throw new OperationException("stale_revision", "Structural review requires the exact source revision and hash."); return source; }
     public async Task<StructuralContext> StructuralContextAsync(StructuralContextRequest request, CancellationToken ct = default)
-    { using (await EnterWorkspaceAsync(request.ProjectId, ct)) { var source = StructuralSource(request.ProjectId, request.ExpectedSha256, request.ExpectedRevision); return StructuralEditing.Context(source.Project, source.Bytes, request); } }
+    { using (await EnterWorkspaceAsync(request.ProjectId, ct)) { var source = StructuralSource(request.ProjectId, request.ExpectedSha256, request.ExpectedRevision); return StructuralEditing.Context(source.Project, source.Bytes, request, ct); } }
     private string StructuralPlanHash(SdkInputFile? plan)
     {
         if (plan is null || !StructuralEditing.Hash(plan.Sha256) || (plan.Path is null) == (plan.ArtifactId is null)) throw new OperationException("structural_plan", "Bind one actual reviewed plan path or artifact ID and its exact SHA-256.");

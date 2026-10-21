@@ -11,7 +11,9 @@ internal static class StructuralEditsIntegration
     internal static async Task RunAsync(string root, ServiceClient client)
     {
         var checks = new List<string>(); void Check(bool success, string message) { if (!success) throw new Exception("FAIL: " + message); checks.Add(message); Console.WriteLine("PASS: " + message); }
+        var initialization = System.Diagnostics.Stopwatch.StartNew();
         await using var mcp = await McpClient.CreateAsync(new StdioClientTransport(new StdioClientTransportOptions { Command = "powershell.exe", Arguments = ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", Path.Combine(root, "scripts", "Start-Mcp.ps1")], EnvironmentVariables = new Dictionary<string, string?> { ["STUDIO5000_PLUGIN_ROOT"] = root }, Name = "Focused structural integration" }));
+        initialization.Stop();
         var catalogResult = await mcp.CallToolAsync("studio_extensions_catalog", new Dictionary<string, object?>()); var catalog = JsonSerializer.Deserialize<ExtensionCatalog>(catalogResult.Content.OfType<TextContentBlock>().First().Text, ProjectService.Json)!;
         var owner = catalog.Extensions.Single(e => e.Id == "logix"); Check(catalog.LoadErrors.Length == 0 && catalog.Extensions.Where(e => e.Id != "fixture").Sum(e => e.Operations.Length) == 157, "Catalog exposes the complete structural workflow without extension errors");
         async Task<CallToolResult> Call(string name, object? request = null, string effect = "read", params (string Key, string Value)[] ids)
@@ -24,6 +26,21 @@ internal static class StructuralEditsIntegration
         const string tagPath = "/RSLogix5000Content/Controller/Tags/Tag[@Name='OldGate']"; const string logic = "/RSLogix5000Content/Controller/Programs/Program/Routines/Routine/RLLContent/Rung/Text";
         var tag = await Tool<StructuralContext>("studio_structural_edit_context", new StructuralContextRequest(project.Id, project.CurrentSha256, 0, tagPath)); var code = await Tool<StructuralContext>("studio_structural_edit_context", new StructuralContextRequest(project.Id, project.CurrentSha256, 0, logic));
         Check(tag.Targets.Single().ElementSha256.Length == 64 && tag.Targets.Single().ValueSetSha256?.Length == 64, "Context returns exact raw component and stored-value fingerprints");
+        var batchText = "<RSLogix5000Content><Controller Name='ContextFixture'><Tags>" + string.Concat(Enumerable.Range(0, 23).Select(i => $"<Tag Name='T{i}' TagType='Base' DataType='DINT'><Data Format='L5K'>{i}</Data></Tag>")) + "</Tags></Controller></RSLogix5000Content>";
+        var batchPath = Path.Combine(root, "examples", "StructuralContextGenerated.L5X"); await File.WriteAllTextAsync(batchPath, batchText);
+        var batchProject = await client.PostAsync<ProjectInfo>("/api/projects", new RegisterRequest(batchPath));
+        var paths = Enumerable.Range(0, 23).Reverse().Select(i => $"/RSLogix5000Content/Controller/Tags/Tag[@Name='T{i}']").ToArray();
+        var singleTime = System.Diagnostics.Stopwatch.StartNew(); var singleTargets = new List<StructuralTarget>();
+        foreach (var selector in paths) singleTargets.Add((await Tool<StructuralContext>("studio_structural_edit_context", new StructuralContextRequest(batchProject.Id, batchProject.CurrentSha256, 0, selector))).Targets.Single());
+        singleTime.Stop();
+        var batchRequest = new StructuralContextRequest(batchProject.Id, batchProject.CurrentSha256, 0, XPaths: paths);
+        var batchTime = System.Diagnostics.Stopwatch.StartNew(); var batched = await Tool<StructuralContext>("studio_structural_edit_context", batchRequest); batchTime.Stop();
+        Check(batched.Total == 23 && batched.Targets.SequenceEqual(singleTargets) && batched.Source.Sha256 == batchProject.CurrentSha256, "One MCP batch replaces 23 exact context calls with identical ordered fingerprints on the retained connection");
+        var restBatch = await client.PostAsync<StructuralContext>("/api/structural-edits/context/batch", batchRequest);
+        Check(restBatch.Targets.SequenceEqual(batched.Targets), "REST and MCP batch context use the same snapshot and raw stored-value fingerprints");
+        Check((await Call("studio_structural_edit_context", batchRequest with { ExpectedRevision = 1 })).IsError == true && (await Call("studio_structural_edit_context", batchRequest with { XPaths = [paths[0], "/RSLogix5000Content/Controller/Tags/Tag[@Name='Absent']"] })).IsError == true, "Stale and partially unresolved batch context reads fail without returning successful partial targets");
+        Check(ProjectService.Hash(await File.ReadAllBytesAsync(batchPath)) == batchProject.SourceSha256 && (await client.GetAsync<ProjectInfo>("/api/projects/" + batchProject.Id)).Revision == 0, "Batch context inspection preserves the generated source and managed revision");
+        var contextTiming = new { paths = 23, sessionInitializations = 1, initializationMilliseconds = initialization.Elapsed.TotalMilliseconds, singleCalls = 23, singleMilliseconds = singleTime.Elapsed.TotalMilliseconds, batchCalls = 1, batchMilliseconds = batchTime.Elapsed.TotalMilliseconds, boundary = "Generated fixture timing only; no latency threshold or customer performance claim." };
         var planPath = Path.Combine(root, "examples", "StructuralReviewedPlan.json"); File.WriteAllText(planPath, "{\"kind\":\"generated reviewed plan\"}");
         var request = new StructuralEditRequest(project.Id, project.CurrentSha256, 0, new(planPath, ProjectService.Hash(File.ReadAllBytes(planPath))), new([new("App", "Main")], [new("OldGate")], [], AcknowledgeIncompleteBindings: true, ValueDispositions: [new(new("OldGate"), "remove", "Generated fixture: captured gate state explicitly retired.")]), [new("remove_element", tagPath, tag.Targets[0].ElementSha256), new("set_text", logic, code.Targets[0].ElementSha256, "NOP();")]);
         Check((await Call("studio_structural_edit_preview", request)).IsError == true, "Read channel cannot create a retained structural preview");
@@ -61,6 +78,6 @@ internal static class StructuralEditsIntegration
         Check(saved.Path == destinationPath && saved.Sha256 == restResult.Candidate.Sha256 && ProjectService.Hash(savedBytes) == saved.Sha256 && savedBytes.SequenceEqual(expected), "Named L5X is delivered to the requested allowed folder and exact file/artifact hash readback matches");
         Check(ProjectService.Hash(await File.ReadAllBytesAsync(path)) == project.SourceSha256 && restResult.NativeAcceptance == "not-performed", "Prompt file delivery preserves the original and leaves user-owned native import unclaimed");
         var sdk = await client.GetAsync<SdkJob[]>("/api/sdk/jobs"); Check(sdk.Length == 0, "Focused structural fixture starts no native SDK job or controller operation");
-        var output = Path.Combine(root, "artifacts", "test-results", "structural-integration.json"); Directory.CreateDirectory(Path.GetDirectoryName(output)!); await File.WriteAllTextAsync(output, JsonSerializer.Serialize(new { passed = checks.Count, checks, controllerConnectionAttempted = false, nativeBridgeExecuted = false }, ProjectService.Json)); Console.WriteLine($"{checks.Count} focused structural API/MCP checks passed.");
+        var output = Path.Combine(root, "artifacts", "test-results", "structural-integration.json"); Directory.CreateDirectory(Path.GetDirectoryName(output)!); await File.WriteAllTextAsync(output, JsonSerializer.Serialize(new { passed = checks.Count, checks, contextTiming, controllerConnectionAttempted = false, nativeBridgeExecuted = false }, ProjectService.Json)); Console.WriteLine($"{checks.Count} focused structural API/MCP checks passed.");
     }
 }

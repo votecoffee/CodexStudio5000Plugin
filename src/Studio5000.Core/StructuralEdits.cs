@@ -20,7 +20,7 @@ public sealed record StructuralEdit(string Operation, string XPath, string Expec
 [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
 public sealed record StructuralEditRequest(string ProjectId, string ExpectedSha256, int ExpectedRevision, SdkInputFile Plan,
     StructuralScope Scope, StructuralEdit[] Edits);
-public sealed record StructuralContextRequest(string ProjectId, string ExpectedSha256, int ExpectedRevision, string? XPath = null, string? Query = null, int Offset = 0, int Limit = 100);
+public sealed record StructuralContextRequest(string ProjectId, string ExpectedSha256, int ExpectedRevision, string? XPath = null, string? Query = null, int Offset = 0, int Limit = 100, string[]? XPaths = null);
 public sealed record StructuralTarget(string XPath, string Kind, string? Name, string? ProgramName, string ElementSha256, bool Safety, bool Protected,
     string? DataType, string? TagType, string? ValueSetSha256);
 public sealed record StructuralContext(ComparisonSnapshot Source, int Total, StructuralTarget[] Targets, string XmlPreservation, string Boundary);
@@ -62,11 +62,27 @@ internal static partial class StructuralEditing
     private static string Commitment(IEnumerable<(string Key, string Hash)> values) => ProjectService.Hash(JsonSerializer.SerializeToUtf8Bytes(values.OrderBy(v => v.Key, StringComparer.Ordinal).Select(v => new { key = v.Key, sha256 = v.Hash }), ProjectService.Json));
     private static string Values(XmlSourceDocument document, XElement tag) => Commitment(tag.Elements().Where(e => e.Name.LocalName is "Data" or "ForceData" or "DefaultData").Select((e, i) => (i.ToString(), document.Fingerprint(e))));
     private static StructuralTarget Target(XmlSourceDocument source, XElement element, XElement[] protectedNodes) => new(XmlProjects.PathOf(element), element.Name.LocalName, Name(element), ProgramName(element), source.Fingerprint(element), LogixPreservation.Safety(element), protectedNodes.Any(p => p == element || element.Ancestors().Contains(p)), (string?)element.Attribute("DataType"), (string?)element.Attribute("TagType"), element.Name == "Tag" ? Values(source, element) : null);
-    internal static StructuralContext Context(ProjectInfo project, byte[] bytes, StructuralContextRequest request)
+    internal static StructuralContext Context(ProjectInfo project, byte[] bytes, StructuralContextRequest request, CancellationToken ct = default)
     {
         if (request.Offset is < 0 or > 100000 || request.Limit is < 1 or > 128 || request.Query?.Length > 256 || request.XPath?.Length > 8192) throw new OperationException("structural_query", "Use offset 0..100000, limit 1..128, query <=256 and XPath <=8192 characters.");
+        if (request.XPaths is { } paths && (request.XPath is not null || request.Query is not null || paths.Length is < 1 or > 128 || paths.Any(p => string.IsNullOrWhiteSpace(p) || p.Length > 8192) || paths.Distinct(StringComparer.Ordinal).Count() != paths.Length))
+            throw new OperationException("structural_query", "Use 1..128 distinct nonempty xPaths of <=8192 characters, without xPath or query. Each path must select exactly one existing element.");
+        ct.ThrowIfCancellationRequested();
         var doc = ModuleConnectionEditing.Parse(bytes); var source = new XmlSourceDocument(bytes, doc); var protectedNodes = Protected(doc);
-        var nodes = request.XPath is not null ? new[] { XmlProjects.Select(doc, request.XPath) } : doc.Descendants().Where(e => e.Name.LocalName is "Tag" or "Routine" or "DataType").Where(e => request.Query is null || ((Name(e) ?? "") + " " + ProgramName(e)).Contains(request.Query, StringComparison.OrdinalIgnoreCase)).ToArray();
+        XElement[] nodes;
+        if (request.XPaths is { } selectors)
+        {
+            nodes = new XElement[selectors.Length];
+            for (var index = 0; index < selectors.Length; index++)
+            {
+                ct.ThrowIfCancellationRequested();
+                try { nodes[index] = XmlProjects.Select(doc, selectors[index]); }
+                catch (System.Xml.XPath.XPathException) { throw new OperationException("structural_query", $"Invalid XPath at xPaths index {index} (zero-based). No partial context was returned."); }
+                catch (OperationException ex) when (ex.Code == "ambiguous_target") { throw new OperationException("ambiguous_target", $"XPath at xPaths index {index} (zero-based) must select exactly one existing element. No partial context was returned."); }
+            }
+        }
+        else nodes = request.XPath is not null ? new[] { XmlProjects.Select(doc, request.XPath) } : doc.Descendants().Where(e => e.Name.LocalName is "Tag" or "Routine" or "DataType").Where(e => request.Query is null || ((Name(e) ?? "") + " " + ProgramName(e)).Contains(request.Query, StringComparison.OrdinalIgnoreCase)).ToArray();
+        ct.ThrowIfCancellationRequested();
         var result = new StructuralContext(new(project.Id, project.Name, project.Revision, project.CurrentSha256), nodes.Length, nodes.Skip(request.Offset).Take(request.Limit).Select(e => Target(source, e, protectedNodes)).ToArray(), Preservation, Boundary);
         if (JsonSerializer.SerializeToUtf8Bytes(result, ProjectService.Json).Length > 4 * 1024 * 1024) throw new OperationException("structural_limit", "Context page exceeds 4 MiB.");
         return result;

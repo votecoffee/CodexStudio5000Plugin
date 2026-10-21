@@ -6,7 +6,13 @@ General `studio_preview_changes` structural/mixed edits and ordinary XML transac
 
 ## Inspect and declare the review
 
-Context requires `request:{projectId,expectedSha256,expectedRevision,xPath?,query?,offset:0,limit:100}` (inspect the live schema for `xpath` casing). Without XPath it pages named tags, routines and UDTs; with XPath it returns one exact element or existing container. Use returned `elementSha256` for each edit/protection. Existing `studio_read_element` supplies component XML; it serializes its response, so use context fingerprints rather than hashing that returned XML as source bytes. Tag context also reports a raw stored-value-set hash.
+Context requires `request:{projectId,expectedSha256,expectedRevision,xPath?,xPaths?,query?,offset:0,limit:100}`; inspect the live schema for exact casing and installed support. Without paths it pages named tags, routines and UDTs; with `xPath` it returns one exact element or existing container. With `xPaths` it resolves 1..128 distinct, nonempty exact paths against one hash-verified snapshot parsed once. Do not combine `xPaths` with `xPath` or `query`. Every path must select exactly one existing element; an invalid, missing or ambiguous path fails the whole read with its zero-based index. No partial successful context is returned. Results preserve requested path order, with the ordinary `offset`/`limit` pagination and `total`; use `limit:128` to return an entire batch up to the maximum. Each path is at most 8192 characters and the response remains bounded to 4 MiB. This is a read, not a change to edit scopes or approval.
+
+For a scoped review, gather exact targets and protected/container paths first, then request them together instead of making one context call per element. Keep a single initialized MCP client/session open for catalog, describe and successive calls rather than starting the stdio process for each read. The maintained MCP adapter supports that lifecycle. If using the explicitly authorized REST fallback below, reuse the authenticated HTTP client and send the same batch body directly to the existing context route. Do not reuse a hash or generation after the source/catalog changes, and never automatically replay an uncertain write to recover a connection.
+
+Batch context requires shared host 0.35.3 or later. The extension sends batches to `/api/structural-edits/context/batch`; an older host rejects that route instead of silently ignoring the new `xPaths` field. Use that route for direct REST batches too. Update the idle shared service before activating the new extension package; reloading only the extension cannot add the host implementation. Single-path reads retain their original route and contract.
+
+Use returned `elementSha256` for each edit/protection. Existing `studio_read_element` supplies component XML; it serializes its response, so use context fingerprints rather than hashing that returned XML as source bytes. Tag context also reports a raw stored-value-set hash.
 
 Bind a real nonempty JSON/Markdown/text plan path or artifact up to 1 MiB with its exact SHA-256. The service verifies bytes and never executes or interprets the plan as authorization. Declare exact program/routine pairs, controller/program tags, UDT names, optional protected paths/fingerprints, `safetyHandling` and incomplete-binding acknowledgment. Source revision and whole-file SHA must both match.
 
@@ -53,7 +59,8 @@ The same typed service requests apply; send the request object directly, without
 | Step | Documented REST route | Guard/result |
 |---|---|---|
 | Register/freeze | `POST /api/projects` with `{path}` | Retain project ID, current SHA and revision; original remains unchanged. |
-| Exact context | `POST /api/structural-edits/context` | Same `projectId`, `expectedSha256`, `expectedRevision` and optional `xPath`. |
+| Exact context | `POST /api/structural-edits/context` | Same `projectId`, `expectedSha256`, `expectedRevision` and optional single `xPath`. |
+| Batch context | `POST /api/structural-edits/context/batch` | Same pinned source and `xPaths:[...]`, `offset:0`, `limit:128`. Requires host 0.35.3+. |
 | Retained preview | `POST /api/structural-edits/preview` | Exact `StructuralEditRequest`, actual plan hash, explicit scopes/reference additions/value dispositions. Retain preview receipt ID/SHA and review hash. |
 | Reviewed apply | `POST /api/structural-edits/apply` | `{preview,expectedReviewSha256,previewReceiptId,previewReceiptSha256}` with the identical reviewed request. Returns a separate project, immutable candidate L5X and receipt. |
 | Reconcile | `GET /api/structural-edits/previews/{previewReceiptId}?expectedSha256={previewReceiptSha256}` | Read retained `previewed`, `applying-indeterminate` or `applied` state before another action. |

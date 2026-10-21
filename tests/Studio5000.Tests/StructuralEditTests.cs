@@ -43,6 +43,59 @@ public sealed class StructuralEditTests : IDisposable
     private static string Routine(string name) => "/RSLogix5000Content/Controller/Programs/Program[@Name='App']/Routines/Routine[@Name='" + name + "']";
     private byte[] Revision(ProjectInfo p) => File.ReadAllBytes(Path.Combine(root, "state", "projects", p.Id, "revision-" + p.Revision + ".l5x"));
 
+    [Fact]
+    public async Task Batch_context_matches_exact_single_reads_and_pages_in_requested_order()
+    {
+        var p = await Register(); var before = Revision(p);
+        string[] paths = [Tag("Keep"), Routine("Library"), MainText, "/RSLogix5000Content/Controller/Tags", Tag("Wire")];
+        var expected = new List<StructuralTarget>();
+        foreach (var path in paths) expected.Add((await service.StructuralContextAsync(new(p.Id, p.CurrentSha256, p.Revision, path))).Targets.Single());
+        var request = new StructuralContextRequest(p.Id, p.CurrentSha256, p.Revision, XPaths: paths);
+        var batch = await service.StructuralContextAsync(request);
+        Assert.Equal(expected, batch.Targets); Assert.Equal(paths.Length, batch.Total); Assert.Equal(p.CurrentSha256, batch.Source.Sha256);
+        Assert.True(batch.Targets[1].Protected); Assert.NotNull(batch.Targets[0].ValueSetSha256);
+        var page = await service.StructuralContextAsync(request with { Offset = 1, Limit = 2 });
+        Assert.Equal(paths.Length, page.Total); Assert.Equal(expected.Skip(1).Take(2), page.Targets);
+        Assert.Equal(before, Revision(p)); Assert.Equal(before, File.ReadAllBytes(p.SourcePath)); Assert.Single(service.Projects());
+    }
+    [Theory]
+    [InlineData("empty")] [InlineData("too-many")] [InlineData("blank")] [InlineData("null")] [InlineData("long")]
+    [InlineData("duplicate")] [InlineData("single-and-batch")] [InlineData("query-and-batch")] [InlineData("syntax")]
+    [InlineData("missing")] [InlineData("ambiguous")]
+    public async Task Batch_context_rejects_invalid_selectors_without_partial_results(string kind)
+    {
+        var p = await Register(); var before = Revision(p);
+        var request = new StructuralContextRequest(p.Id, p.CurrentSha256, p.Revision, XPaths: [Tag("Keep")]);
+        request = kind switch
+        {
+            "empty" => request with { XPaths = [] },
+            "too-many" => request with { XPaths = Enumerable.Range(0, 129).Select(i => Tag("T" + i)).ToArray() },
+            "blank" => request with { XPaths = [Tag("Keep"), " "] },
+            "null" => request with { XPaths = [Tag("Keep"), null!] },
+            "long" => request with { XPaths = [new string('x', 8193)] },
+            "duplicate" => request with { XPaths = [Tag("Keep"), Tag("Keep")] },
+            "single-and-batch" => request with { XPath = Tag("Keep") },
+            "query-and-batch" => request with { Query = "Keep" },
+            "syntax" => request with { XPaths = [Tag("Keep"), "["] },
+            "missing" => request with { XPaths = [Tag("Keep"), Tag("Absent")] },
+            "ambiguous" => request with { XPaths = [Tag("Keep"), "/RSLogix5000Content/Controller/Tags/Tag"] },
+            _ => throw new ArgumentOutOfRangeException(nameof(kind))
+        };
+        var error = await Assert.ThrowsAsync<OperationException>(() => service.StructuralContextAsync(request));
+        Assert.Equal(kind is "missing" or "ambiguous" ? "ambiguous_target" : "structural_query", error.Code);
+        Assert.Equal(before, Revision(p)); Assert.Single(service.Projects());
+    }
+    [Fact]
+    public async Task Batch_context_keeps_source_hash_revision_and_cancellation_guards()
+    {
+        var p = await Register(); var request = new StructuralContextRequest(p.Id, p.CurrentSha256, p.Revision, XPaths: [Tag("Keep"), MainText]);
+        foreach (var stale in new[] { request with { ExpectedSha256 = new string('0', 64) }, request with { ExpectedRevision = p.Revision + 1 } })
+            Assert.Equal("stale_revision", (await Assert.ThrowsAsync<OperationException>(() => service.StructuralContextAsync(stale))).Code);
+        using var cancelled = new CancellationTokenSource(); cancelled.Cancel();
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => service.StructuralContextAsync(request, cancelled.Token));
+        Assert.Equal(2, (await service.StructuralContextAsync(request)).Targets.Length);
+    }
+
     [Theory] [InlineData("utf-8")] [InlineData("utf-16")] [InlineData("utf-32")]
     public async Task Coherent_batch_preserves_all_untouched_tag_library_and_source_bytes(string name)
     {

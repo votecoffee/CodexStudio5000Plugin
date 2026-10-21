@@ -8,6 +8,8 @@ Inspect and edit **Studio 5000 Logix Designer**, **FactoryTalk View Studio ME/SE
 
 All clients use one authenticated local service and the same operations. Source files are preserved; reviewed changes create managed revisions and new exports. Controller operations are disabled by default.
 
+Scoped structural reviews can inspect up to 128 exact element paths in one context request, retaining source/value fingerprints and protected flags while reducing repeated client calls. The GUI exposes this under **Diagnostics & workflows → Scoped structural batch**; see the [structural workflow](skills/rockwell-engineering/references/structural-edits.md).
+
 The plugin identifier is `rockwell-mcp-server`. Internal `Studio5000.*` assemblies, environment variables and existing tool names remain for compatibility.
 
 ## Table of Contents

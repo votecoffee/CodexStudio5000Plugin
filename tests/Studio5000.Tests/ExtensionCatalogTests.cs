@@ -13,6 +13,8 @@ public sealed class ExtensionCatalogTests
         var operations = modules.SelectMany(x => x.Describe()).ToArray();
         Assert.Equal(157, operations.Length); Assert.Equal(157, operations.Select(o => o.Name).Distinct().Count());
         Assert.Equal("read", operations.Single(o => o.Name == "studio_structural_edit_context").Effect);
+        var contextSchema = operations.Single(o => o.Name == "studio_structural_edit_context").InputSchema.GetProperty("properties").GetProperty("request").GetProperty("properties");
+        Assert.True(contextSchema.TryGetProperty("xPaths", out _)); Assert.True(contextSchema.TryGetProperty("xPath", out _));
         Assert.Equal("preview", operations.Single(o => o.Name == "studio_structural_edit_preview").Effect);
         Assert.Equal("apply", operations.Single(o => o.Name == "studio_structural_edit_apply").Effect);
         Assert.Equal("read", operations.Single(o => o.Name == "studio_structural_edit_status").Effect);

@@ -126,6 +126,7 @@ app.MapPost("/api/module-connections/browse", (ProjectService service, ModuleCon
 app.MapPost("/api/module-connections/preview", (ProjectService service, ModuleConnectionEditRequest request, CancellationToken ct) => service.PreviewModuleConnectionsAsync(request, ct));
 app.MapPost("/api/module-connections/apply", (ProjectService service, ModuleConnectionApplyRequest request, CancellationToken ct) => service.ApplyModuleConnectionsAsync(request, ct));
 app.MapPost("/api/structural-edits/context", (ProjectService service, StructuralContextRequest request, CancellationToken ct) => service.StructuralContextAsync(request, ct));
+app.MapPost("/api/structural-edits/context/batch", (ProjectService service, StructuralContextRequest request, CancellationToken ct) => service.StructuralContextAsync(request, ct));
 app.MapPost("/api/structural-edits/preview", (ProjectService service, StructuralEditRequest request, CancellationToken ct) => service.PreviewStructuralEditsAsync(request, ct));
 app.MapPost("/api/structural-edits/apply", (ProjectService service, StructuralApplyRequest request, CancellationToken ct) => service.ApplyStructuralEditsAsync(request, ct));
 app.MapGet("/api/structural-edits/previews/{id}", (ProjectService service, string id, string expectedSha256, CancellationToken ct) => service.StructuralEditStatusAsync(id, expectedSha256, ct));
