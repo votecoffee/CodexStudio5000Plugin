@@ -14,6 +14,7 @@ if (args.Length == 2 && args[0] == "--sdk-offline-path") { await SdkOfflinePath.
 if (args.Length == 2 && args[0] == "--value-merge-native-smoke") { await ValueMergeNativeSmoke.RunAsync(root, Path.GetFullPath(args[1])); return; }
 if (args.Length == 1 && args[0] == "--online-plan-only") { await OnlineEditPlanIntegration.RunAsync(root); return; }
 using var client = new ServiceClient(root);
+if (args.Length == 1 && args[0] == "--structural-only") { await StructuralEditsIntegration.RunAsync(root, client); return; }
 var checks = new List<string>();
 void Check(bool valid, string name) { if (!valid) throw new Exception("FAIL: " + name); checks.Add(name); Console.WriteLine("PASS: " + name); }
 using var connection = JsonDocument.Parse(File.ReadAllText(Path.Combine(root, ".local", "connection.json")));

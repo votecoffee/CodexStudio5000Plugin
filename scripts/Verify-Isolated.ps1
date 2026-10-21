@@ -1,4 +1,4 @@
-param([Alias('SkipBuild')][switch]$SkipUnitTests, [switch]$WithCip)
+param([Alias('SkipBuild')][switch]$SkipUnitTests, [switch]$WithCip, [ValidateSet('All','Structural')][string]$Focus = 'All')
 $ErrorActionPreference = 'Stop'
 $repo = Split-Path -Parent $PSScriptRoot
 $fixtureRoot = Join-Path $repo ('artifacts/isolated-validation/' + [guid]::NewGuid().ToString('N'))
@@ -10,14 +10,16 @@ try {
     Copy-Item -LiteralPath (Join-Path $repo 'examples') -Destination $fixtureRoot -Recurse
     Copy-Item -LiteralPath (Join-Path $repo 'scripts/Start-Mcp.ps1') -Destination (Join-Path $fixtureRoot 'scripts')
     if (!$SkipUnitTests) {
-        dotnet test tests/Studio5000.Tests/Studio5000.Tests.csproj -c Release --nologo --logger 'trx;LogFileName=core.trx' --results-directory (Join-Path $fixtureRoot 'artifacts/test-results')
+        $testArguments = @('test','tests/Studio5000.Tests/Studio5000.Tests.csproj','-c','Release','--nologo','--logger','trx;LogFileName=core.trx','--results-directory',(Join-Path $fixtureRoot 'artifacts/test-results'))
+        if ($Focus -eq 'Structural') { $testArguments += @('--filter','FullyQualifiedName~StructuralEditTests|FullyQualifiedName~XmlScalarPreservationTests|FullyQualifiedName~WorkspaceTransactionTests|FullyQualifiedName~TagReferenceTests|FullyQualifiedName~AppPublicationTests|FullyQualifiedName~ExtensionCatalogTests') }
+        & dotnet @testArguments
         if ($LASTEXITCODE -ne 0) { throw 'Core tests failed.' }
     }
     foreach ($name in @('Service', 'Mcp', 'Desktop', 'ExtensionWorker')) {
         dotnet publish "src/Studio5000.$name/Studio5000.$name.csproj" -c Release -o (Join-Path $fixtureRoot "artifacts/app/$name") --nologo
         if ($LASTEXITCODE -ne 0) { throw "$name publish failed." }
     }
-    & (Join-Path $PSScriptRoot 'Verify-SettingsStaging.ps1') -ServiceExe (Join-Path $fixtureRoot 'artifacts/app/Service/Studio5000.Service.exe') -ResultsDirectory (Join-Path $fixtureRoot 'artifacts/test-results/settings-staging')
+    if ($Focus -eq 'All') { & (Join-Path $PSScriptRoot 'Verify-SettingsStaging.ps1') -ServiceExe (Join-Path $fixtureRoot 'artifacts/app/Service/Studio5000.Service.exe') -ResultsDirectory (Join-Path $fixtureRoot 'artifacts/test-results/settings-staging') }
     if ($WithCip) {
         $cipOutput = Join-Path $fixtureRoot 'artifacts/app/CipBridge'
         dotnet publish src/Studio5000.CipBridge/Studio5000.CipBridge.csproj -c Release -o $cipOutput --nologo
@@ -25,7 +27,7 @@ try {
         & (Join-Path $PSScriptRoot 'Verify-CipOffline.ps1') -BridgePath (Join-Path $cipOutput 'Studio5000.CipBridge.exe') -ResultsDirectory (Join-Path $fixtureRoot 'artifacts/test-results')
     }
     & (Join-Path $PSScriptRoot 'Build-Extensions.ps1') -PackageRoot (Join-Path $fixtureRoot 'extensions')
-    foreach ($fixtureVersion in @('1', '2')) {
+    foreach ($fixtureVersion in $(if ($Focus -eq 'All') { @('1', '2') } else { @() })) {
         $fixtureOutput = Join-Path $fixtureRoot "fixture-build-$fixtureVersion"
         $fixtureV2 = if ($fixtureVersion -eq '2') { 'true' } else { 'false' }
         dotnet publish tests/Studio5000.ExtensionFixture/Studio5000.ExtensionFixture.csproj -c Release -p:FixtureV2=$fixtureV2 -o $fixtureOutput --nologo
@@ -51,10 +53,13 @@ try {
         Start-Sleep -Milliseconds 100
     }
     if (!$ready) { throw 'Isolated service did not start.' }
-    dotnet run --project (Join-Path $repo 'tests/Studio5000.Integration/Studio5000.Integration.csproj') -c Release
+    $integrationArguments = @('run','--project',(Join-Path $repo 'tests/Studio5000.Integration/Studio5000.Integration.csproj'),'-c','Release')
+    if ($Focus -eq 'Structural') { $integrationArguments += @('--','--structural-only') }
+    & dotnet @integrationArguments
     if ($LASTEXITCODE -ne 0) { throw 'Isolated REST/MCP checks failed.' }
     $gui = Join-Path $fixtureRoot 'artifacts/app/Desktop/Studio5000.Desktop.exe'
-    foreach ($view in @('settings-workflow', 'transactions-workflow', 'viewdesigner-languages-workflow', 'hmi-languages-workflow', 'documentation-workflow', 'diagnostics-workflow', 'trend-views-workflow', 'comparison-annotations', 'comparison-annotations-workflow', 'comparison-history', 'comparison-history-workflow', 'merge-mappings', 'merge-mappings-workflow', 'value-merge', 'value-merge-workflow', 'comparison-workflow', 'comparison-ladder', 'watch-rebind', 'watch-template', 'watch-preflight', 'tag-references', 'references', 'reference-parameters', 'comparison', 'ladder', 'browser', 'trends', 'extensions', 'viewdesigner', 'watches', 'watches-values', 'online-edit', 'main')) {
+    $views = if ($Focus -eq 'Structural') { @('diagnostics-workflow') } else { @('settings-workflow', 'transactions-workflow', 'viewdesigner-languages-workflow', 'hmi-languages-workflow', 'documentation-workflow', 'diagnostics-workflow', 'trend-views-workflow', 'comparison-annotations', 'comparison-annotations-workflow', 'comparison-history', 'comparison-history-workflow', 'merge-mappings', 'merge-mappings-workflow', 'value-merge', 'value-merge-workflow', 'comparison-workflow', 'comparison-ladder', 'watch-rebind', 'watch-template', 'watch-preflight', 'tag-references', 'references', 'reference-parameters', 'comparison', 'ladder', 'browser', 'trends', 'extensions', 'viewdesigner', 'watches', 'watches-values', 'online-edit', 'main') }
+    foreach ($view in $views) {
         $flag = if ($view -eq 'main') { '--self-test' } else { "--self-test-$view" }
         $png = Join-Path $fixtureRoot "artifacts/test-results/desktop-$view.png"
         $guiProcess = Start-Process -FilePath $gui -ArgumentList @($flag, ('"' + $png + '"')) -WindowStyle Hidden -PassThru -RedirectStandardError ($png + '.stderr.log')

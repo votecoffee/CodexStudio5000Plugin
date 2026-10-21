@@ -100,6 +100,8 @@ public sealed partial class ProjectService : IDisposable
         moduleConnections = new { browse = "/api/module-connections/browse", preview = "/api/module-connections/preview", apply = "/api/module-connections/apply",
             attributes = new[] { "RPI", "NetworkDelayMultiplier", "ReactionTimeLimit" }, maximumEdits = 200, preservation = XmlScalarEdits.Preservation,
             exactBeforeValuesRequired = true, reviewOnly = true, startsNativeJob = false, connectsToController = false, boundary = ModuleConnectionEditing.Boundary },
+        structuralEdits = new { context = "/api/structural-edits/context", preview = "/api/structural-edits/preview", apply = "/api/structural-edits/apply", status = "/api/structural-edits/previews/{id}",
+            preservation = StructuralEditing.Preservation, maximumEdits = 200, requiresActualPlanHash = true, retainedPreviewRequired = true, reviewOnly = true, startsNativeJob = false, connectsToController = false, boundary = StructuralEditing.Boundary },
         watches = new { minimumIntervalMs = 100, maximumTags = 64, maximumActiveLists = 4, autoStartAfterRestart = false, structures = "SDK-native decorated XML; no inferred memory offsets",
             backends = new[] { "Sdk", "LibPlcTag" }, cipBridgeConfigured = File.Exists(options.CipBridgePath), cipPlan = "/api/projects/{id}/cip-watch-plan",
             preflight = "/api/watches/preflight",

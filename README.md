@@ -51,6 +51,7 @@ RockwellMCPServer gives agents and engineers a shared workspace for project insp
 | Scalar XML preservation | Edit PLC/FactoryTalk text and existing attributes while retaining source encoding, BOM, line endings and every unselected byte. |
 | Controller-tag rename | Review scoped references, ambiguous operands and safety handling; publish a separate byte-preserved project with all saved values and a reference receipt. |
 | [Module connection timing](skills/rockwell-engineering/references/module-connections.md) | Browse exact RPI/delay/reaction-time fields, review source/hash/before-values and safety metadata, then publish a separate byte-preserved review copy and receipt. |
+| [Scoped structural review](skills/rockwell-engineering/references/structural-edits.md) | Edit scoped routines/tags/UDTs with raw source preservation, exact reference AOI/UDT additions, saved-state decisions and retained preview/apply receipts. |
 | Named validation profiles | Offline integrity, whole-project merge preservation and existing native readback comparison, with new/inherited/expected findings and immutable machine-readable receipts. |
 | Version workflows | Separate native upgrade/readback jobs and bounded v35-to-v32 review-only L5K preparation, with explicit compatibility boundaries. |
 | Reloadable extensions | Discover operation schemas and reload compatible modules through MCP or the GUI while the host and chat remain running. |

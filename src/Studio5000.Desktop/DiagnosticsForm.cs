@@ -18,6 +18,8 @@ public sealed class DiagnosticsForm : WorkspaceForm
             [A("controller_tag_rename_preview", "Preview controller-tag rename and references"), A("controller_tag_rename_apply", "Apply reviewed rename to new project")]),
         new("Module connection timing", "Select the source project. Browse exact module/connection names, existing timing values and safety metadata; fill those identities and before-values in Preview. Supports RPI, NetworkDelayMultiplier and ReactionTimeLimit only. Safety edits block by default; explicitly choose review-only when authorized. Copy reviewSha256 into Apply to publish a separate review copy and receipt. Related values are not recalculated; native import/readback and safety acceptance remain separate.",
             [A("module_connections", "Browse connection timing and safety metadata"), A("module_connections_preview", "Preview exact connection attribute edits"), A("module_connections_apply", "Apply reviewed timing to new review copy")]),
+        new("Scoped structural batch", "Inspect exact source revision/hash and element fingerprints. Bind the actual reviewed plan file/hash, exact routine/tag/UDT scopes and protected paths before previewing component/call edits. Untouched tag bytes and protected libraries stay preserved. Layout changes require owned tag replacements. Review dependency/safety findings and retain the preview receipt, then copy its ID/hash and review hash into Apply. Results are separate review copies. Use retained status after an uncertain response; native validation is separate.",
+            [A("structural_edit_context", "Inspect source scopes and exact fingerprints"), A("structural_edit_preview", "Retain reviewed structural preview"), A("structural_edit_apply", "Apply exact retained preview to new copy"), A("structural_edit_status", "Read retained preview/apply status")]),
         new("Captured rung explanation", "Freeze saved values or an existing sample, then evaluate a rung using the returned capture ID/hash and the exact routine XPath. Conditions are true, false or unknown. This explains captured predicates; it does not simulate controller execution.",
             [A("diagnostic_capture", "Capture selected values"), A("diagnostic_captures", "List captures"), A("rung_evaluate", "Explain captured rung")]),
         new("Triggered recording", "Save a trigger against the selected project/watch revision, then arm it. Start the authorized watch separately in Watch lists. Inspect episodes after change, predicate, timeout or communication fault; capture a sampled frame for rung explanation. Service restart leaves triggers disarmed.",
@@ -109,6 +111,7 @@ public sealed class DiagnosticsForm : WorkspaceForm
         var legacy = new LegacyReviewRequest("", "", "", "Review-only legacy copy");
         var rename = new ControllerTagRenameRequest(p?.Id ?? "", p?.CurrentSha256 ?? "", tag.Text, "");
         var connections = new ModuleConnectionEditRequest(p?.Id ?? "", p?.CurrentSha256 ?? "", [new("", "", "RPI", "", "")]);
+        var structural = new StructuralEditRequest(p?.Id ?? "", p?.CurrentSha256 ?? "", p?.Revision ?? 0, new("", ""), new([], [], []), []);
         object? request = operation switch
         {
             "studio_logic_trace" => new LogicTraceRequest(p?.CurrentSha256 ?? "", tag.Text, selectedTag.ProgramName),
@@ -117,6 +120,9 @@ public sealed class DiagnosticsForm : WorkspaceForm
             "studio_module_connections" => new ModuleConnectionBrowseRequest(p?.Id ?? "", p?.CurrentSha256 ?? ""),
             "studio_module_connections_preview" => connections,
             "studio_module_connections_apply" => new ModuleConnectionApplyRequest(connections, ""),
+            "studio_structural_edit_context" => new StructuralContextRequest(p?.Id ?? "", p?.CurrentSha256 ?? "", p?.Revision ?? 0),
+            "studio_structural_edit_preview" => structural,
+            "studio_structural_edit_apply" => new StructuralApplyRequest(structural, "", "", ""),
             "studio_diagnostic_capture" => new DiagnosticCaptureRequest(p?.Id ?? "", p?.CurrentSha256 ?? "", w?.Definition.Settings.Tags ?? [selectedTag]),
             "studio_rung_evaluate" => new RungEvaluationRequest(capture?.Id ?? "", capture?.Artifact.Sha256 ?? "", "/RSLogix5000Content/Controller/Programs/Program[@Name='" + program.Text + "']/Routines/Routine[@Name='main']", 0),
             "studio_diagnostic_trigger_save" => new DiagnosticTriggerSaveRequest("Diagnostic window", p?.Id ?? "", p?.CurrentSha256 ?? "", w?.Definition.Id ?? "", w?.Definition.Revision ?? 0, new("change", w?.Definition.Settings.Tags.FirstOrDefault()?.Key)),
@@ -143,6 +149,7 @@ public sealed class DiagnosticsForm : WorkspaceForm
         if (operation is "studio_trend_view_get" or "studio_trend_view_delete") seed["trendId"] = view?.Id ?? "";
         if (operation is "studio_version_compatibility_status" or "studio_version_compatibility_readback") seed["runId"] = "";
         if (operation == "studio_validation_receipt") { seed["receiptId"] = ""; seed["expectedSha256"] = ""; }
+        if (operation == "studio_structural_edit_status") { seed["previewReceiptId"] = ""; seed["expectedSha256"] = ""; }
         return seed;
     }
     internal async Task<string[]> ExerciseOfflineWorkflowForTestAsync()
