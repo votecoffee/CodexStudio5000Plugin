@@ -103,7 +103,7 @@ public static class TagReferences
         return report;
     }
 
-    internal static IEnumerable<Token> Lex(string text, Action<string> diagnose)
+    internal static char[] MaskSource(string text, Action<string> diagnose)
     {
         var masked = text.ToCharArray();
         void Mask(int start, int end) { for (var i = start; i < end; i++) if (masked[i] is not ('\r' or '\n')) masked[i] = ' '; }
@@ -141,6 +141,11 @@ public static class TagReferences
             }
             i++;
         }
+        return masked;
+    }
+    internal static IEnumerable<Token> Lex(string text, Action<string> diagnose)
+    {
+        var masked = MaskSource(text, diagnose);
         return Range(0, masked.Length, "operand", 0);
 
         IEnumerable<Token> Range(int from, int end, string role, int depth)

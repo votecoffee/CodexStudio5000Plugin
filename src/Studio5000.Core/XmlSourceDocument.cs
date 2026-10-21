@@ -100,6 +100,48 @@ internal sealed class XmlSourceDocument
         var quote = Text[cursor++]; var end = Text.IndexOf(quote, cursor); if (end < 0) throw Error("span", "Attribute delimiter is incomplete.");
         return (cursor, end, quote);
     }
+    public Func<int, int, string, Patch> ValueEditor(XObject node)
+    {
+        int start, end; bool attribute;
+        if (node is XAttribute a) { var span = AttributeValue(a); start = span.Start; end = span.End; attribute = true; }
+        else if (node is XElement e && !e.HasElements) { var span = Locate(e); start = span.OpenEnd; end = span.CloseStart; attribute = false; }
+        else throw Error("span", "Reference editing requires a scalar XML value.");
+        var decoded = new StringBuilder(); var positions = new List<(int Start, int End, int Segment)>(); var segment = 0; var cursor = start;
+        void Append(string value, int from, int to) { decoded.Append(value); foreach (var unused in value) positions.Add((from, to, segment)); }
+        void Characters(int limit, bool cdata)
+        {
+            while (cursor < limit)
+            {
+                var from = cursor; var c = Text[cursor++];
+                if (c == '&' && !cdata)
+                {
+                    var semicolon = Text.IndexOf(';', cursor); if (semicolon < 0 || semicolon >= limit) throw Error("span", "Invalid XML reference entity.");
+                    var entity = Text[cursor..semicolon]; cursor = semicolon + 1;
+                    var value = entity switch { "amp" => "&", "lt" => "<", "gt" => ">", "quot" => "\"", "apos" => "'", _ when entity.StartsWith("#x", StringComparison.Ordinal) => char.ConvertFromUtf32(Convert.ToInt32(entity[2..], 16)), _ when entity.StartsWith('#') => char.ConvertFromUtf32(int.Parse(entity[1..], System.Globalization.CultureInfo.InvariantCulture)), _ => throw Error("span", "Unknown XML entity.") };
+                    Append(value, from, cursor); continue;
+                }
+                if (c == '\r') { if (cursor < limit && Text[cursor] == '\n') cursor++; Append(attribute ? " " : "\n", from, cursor); }
+                else Append(attribute && c is '\n' or '\t' ? " " : c.ToString(), from, cursor);
+            }
+        }
+        if (attribute) Characters(end, false);
+        else while (cursor < end)
+        {
+            if (Text.AsSpan(cursor).StartsWith("<![CDATA[", StringComparison.Ordinal))
+            { segment++; cursor += 9; var close = Text.IndexOf("]]>", cursor, StringComparison.Ordinal); if (close < 0 || close > end) throw Error("span", "Incomplete CDATA source."); Characters(close, true); cursor += 3; segment++; }
+            else if (Text.AsSpan(cursor).StartsWith("<!--", StringComparison.Ordinal) || Text.AsSpan(cursor).StartsWith("<?", StringComparison.Ordinal))
+            { var terminator = Text[cursor + 1] == '?' ? "?>" : "-->"; var close = Text.IndexOf(terminator, cursor + 2, StringComparison.Ordinal); if (close < 0 || close > end) throw Error("span", "Incomplete scalar XML token."); cursor = close + terminator.Length; segment++; }
+            else { var next = Text.IndexOf('<', cursor); if (next == cursor) throw Error("span", "Unsupported scalar XML token."); Characters(next < 0 || next > end ? end : next, false); }
+        }
+        var expected = node is XAttribute field ? field.Value : ((XElement)node).Value;
+        if (decoded.ToString() != expected) throw Error("span", "Source value mapping differs from parsed XML; reference editing is unsupported.");
+        return (offset, length, value) =>
+        {
+            if (offset < 0 || length < 1 || offset + length > positions.Count || positions[offset].Segment != positions[offset + length - 1].Segment)
+                throw Error("span", "Reference crosses XML lexical segments; no partial edit was produced.");
+            return new(positions[offset].Start, positions[offset + length - 1].End, value);
+        };
+    }
     public byte[] Apply(IEnumerable<Patch> edits)
     {
         var result = new StringBuilder(Text.Length); var previous = 0;

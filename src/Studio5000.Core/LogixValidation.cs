@@ -5,7 +5,7 @@ using System.Xml.Linq;
 
 namespace Studio5000.Core;
 
-public sealed record NativeReadbackRules(bool NormalizeMessageFormatting = false, bool NormalizeL5KWhitespace = false, bool IgnoreRungNumbers = false, bool NormalizeRllWhitespace = false, bool NormalizeProtectedPayloadWhitespace = false);
+public sealed record NativeReadbackRules(bool NormalizeMessageFormatting = false, bool NormalizeL5KWhitespace = false, bool IgnoreRungNumbers = false, bool NormalizeRllWhitespace = false, bool NormalizeProtectedPayloadWhitespace = false, bool NormalizeAnnotationBoundaryWhitespace = false);
 public sealed record LogixExpectedDifference(string Check, string Location, string? ExpectedSha256, string? ActualSha256, string Reason);
 public sealed record LogixValidationRequest(string Profile, MergeSnapshot Candidate, MergeSnapshot? Baseline = null,
     MergeSnapshot? Reference = null, LogicValueMergeRequest? Merge = null, string? ExpectedPolicySha256 = null, NativeReadbackRules? NativeRules = null, LogixExpectedDifference[]? ExpectedDifferences = null);
@@ -31,6 +31,9 @@ internal static class LogixValidation
             new { id = "legacy-review-readback", purpose = "Review-only v35-to-v32 comparison: keep application/readable AOI code and ordinary values; report motion configuration and protected AOI envelopes/payloads separately.", requires = "candidate native v32 readback + reference intended v35 project; optional explicit nativeRules and exact expected metadata/configuration differences", checks = new[]{"target-software-controller-Local-revisions","readable-routine-code","ordinary-tag-layouts-and-values","motion-configuration","protected-AOI-envelope-and-complete-opaque-payload","other-configuration","direct-RLL-JSR-and-main-routine-references"} },
             new { id = "offline-integrity", purpose = "Check direct saved-project routine references and distinguish inherited/new/resolved findings against an optional baseline.", requires = "candidate; optional baseline", checks = new[]{"direct-RLL-JSR-and-main-routine-references"} }
         }, maximumXmlElements = 1000000, maximumFindings = 10000, maximumReceiptBytes = 8 * 1024 * 1024,
+        nativeRules = new NativeReadbackRules(),
+        annotationBoundaryRule = "Opt-in normalizeAnnotationBoundaryWhitespace applies only to scalar Comment/Description outside stored/encoded data. XML space/tab/CR/LF at the boundaries only; internal text, attributes and markup remain exact. Each normalization is retained as a pass/normalized finding with field hashes and bounded before/after text. Readback profiles only.",
+        maximumExpectedDifferences = 1000,
         retainedReceipt = "studio_validation_record binds the complete report, reviewed policy, source/candidate hashes and tool version. Re-read with studio_validation_receipt; save with studio_save_artifact.", boundary = Boundary
     };
     private static string? Hash(XElement? node, bool rungNumbers = true) => node is null ? null : ProjectService.Hash(Encoding.UTF8.GetBytes(ProjectComparison.Normalize(node, rungNumbers).ToString(SaveOptions.DisableFormatting)));
@@ -182,6 +185,17 @@ internal static class LogixValidation
             if (findings.Count >= 10000) throw new OperationException("validation_limit", "More than 10000 findings; reduce the project scope. No partial receipt was produced.");
             if (Hash(a, !rules.IgnoreRungNumbers) == Hash(b, !rules.IgnoreRungNumbers)) return;
             if (a is null || b is null || a.Name != b.Name) { Fail(check, path, "Element missing, added or changed type.", a, b); return; }
+            if (rules.NormalizeAnnotationBoundaryWhitespace && a.Name.Namespace == XNamespace.None && a.Name.LocalName is "Comment" or "Description" &&
+                !a.Ancestors().Concat(b.Ancestors()).Any(e => e.Name.LocalName is "Data" or "DefaultData" or "ForceData" or "EncodedData") &&
+                a.Nodes().All(n => n is XText) && b.Nodes().All(n => n is XText) && a.Value != b.Value && a.Value.Trim(' ', '\t', '\r', '\n') == b.Value.Trim(' ', '\t', '\r', '\n'))
+            {
+                Count("annotation-boundary-whitespace");
+                findings.Add(new("annotation-boundary-whitespace", path + "/text()", "pass", "normalized", "Only surrounding XML space/tab/CR/LF ignored by the explicit native rule; internal text is unchanged.", Hash(a), Hash(b),
+                    a.Value.Length > 512 ? a.Value[..512] : a.Value, b.Value.Length > 512 ? b.Value[..512] : b.Value, a.Value.Length > 512 || b.Value.Length > 512));
+                a = new XElement(a.Name, a.Attributes(), new XText(a.Value.Trim(' ', '\t', '\r', '\n')));
+                b = new XElement(b.Name, b.Attributes(), new XText(b.Value.Trim(' ', '\t', '\r', '\n')));
+                if (Hash(a, !rules.IgnoreRungNumbers) == Hash(b, !rules.IgnoreRungNumbers)) return;
+            }
             var aa = ProjectComparison.Normalize(a, !rules.IgnoreRungNumbers, true); var bb = ProjectComparison.Normalize(b, !rules.IgnoreRungNumbers, true);
             static string? Snippet(string? value) => value is { Length: > 512 } ? value[..512] : value;
             foreach (var name in aa.Attributes().Select(v => v.Name).Union(bb.Attributes().Select(v => v.Name)))
