@@ -76,5 +76,15 @@ public sealed class ModuleConnectionTests : IDisposable
         var duplicate = await Register(Source().Replace("<RackConnection", "<Connection" ).Replace("Name='Unsupported'", "Name='Input'")); await Assert.ThrowsAsync<OperationException>(() => service.BrowseModuleConnectionsAsync(new(duplicate.Id, duplicate.CurrentSha256)));
         Assert.Equal("invalid_target", Assert.Throws<OperationException>(() => XmlProjects.Apply(Revision(p), [new("set_attribute", "/RSLogix5000Content/Controller/Modules/Module/Communications/Connections/Connection", "20000", "RPI")])).Code);
     }
+    [Fact]
+    public async Task Actual_source_bytes_are_verified_even_when_metadata_hash_and_selected_before_values_still_match()
+    {
+        var p = await Register(Source()); var request = Request(p, Edit()); var plan = await service.PreviewModuleConnectionsAsync(request);
+        var revision = Path.Combine(root, "state", "projects", p.Id, "revision-0.l5x"); File.WriteAllText(revision, Source().Replace("keep 60.032", "unreviewed other content"), new UTF8Encoding(true));
+        Assert.Equal("state_tampered", (await Assert.ThrowsAsync<OperationException>(() => service.BrowseModuleConnectionsAsync(new(p.Id, p.CurrentSha256)))).Code);
+        Assert.Equal("state_tampered", (await Assert.ThrowsAsync<OperationException>(() => service.PreviewModuleConnectionsAsync(request))).Code);
+        Assert.Equal("state_tampered", (await Assert.ThrowsAsync<OperationException>(() => service.ApplyModuleConnectionsAsync(new(request, plan.ReviewSha256)))).Code);
+        Assert.Single(Directory.GetDirectories(Path.Combine(root, "state", "projects"))); Assert.Equal(p.SourceSha256, ProjectService.Hash(File.ReadAllBytes(p.SourcePath)));
+    }
     public void Dispose() { service.Dispose(); Directory.Delete(root, true); }
 }
