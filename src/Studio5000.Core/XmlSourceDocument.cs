@@ -100,6 +100,10 @@ internal sealed class XmlSourceDocument
         var quote = Text[cursor++]; var end = Text.IndexOf(quote, cursor); if (end < 0) throw Error("span", "Attribute delimiter is incomplete.");
         return (cursor, end, quote);
     }
+    public string Fingerprint(XElement element)
+    { var span = Locate(element); return ProjectService.Hash(encoding.GetBytes(Text[span.Start..span.End])); }
+    public string Lexical(XElement element)
+    { var span = Locate(element); return Text[span.Start..span.End]; }
     public Func<int, int, string, Patch> ValueEditor(XObject node)
     {
         int start, end; bool attribute;
