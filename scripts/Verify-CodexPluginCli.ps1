@@ -44,6 +44,12 @@ try {
     $initialSource = $initial.source.path
     $initialGuide = Join-Path $initialSource 'skills/rockwell-engineering/SKILL.md'
     $initialHash = (Get-FileHash -LiteralPath $initialGuide).Hash
+    # Plugin installation/skills and a working launcher do not prove that Codex
+    # accepted the portable MCP manifest. Exercise its actual config loader.
+    $servers = Invoke-RockwellCodex @('mcp','list','--json')
+    $server = @($servers | Where-Object name -CEQ 'rockwell-mcp-server')
+    Check ($server.Count -eq 1 -and $server[0].enabled -eq $true -and
+        $server[0].transport.type -eq 'stdio' -and $server[0].transport.command -eq 'powershell.exe') 'Real Codex config loader discovers the enabled standalone MCP server, independently of plugin/skill installation'
 
     # Only this generated profile is edited. A native plugin add must retain
     # independent server policy as well as the already enabled plugin choice.
@@ -63,6 +69,9 @@ enabled = false
     Check ((Test-Path -LiteralPath $cachedGuide) -and [IO.File]::ReadAllText($cachedGuide).Contains('Generated enabled CLI upgrade marker.')) 'The actual Codex cache contains the updated standalone workflow text'
     Check ((Get-FileHash -LiteralPath $initialGuide).Hash -eq $initialHash) 'The previous source package remains unchanged after a real CLI upgrade'
     Check ([IO.File]::ReadAllText($configPath).Replace("`r`n", "`n").Trim() -ceq $configBefore.Replace("`r`n", "`n").Trim()) 'Native package refresh preserves existing plugin and per-server configuration apart from newline normalization'
+    $servers = Invoke-RockwellCodex @('mcp','list','--json')
+    $server = @($servers | Where-Object name -CEQ 'rockwell-mcp-server')
+    Check ($server.Count -eq 1 -and $server[0].enabled -eq $false) 'Real Codex config loader discovers the refreshed server and honors its retained disabled-server policy'
     Check ((Test-Path -LiteralPath (Join-Path $cache 'LICENSE')) -and
         (Get-ChildItem -LiteralPath $cache -File -Recurse).Count -eq 17) 'The real plugin cache contains the MIT license and only allowlisted package files'
 

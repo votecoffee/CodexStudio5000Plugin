@@ -47,6 +47,9 @@ try {
     $bundle = New-RockwellStandalonePackage $caseRoot
     $files = @(Get-ChildItem -LiteralPath $bundle.package -Recurse -File)
     Check ($files.Count -eq 17 -and !($files | Where-Object { $_.FullName.Substring($bundle.package.Length) -match '[\\/](artifacts|\.local)[\\/]' })) 'Standalone package contains only manifests, MIT license, three guides, seven references and a runtime launcher/pointer'
+    $portableMcp = Get-Content -LiteralPath (Join-Path $bundle.package 'mcp.json') -Raw | ConvertFrom-Json
+    Check ($portableMcp.'$schema' -ceq 'https://agent-plugins.org/schemas/1.0.0/mcp.schema.json' -and
+        $portableMcp.mcpServers.'rockwell-mcp-server'.type -ceq 'stdio') 'Portable MCP configuration declares its required schema and standalone transport'
     Check ((New-RockwellStandalonePackage $caseRoot).package -eq $bundle.package) 'Identical standalone content reuses its immutable package'
     $originalGuide = Join-Path $bundle.package 'skills/rockwell-engineering/SKILL.md'
     $originalHash = (Get-FileHash -LiteralPath $originalGuide).Hash
