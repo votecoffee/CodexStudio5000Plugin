@@ -1,4 +1,4 @@
-param([string]$PackageRoot = (Join-Path (Split-Path -Parent $PSScriptRoot) 'extensions'), [string]$Version = '0.35.1', [ValidateRange(1,4)][int]$ParallelWorkers = 4, [switch]$ContentVersion, [switch]$SelectOnStartup)
+param([string]$PackageRoot = (Join-Path (Split-Path -Parent $PSScriptRoot) 'extensions'), [string]$Version = '0.35.2', [ValidateRange(1,4)][int]$ParallelWorkers = 4, [switch]$ContentVersion, [switch]$SelectOnStartup)
 $ErrorActionPreference = 'Stop'
 $PackageRoot = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($PackageRoot)
 if ($Version -notmatch '^[A-Za-z0-9][A-Za-z0-9_.-]{0,95}$') { throw 'Invalid extension version.' }

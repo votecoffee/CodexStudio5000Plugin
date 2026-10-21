@@ -95,6 +95,8 @@ Installation uses Rockwell's **standalone Codex plugin**, preserving its enabled
 
 If skills appear while tools are missing, follow the [MCP discovery and reconnect checks](docs/CODEX_INTEGRATION.md#skills-appear-but-tools-are-missing). Plugin installation and a working service do not establish that Codex loaded the tools.
 
+If you authorize continuing through the installed service while MCP is unavailable, the [documented REST fallback](skills/rockwell-engineering/references/structural-edits.md#authorized-rest-fallback) keeps the same review and receipt guards. Requested named L5X copies are saved with hash readback after the edits and required scoped checks; native import/build remains a separate user-owned or separately requested step.
+
 Reinstallation refreshes enabled standalone plugins owned by this installation. For disabled plugins, it publishes updated guidance for a later host refresh and keeps them disabled. Existing packages from other installations are retained.
 
 Run **Install.cmd** again after updating the checkout. Finish jobs, stop watch polling, close clients and run `.\scripts\Stop-Service.ps1` first; the installer refuses to rebuild applications that are running from this checkout. Existing `service.local.json` is preserved. Bundled extensions receive content-qualified build versions and are selected for the next service startup; earlier immutable versions remain available for rollback. Use `Install.cmd -NoShortcut` to omit the shortcut, or `Install.cmd -SkipBuild` to configure an already published build and recreate its shortcut without changing extension selections. Keep the checkout in place; rerun installation if you move it. Delete the Start Menu shortcut to remove that entry.

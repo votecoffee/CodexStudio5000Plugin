@@ -41,3 +41,32 @@ Preview creates an immutable JSON receipt and returns `reviewSha256`, `resultSha
 Apply requires the exact preview request, review hash, preview receipt ID and receipt SHA. It rechecks source/plan/reference bytes and all guards before publishing. Retain the separate project, immutable candidate L5X and apply receipt. A repeat of a completed exact apply returns that retained result. An incomplete durable intent is `applying-indeterminate` and is never replayed automatically. Read status using receipt ID/SHA after any lost response. Receipts remain historical evidence even if another client later advances a managed project.
 
 Source files and source revisions remain unchanged. Separate projects are not one atomic multi-project transaction. Native import/build/export/readback use existing offline SDK operations only when separately authorized, followed by named validation/retained readback receipts. `native-readback` compares supplied actual output with the intended candidate; it does not establish provenance or native safety/deployment acceptance. Changed tag layouts/owned values require their own explicit plan/validation policy; routine-only preserve-fresh merging does not cover arbitrary structural migrations.
+
+## Authorized REST fallback
+
+If the chat's MCP tools are unavailable and the user asks to continue through the installed shared service, its documented authenticated REST API is a supported front end. Keep application design and execution in the engineering chat; server-development chats improve reusable tools and workflows. A connection failure alone grants no additional authority. Honor any explicit tool/access restriction; do not use another transport to evade one. Existing authorization for the same offline source, edit, review and output remains applicable without inventing another approval step.
+
+Identify the intended installation and running connection using the application's `.local/connection.json`; a packaged installation's trusted `runtime.json` identifies its app root. Use the local credential file named by `tokenFile` as `Authorization: Bearer <token>`, without displaying or recording the credential. Keep loopback binding, authentication, path policy, scope, locks, revisions and audit enabled. Neither reading a connection file nor selecting REST grants controller, native SDK, settings or filesystem access. Do not add a private endpoint, duplicate broker or alternate policy.
+
+The same typed service requests apply; send the request object directly, without the MCP `{call:{...}}` wrapper:
+
+| Step | Documented REST route | Guard/result |
+|---|---|---|
+| Register/freeze | `POST /api/projects` with `{path}` | Retain project ID, current SHA and revision; original remains unchanged. |
+| Exact context | `POST /api/structural-edits/context` | Same `projectId`, `expectedSha256`, `expectedRevision` and optional `xPath`. |
+| Retained preview | `POST /api/structural-edits/preview` | Exact `StructuralEditRequest`, actual plan hash, explicit scopes/reference additions/value dispositions. Retain preview receipt ID/SHA and review hash. |
+| Reviewed apply | `POST /api/structural-edits/apply` | `{preview,expectedReviewSha256,previewReceiptId,previewReceiptSha256}` with the identical reviewed request. Returns a separate project, immutable candidate L5X and receipt. |
+| Reconcile | `GET /api/structural-edits/previews/{previewReceiptId}?expectedSha256={previewReceiptSha256}` | Read retained `previewed`, `applying-indeterminate` or `applied` state before another action. |
+| Export when needed | `POST /api/projects/{id}/exports` with `{expectedSha256,format:"l5x"}` | For a workflow returning only a managed project. Structural apply already returns its candidate L5X artifact. |
+| Save requested copy | `POST /api/artifacts/{artifactId}/save` with `{path:"<absolute-new-name.L5X>"}` | Saves a new file under effective output policy; no overwrite option. Retain path, SHA and byte count. |
+| Artifact readback | `GET /api/artifacts/{artifactId}` | Hash-verified immutable artifact bytes; compare SHA with the saved file. |
+
+REST calls use the same Core operations as the GUI/MCP adapter. Switching front ends does not reset review state or authorize replay. After a lost apply response, read retained status: use an already recorded result for `applied`; stop at `applying-indeterminate`. Never restart a mutation with a new request to escape that state. If a file-save reply is lost or `output_exists` is returned, inspect the exact destination and expected artifact hash before choosing a next action; preserve the existing file.
+
+## Deliver the named L5X, then honor native ownership
+
+Once the authorized edits and required scoped checks finish, save the requested named L5X immediately to the user's requested source/output folder, when allowed by the effective output policy. Preserve the original and use a distinct filename. Read back the destination bytes and compare their SHA with the candidate/export artifact; retain the exact path/hash and source/review receipts. Report that the copy is available for the user's import, together with any additional checks still running or unsupported. Do not hold it for optional SDK work or silently redirect it to an internal artifact directory. If a required check failed, report that limitation and do not label the copy accepted.
+
+When the user owns native Studio import, leave that step with the user. Native SDK open/save/export/build is separate work requiring the appropriate authorization and version support; it is not a default gate for a requested edited L5X. Reuse valid retained checks when the source, rules, tool version and coverage still match. Bind later native observations or supplied readback to the exact delivered file; do not equate successful import/save, offline validation or an SDK binding with Verify Controller, runtime or safety acceptance.
+
+For a separately requested native job, retain its ID, exact input hash, installed SDK/Logix versions, method/arguments, per-call diagnostics and output identities. An unsupported `BuildAsync` attempt is method/version/target-specific evidence, not a failed XML edit or proof that native import is impossible. Do not guess another target, downgrade or rerun the customer input to conceal the result. Native cancellation is a request, not rollback; inspect terminal/per-call outcomes. Timeout, termination or lost replies can be indeterminate. Never automatically replay a job, clear edit state or roll back files after an uncertain outcome.

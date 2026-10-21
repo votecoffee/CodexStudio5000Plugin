@@ -48,6 +48,18 @@ internal static class StructuralEditsIntegration
         var referenceResult = await Tool<StructuralEditResult>("studio_structural_edit_apply", new StructuralApplyRequest(referenceRequest, referencePreview.ReviewSha256, referencePreview.PreviewReceipt!.Id, referencePreview.PreviewReceipt.Sha256), "apply");
         var referenceExpected = new UTF8Encoding(true).GetPreamble().Concat(Encoding.UTF8.GetBytes(text.Replace("</AddOnInstructionDefinitions>", aoi + "</AddOnInstructionDefinitions>"))).ToArray(); Check((await client.DownloadAsync(referenceResult.Candidate.Id)).SequenceEqual(referenceExpected), "Reference-only AOI addition preserves the exact copied text and all existing source/library bytes");
         var nativeRequest = new LogixValidationRequest("native-readback", new(result.Project.Id, result.Project.CurrentSha256), Reference: new(result.Project.Id, result.Project.CurrentSha256)); var readback = await Tool<LogixValidationReport>("studio_validation_preview", nativeRequest); Check(readback.Status == "pass" && readback.UnsupportedCoverage.Length > 0, "Existing readback validation remains available with explicit unsupported native-provenance boundaries");
+        // The supported REST front end calls the same guarded Core workflow.
+        // Publish a named user-import copy without introducing a native job.
+        var restPreview = await client.PostAsync<StructuralEditPreview>("/api/structural-edits/preview", request);
+        Check(restPreview.CanApply && restPreview.PreviewReceipt is not null && restPreview.PlanSha256 == preview.PlanSha256, "Authenticated REST retains the same structural plan/review/receipt guards");
+        var restResult = await client.PostAsync<StructuralEditResult>("/api/structural-edits/apply", new StructuralApplyRequest(request, restPreview.ReviewSha256, restPreview.PreviewReceipt!.Id, restPreview.PreviewReceipt.Sha256));
+        var restStatus = await client.GetAsync<StructuralEditStatus>($"/api/structural-edits/previews/{restPreview.PreviewReceipt.Id}?expectedSha256={restPreview.PreviewReceipt.Sha256}");
+        Check(restStatus.Status == "applied" && restStatus.Result?.Candidate.Id == restResult.Candidate.Id, "REST status reconciles the exact completed apply without replay");
+        var destinationPath = Path.Combine(root, "artifacts", "exports", "Structural_edited_review.L5X");
+        var saved = await client.PostAsync<SavedArtifact>($"/api/artifacts/{restResult.Candidate.Id}/save", new SaveArtifactRequest(destinationPath));
+        var savedBytes = await File.ReadAllBytesAsync(destinationPath);
+        Check(saved.Path == destinationPath && saved.Sha256 == restResult.Candidate.Sha256 && ProjectService.Hash(savedBytes) == saved.Sha256 && savedBytes.SequenceEqual(expected), "Named L5X is delivered to the requested allowed folder and exact file/artifact hash readback matches");
+        Check(ProjectService.Hash(await File.ReadAllBytesAsync(path)) == project.SourceSha256 && restResult.NativeAcceptance == "not-performed", "Prompt file delivery preserves the original and leaves user-owned native import unclaimed");
         var sdk = await client.GetAsync<SdkJob[]>("/api/sdk/jobs"); Check(sdk.Length == 0, "Focused structural fixture starts no native SDK job or controller operation");
         var output = Path.Combine(root, "artifacts", "test-results", "structural-integration.json"); Directory.CreateDirectory(Path.GetDirectoryName(output)!); await File.WriteAllTextAsync(output, JsonSerializer.Serialize(new { passed = checks.Count, checks, controllerConnectionAttempted = false, nativeBridgeExecuted = false }, ProjectService.Json)); Console.WriteLine($"{checks.Count} focused structural API/MCP checks passed.");
     }
