@@ -80,6 +80,12 @@ The broader checks below require a licensed installed SDK, compatible Logix Desi
 
 Check the exported routine/rung count and expected logic after partial imports. A successful SDK import or build alone cannot detect unintended appending. For failures, retain an untouched export/reimport control before attributing the problem to an edit. See [SDK.md](SDK.md) and [ONLINE_EDITS.md](ONLINE_EDITS.md).
 
+## Offline rename and readback rules
+
+Controller-tag rename fixtures cover exact lexical source spans, stored representations, program-local shadowing/capture conflicts, explicit program addresses, ambiguous system/custom operands, UTF-8/UTF-16 BOMs, entities/CDATA, retained multiline ST comments, stale reviews, and explicit review-only safety declarations/references/maps. GUI and MCP call the shared service; these tests do not establish native/compiler binding or external HMI references. See [controller-tag rename](../skills/rockwell-engineering/references/controller-tag-rename.md).
+
+Readback annotation normalization is disabled by default. `nativeRules.normalizeAnnotationBoundaryWhitespace` compares only surrounding XML space/tab/CR/LF in scalar `Comment`/`Description` outside stored/encoded data and retains each normalized field in the report/receipt. Tests retain failures for internal text/newlines, NBSP, attributes, markup, saved data and code. A generated 1671-difference fixture yields 1317 explicit normalized findings and 354 remaining failures; it leaves the 1000 exact-exception cap unchanged. Source files stay unchanged. This rule is available in both readback profiles; it is not native acceptance evidence.
+
 ## Native HMI validation
 
 FactoryTalk fixtures in `examples/DemoME.xml` and `examples/DemoSE.xml` exercise installed schema validation. Generated View Designer fixtures are under `examples/ViewDesignerDemo`. These samples and simulated re-exports do not establish native import, build or runtime acceptance.

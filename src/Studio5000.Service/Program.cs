@@ -120,6 +120,8 @@ app.MapPost("/api/logic-value-merge/apply", (ProjectService service, LogicValueM
 app.MapPost("/api/legacy-review/preview", (ProjectService service, LegacyReviewRequest request, CancellationToken ct) => service.PreviewLegacyReviewAsync(request, ct));
 app.MapPost("/api/legacy-review/prepare", (ProjectService service, LegacyReviewPrepareRequest request, CancellationToken ct) => service.PrepareLegacyReviewAsync(request, ct));
 app.MapGet("/api/logix-validation/profiles", (ProjectService service) => service.LogixValidationProfiles());
+app.MapPost("/api/controller-tag-rename/preview", (ProjectService service, ControllerTagRenameRequest request, CancellationToken ct) => service.PreviewControllerTagRenameAsync(request, ct));
+app.MapPost("/api/controller-tag-rename/apply", (ProjectService service, ControllerTagRenameApplyRequest request, CancellationToken ct) => service.ApplyControllerTagRenameAsync(request, ct));
 app.MapPost("/api/logix-validation/preview", (ProjectService service, LogixValidationRequest request, CancellationToken ct) => service.PreviewLogixValidationAsync(request, ct));
 app.MapPost("/api/logix-validation/record", (ProjectService service, LogixValidationRecordRequest request, CancellationToken ct) => service.RecordLogixValidationAsync(request, ct));
 app.MapGet("/api/logix-validation/receipts/{id}", (ProjectService service, string id, string expectedSha256) => service.LogixValidationReceipt(id, expectedSha256));

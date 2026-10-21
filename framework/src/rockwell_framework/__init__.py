@@ -1,3 +1,3 @@
 """App-owned framework integration; the .NET service retains all domain authority."""
 
-__version__ = "0.32.0"
+__version__ = "0.33.0"

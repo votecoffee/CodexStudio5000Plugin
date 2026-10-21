@@ -5,6 +5,7 @@
     <EmbeddedResource Include="../../skills/rockwell-engineering/SKILL.md" LogicalName="Workflow.engineering" />
     <EmbeddedResource Include="../../skills/rockwell-engineering/references/logic-value-merge.md" LogicalName="Workflow.merge-reference" />
     <EmbeddedResource Include="../../skills/rockwell-engineering/references/legacy-review-copy.md" LogicalName="Workflow.legacy-review-reference" />
+    <EmbeddedResource Include="../../skills/rockwell-engineering/references/controller-tag-rename.md" LogicalName="Workflow.tag-rename-reference" />
     <EmbeddedResource Include="../../skills/logix-online-edits/SKILL.md" LogicalName="Workflow.online" />
     <EmbeddedResource Include="../../skills/logix-online-edits/references/studio-workflow.md" LogicalName="Workflow.online-reference" />
     <EmbeddedResource Include="../../skills/factorytalk-studio/SKILL.md" LogicalName="Workflow.factorytalk" />

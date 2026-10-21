@@ -64,7 +64,7 @@ enabled = false
     Check ((Get-FileHash -LiteralPath $initialGuide).Hash -eq $initialHash) 'The previous source package remains unchanged after a real CLI upgrade'
     Check ([IO.File]::ReadAllText($configPath).Replace("`r`n", "`n").Trim() -ceq $configBefore.Replace("`r`n", "`n").Trim()) 'Native package refresh preserves existing plugin and per-server configuration apart from newline normalization'
     Check ((Test-Path -LiteralPath (Join-Path $cache 'LICENSE')) -and
-        (Get-ChildItem -LiteralPath $cache -File -Recurse).Count -eq 14) 'The real plugin cache contains the MIT license and only allowlisted package files'
+        (Get-ChildItem -LiteralPath $cache -File -Recurse).Count -eq 15) 'The real plugin cache contains the MIT license and only allowlisted package files'
 
     $currentConfig = [IO.File]::ReadAllText($configPath)
     $pattern = '(?m)^(\[plugins\."rockwell-mcp-server@rockwell-mcp-server-local"\]\r?\n)enabled = true\r?$'
