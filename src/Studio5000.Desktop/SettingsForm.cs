@@ -50,7 +50,8 @@ public sealed class SettingsForm : WorkspaceForm
         { var field = new TextBox { Dock = DockStyle.Fill }; paths.Add(key, field); Row(runtime, label, field); }
         foreach (var (key, label, maximum) in new[] { ("NativeTimeoutSeconds", "Native job timeout (seconds)", 86400), ("ExtensionTimeoutSeconds", "Extension timeout (seconds)", 1800),
             ("MaximumConcurrentMutations", "Concurrent mutations", 32), ("MaximumQueuedMutations", "Queued mutations", 4096),
-            ("MaximumMcpClients", "MCP frontend instances", 16), ("McpShutdownTimeoutSeconds", "MCP shutdown timeout (seconds)", 30) })
+            ("MaximumMcpClients", "MCP frontend instances", 16), ("McpShutdownTimeoutSeconds", "MCP shutdown timeout (seconds)", 30),
+            ("MaximumOwnedProcesses", "Service and owned child processes", 128) })
         { var field = new NumericUpDown { Minimum = 1, Maximum = maximum, Dock = DockStyle.Fill }; numbers.Add(key, field); Row(runtime, label, field); }
         runtimePage.Controls.Add(runtime); jsonPage.Controls.Add(json);
         var effectivePage = new TabPage("Running service"); effective.ReadOnly = true; effectivePage.Controls.Add(effective);

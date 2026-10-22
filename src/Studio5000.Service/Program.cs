@@ -36,6 +36,9 @@ if (configuredKeys.Contains(nameof(ServiceOptions.AllowedRoots))) options.Allowe
 if (configuredKeys.Contains(nameof(ServiceOptions.OutputRoots))) options.OutputRoots = [];
 settingsSection.Bind(options);
 ServiceSettingsStore.ResolveAndValidate(options, root);
+// Self-membership precedes all business service/worker initialization. Never
+// assign an existing user-owned engineering application to this private job.
+OwnedProcessContainment.EnterCurrentProcess(options.MaximumOwnedProcesses);
 var local = Path.Combine(root, ".local");
 Directory.CreateDirectory(local);
 ProjectService.RejectLinks(local);
@@ -79,6 +82,7 @@ app.MapGet("/api/management/activity", (ProjectService service, ExtensionHost ex
     var activity = service.ManagementActivity();
     return new { schema_version = 1, name = WorkspaceIdentity.Name, version = activity.Version,
         active_operations = Math.Clamp(activity.ActiveWorkspaces + activity.QueuedWorkspaces + activity.NativeJobs + activity.PollingWatches + extensions.ManagementActivity(), 0, 1000000),
+        process_containment = OwnedProcessContainment.Snapshot(),
         restart_allowed = false, restart_reason = "No atomic restart fence for all chats, unsaved GUI documents, prepared reviews and unresolved native effects. Use the operator-managed update workflow." };
 });
 app.MapGet("/api/capabilities", (ProjectService service) => service.Capabilities());

@@ -28,6 +28,8 @@ Saving never alters live options or stops active jobs, polling or recordings. Fi
 
 `MaximumMcpClients` defaults to 4 and accepts 1..16 Windows .NET frontends per installation. `McpShutdownTimeoutSeconds` defaults to 10 and accepts 1..30 seconds. Newly launched frontends read these saved fields directly; already connected frontends retain their settings. Lowering the limit never evicts a client, and held slots above the new limit still count. These limits do not cap HTTP requests or shared-service transactions. The optional Python frontend does not yet use these .NET admission leases. See [process lifetimes](PROCESS_LIFETIMES.md).
 
+`MaximumOwnedProcesses` defaults to 32 and accepts 1..128 processes in the Windows service's private inherited-process job, including the service itself. This setting applies on service restart. A cap of 1 prevents ordinary worker launches. It does not count unrelated applications or external COM/service hosts, and it does not establish durable resource recovery. The GUI exposes it under **Runtime and limits**; containment runtime acceptance remains outstanding.
+
 To stage the broad preset while a separate installed service keeps running, use a built service executable with `STUDIO5000_PLUGIN_ROOT` set to the intended app root and argument `--stage-broad-local-settings`. This administrative command uses the same Core store, writes a backup and returns a small receipt. It exits before starting the HTTP host, opening workspace state or creating any native session. It does not install binaries, restart a service or update the currently running service's policy.
 
 ## Checks that remain enforced

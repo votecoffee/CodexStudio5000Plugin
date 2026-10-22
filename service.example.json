@@ -20,6 +20,7 @@
     "ExtensionTimeoutSeconds": 240,
     "MaximumMcpClients": 4,
     "McpShutdownTimeoutSeconds": 10,
+    "MaximumOwnedProcesses": 32,
     "MaximumConcurrentMutations": 8,
     "MaximumQueuedMutations": 256
   },

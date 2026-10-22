@@ -23,6 +23,7 @@ public sealed class ServiceOptions
     public int MaximumQueuedMutations { get; set; } = 256;
     public int MaximumMcpClients { get; set; } = 4;
     public int McpShutdownTimeoutSeconds { get; set; } = 10;
+    public int MaximumOwnedProcesses { get; set; } = OwnedProcessContainment.DefaultMaximumProcesses;
 }
 
 public sealed record ProjectInfo(string Id, string Name, string SourcePath, string SourceSha256,

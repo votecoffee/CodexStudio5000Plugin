@@ -27,20 +27,14 @@ public sealed partial class ProjectService
             schemaDirectory = options.FactoryTalkSchemaDirectory, schemaFiles, windows,
             supportedEdits = new[] { "set_attribute", "set_text", "replace_element (existing properties)" },
             nativeIntegration = "Studio Graphics Import Export Wizard through the bundled Codex skill and available Computer Use tools. The REST service prepares and checks files; it does not drive wizard controls.",
+            nativeLaunchAvailable = false,
+            nativeLaunchReason = "A new Studio GUI requires durable resource ownership and dirty-state recovery; launch Studio manually while this integration remains unavailable.",
             nativeImportStatus = "not_observed", languagePolicy = "Export and import in the same confirmed application language."
         };
     }
 
-    public object LaunchFactoryTalkStudio()
-    {
-        if (!File.Exists(options.FactoryTalkStudioPath))
-            throw new OperationException("factorytalk_unavailable", "Configure FactoryTalkStudioPath to the installed FactoryTalk View Studio launcher.");
-        if (Process.GetProcessesByName("VStudio").Length > 0) return FactoryTalkStatus();
-        var start = new ProcessStartInfo(options.FactoryTalkStudioPath)
-        { UseShellExecute = false, WorkingDirectory = Path.GetDirectoryName(options.FactoryTalkStudioPath)!, CreateNoWindow = true };
-        using var process = Process.Start(start) ?? throw new IOException("FactoryTalk Studio launcher did not start.");
-        return new { status = "launch_requested", processId = process.Id, nextStep = "Observe the Studio window and choose ME or SE using Computer Use or the local GUI." };
-    }
+    public object LaunchFactoryTalkStudio() => throw new OperationException("native_gui_ownership_required",
+        "Starting a native GUI requires durable resource ownership and dirty-state recovery, which are not integrated yet. Launch Studio manually and use the existing export/import preparation workflow; user-owned applications remain untouched.");
 
     public GraphicsValidation ValidateGraphics(string id)
     {

@@ -152,7 +152,7 @@ FactoryTalk uses the same registration, inspection, preview/apply, XML export an
 | Method | Path | Purpose |
 |---|---|---|
 | GET | `/api/factorytalk/status` | Installed schemas, launcher and current Studio window titles |
-| POST | `/api/factorytalk/launch` | Request the installed Studio launcher; no arbitrary arguments |
+| POST | `/api/factorytalk/launch` | Refuses with `native_gui_ownership_required` pending durable GUI ownership/dirty-state recovery; launch Studio manually |
 | GET | `/api/projects/{id}/graphics-validation` | Declared schema name/hash and validation status |
 | POST | `/api/projects/{id}/graphics-imports` | Prepare a fixed-target update import plan and ZIP |
 | GET | `/api/factorytalk/imports/{planId}` | Read the persisted plan and local native file paths |
