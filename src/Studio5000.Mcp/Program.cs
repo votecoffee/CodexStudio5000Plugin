@@ -6,10 +6,17 @@ using Studio5000.Mcp;
 using Studio5000.Client;
 using Studio5000.Core;
 
+var root = ServiceClient.FindRoot();
+if (File.Exists(Path.Combine(root, ".local", "maintenance-hold.json"))) throw new InvalidOperationException("RockwellMCPServer is on operator maintenance hold; explicit human release is required.");
+var limits = McpClientLimits.Read(root);
+using var slot = McpClientLease.Acquire(root, limits);
+using var owners = ParentProcessOwners.Capture();
 var builder = Host.CreateApplicationBuilder(args);
+builder.Services.Configure<HostOptions>(o => o.ShutdownTimeout = TimeSpan.FromSeconds(limits.ShutdownTimeoutSeconds));
+builder.Services.AddHostedService(provider => new OwnerExitService(owners, provider.GetRequiredService<IHostApplicationLifetime>()));
 builder.Logging.ClearProviders();
 builder.Logging.AddConsole(o => o.LogToStandardErrorThreshold = LogLevel.Trace);
-builder.Services.AddSingleton(new ServiceClient(ServiceClient.FindRoot(), error => new McpServiceErrorException(error.Error)));
+builder.Services.AddSingleton(new ServiceClient(root, error => new McpServiceErrorException(error.Error)));
 builder.Services.AddMcpServer(o =>
     {
         o.ServerInfo = new() { Name = WorkspaceIdentity.Name, Title = WorkspaceIdentity.Name, Version = WorkspaceIdentity.Version };
@@ -18,3 +25,8 @@ builder.Services.AddMcpServer(o =>
     .WithStdioServerTransport().WithToolsFromAssembly()
     .WithRequestFilters(filters => filters.AddCallToolFilter(ServiceErrors.Wrap));
 await builder.Build().RunAsync();
+
+sealed class OwnerExitService(ParentProcessOwners owners, IHostApplicationLifetime lifetime) : BackgroundService
+{
+    protected override Task ExecuteAsync(CancellationToken stoppingToken) => owners.RequestShutdownOnExitAsync(lifetime.StopApplication, stoppingToken);
+}

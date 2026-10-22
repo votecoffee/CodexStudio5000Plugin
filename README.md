@@ -60,7 +60,7 @@ RockwellMCPServer gives agents and engineers a shared workspace for project insp
 | Version workflows | Separate native upgrade/readback jobs and bounded v35-to-v32 review-only L5K preparation, with explicit compatibility boundaries. |
 | Reloadable extensions | Discover operation schemas and reload compatible modules through MCP or the GUI while the host and chat remain running. |
 | Codex plugin | Standalone plugin with live capability discovery and shared versioned workflow guides. |
-| Optional shared framework | App-owned Python host pinned to framework 0.17 / SDK 2.3, with immutable C# backend publications and a fixed discovery interface. |
+| Optional shared framework | App-owned Python host pinned to framework 0.18 / SDK 2.3, with immutable C# backend publications and a fixed discovery interface. |
 | Service settings | GUI editing for controller/file access, target scopes, SDK/HMI paths and limits; broad local profile, backups and saved-versus-running configuration. |
 | Concurrent requests and transactions | Edit independent workspaces concurrently; stage/review/commit offline changes as one revision with conflict checks, abort and durable retry receipts. Bundled stateless extensions support parallel worker pools. |
 
@@ -148,6 +148,8 @@ codex mcp add rockwell-mcp-server -- powershell.exe -NoProfile -ExecutionPolicy 
 ```
 
 The launcher starts the stdio MCP adapter and connects it to the shared service. Direct MCP registration does not install the bundled bootstrap skills; they are available under [skills/](skills/). Detailed guides and references have one maintained source under [workflows/](workflows/). Connected chats read them through ordinary versioned, hash-bound app tools. Changed embedded guidance needs a shared-service deployment; after deployment, fetching a new revision does not require replacing native skills or tool schemas.
+
+The Windows adapter limits new frontend instances using OS-owned file leases and observes its launcher/parent handles. Configure the limit and shutdown timeout in **Settings…**. Closing a frontend leaves the shared service available to other clients. See [process ownership and outstanding lifecycle validation](docs/PROCESS_LIFETIMES.md); source implementation does not establish installed runtime cleanup acceptance.
 
 Example chat request using the generated L5X fixture:
 

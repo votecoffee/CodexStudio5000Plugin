@@ -199,10 +199,24 @@ def poll_activity(root, client):
     return json.loads(raw)
 
 
+def stop_owned_child(child):
+    """Close only this invocation's Popen handle; saved PID files are not authority."""
+    if child is None or child.poll() is not None:
+        return
+    child.terminate()
+    try:
+        child.wait(timeout=10)
+    except subprocess.TimeoutExpired:
+        child.kill()
+        child.wait(timeout=5)
+
+
 def run(root, *, registry=None):
     check_versions()
     root = ordinary(root)
     local = ordinary(root / ".local")
+    if (local / "maintenance-hold.json").exists():
+        raise ValueError("Operator maintenance hold requires explicit human release before startup")
     stamp = installation(root)
     executable = ordinary(root / "artifacts/app/Service/Studio5000.Service.exe")
     child = None
@@ -219,7 +233,11 @@ def run(root, *, registry=None):
                 cwd=root,
                 stdout=out,
                 stderr=err,
-                env={**os.environ, "STUDIO5000_PLUGIN_ROOT": str(root)},
+                env={
+                    **os.environ,
+                    "STUDIO5000_PLUGIN_ROOT": str(root),
+                    "ROCKWELL_MANAGED_SERVICE": "1",
+                },
                 creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
             )
             atomic_json(local / "service.pid", child.pid)
@@ -242,11 +260,11 @@ def run(root, *, registry=None):
                     time.sleep(0.5)
             return child.returncode
         except KeyboardInterrupt:
-            if child is not None and child.poll() is None:
-                # Explicit operator console shutdown; never a management request.
-                child.terminate()
-                child.wait(timeout=10)
             return 130
+        finally:
+            # Own only the child created in this invocation. Process loss is not
+            # reconciliation of native effects; existing durable barriers remain.
+            stop_owned_child(child)
 
 
 def main():

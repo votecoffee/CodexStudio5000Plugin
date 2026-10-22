@@ -5,6 +5,8 @@ using Studio5000.Core;
 using Studio5000.Extensibility;
 
 var root = Path.GetFullPath(Environment.GetEnvironmentVariable("STUDIO5000_PLUGIN_ROOT") ?? Directory.GetCurrentDirectory());
+if (File.Exists(Path.Combine(root, ".local", "maintenance-hold.json"))) throw new InvalidOperationException("RockwellMCPServer is on operator maintenance hold; explicit human release is required.");
+using var supervisorOwner = Environment.GetEnvironmentVariable("ROCKWELL_MANAGED_SERVICE") == "1" ? ParentProcessOwners.Capture() : null;
 if (args.Length == 1 && args[0] == "--stage-broad-local-settings")
 {
     var settings = ServiceSettingsStore.OpenOffline(root); var current = settings.Read();
@@ -15,6 +17,8 @@ if (args.Length == 1 && args[0] == "--stage-broad-local-settings")
     return;
 }
 var builder = WebApplication.CreateBuilder(new WebApplicationOptions { Args = args, ContentRootPath = root });
+if (supervisorOwner is not null)
+    builder.Services.AddHostedService(provider => new SupervisorExitService(supervisorOwner, provider.GetRequiredService<IHostApplicationLifetime>()));
 builder.Services.ConfigureHttpJsonOptions(o => o.SerializerOptions.MaxDepth = 128);
 builder.Configuration.AddJsonFile(Path.Combine(root, "service.local.json"), optional: true, reloadOnChange: false);
 var url = builder.Configuration["ServiceUrl"] ?? "http://127.0.0.1:5487";
@@ -258,5 +262,10 @@ app.MapGet("/api/extensions/jobs/{id}", (ExtensionHost host, string id) => host.
 app.MapPost("/api/extensions/jobs", (ExtensionHost host, ExtensionJobRequest request, CancellationToken ct) => host.StartJobAsync(request, ct));
 app.MapPost("/api/extensions/jobs/{id}/cancel", (ExtensionHost host, string id) => host.CancelJob(id));
 await app.RunAsync();
+
+sealed class SupervisorExitService(ParentProcessOwners owner, IHostApplicationLifetime lifetime) : BackgroundService
+{
+    protected override Task ExecuteAsync(CancellationToken stoppingToken) => owner.RequestShutdownOnExitAsync(lifetime.StopApplication, stoppingToken);
+}
 
 public partial class Program { }

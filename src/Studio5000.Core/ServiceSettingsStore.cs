@@ -139,6 +139,7 @@ public sealed class ServiceSettingsStore
     }
     public static void ResolveAndValidate(ServiceOptions options, string root)
     {
+        new McpClientLimits(options.MaximumMcpClients, options.McpShutdownTimeoutSeconds).Validate();
         string Full(string? value) => string.IsNullOrWhiteSpace(value) || value.Any(char.IsControl) ? throw new ArgumentException("Configured paths must be nonempty and contain no control characters.") : Path.GetFullPath(value, root);
         options.StateDirectory = Full(options.StateDirectory);
         if (options.AllowedRoots is null || options.OutputRoots is null || options.AllowedRoots.Length > 512 || options.OutputRoots.Length > 512 ||

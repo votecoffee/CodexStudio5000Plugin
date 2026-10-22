@@ -21,6 +21,8 @@ public sealed class ServiceOptions
     public int ExtensionTimeoutSeconds { get; set; } = 240;
     public int MaximumConcurrentMutations { get; set; } = 8;
     public int MaximumQueuedMutations { get; set; } = 256;
+    public int MaximumMcpClients { get; set; } = 4;
+    public int McpShutdownTimeoutSeconds { get; set; } = 10;
 }
 
 public sealed record ProjectInfo(string Id, string Name, string SourcePath, string SourceSha256,

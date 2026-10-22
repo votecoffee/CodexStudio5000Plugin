@@ -66,11 +66,15 @@ def main():
         print(json.dumps({"verified": True, "native_connection_attempted": False}))
     elif args.command == "serve":
         marker = verify(args.state)
+        if (Path(marker["app_root"]) / ".local/maintenance-hold.json").exists():
+            raise ValueError("Operator maintenance hold requires explicit human release before startup")
         os.environ["STUDIO5000_PLUGIN_ROOT"] = marker["app_root"]
         skills = AppGuidanceCatalog(GuidanceSource(marker["app_root"])) if args.skills else None
         serve_application(args.state, args.state / "application.json", skills=skills)
     else:
         marker = profile(args.state)
+        if (Path(marker["app_root"]) / ".local/maintenance-hold.json").exists():
+            raise ValueError("Operator maintenance hold requires explicit human release before connecting")
         skills = AppGuidanceCatalog(GuidanceSource(marker["app_root"])) if args.skills else None
         create_surface(
             RemoteBackend(load_settings(args.state)),

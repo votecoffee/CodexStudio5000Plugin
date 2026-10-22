@@ -13,6 +13,7 @@ public static class ProtocolFeatureReport
         features = new[]
         {
             Feature("current-guidance", "enabled-and-tested", "Pinned workflow/reference readers use shared Core canonical sources; packaged skills are small bootstraps."),
+            Feature("frontend-lifetimes", "implemented-but-unassessed", "Windows frontend ownership follows pinned process handles through launcher wrappers. Configurable OS-owned file slots default to four clients; existing clients are not evicted. Graceful shutdown requests do not establish native rollback. Real process-loss/EOF/kill validation and installed acceptance remain outstanding."),
             Feature("skills-over-mcp", "blocked", "This .NET endpoint configures no Skills handlers. Explicit optional Python --skills profile provides list/get/resource reads and atomic metadata publication; installation does not select it."),
             Feature("catalog-notifications", "blocked", "No tool/resource change event feed is configured on this endpoint. Extension generations require explicit catalog rediscovery."),
             Feature("discovery-cache", "blocked", "The optional downstream publication remains transient/legacy with watch_catalog=false, TTL=0 and no assessed cache hints. Retained ownership must be assessed before changing this profile."),
@@ -23,6 +24,7 @@ public static class ProtocolFeatureReport
             Feature("artifact-resources", "blocked", "Ordinary authenticated artifact readers remain available; no owner-bound bounded MCP resource adapter or authorized update feed is configured."),
             Feature("tray-reporting", "implemented-but-unassessed", "Reporting-only ManagedService integration is separately enabled by the operator; package presence does not establish a running registration."),
             Feature("tray-restart", "blocked", "No atomic fence covers all chats, unsaved GUI documents, prepared reviews and unresolved native effects. Managed restart is disabled."),
+            Feature("native-worker-owner-loss", "blocked", "Controlled supervisor cleanup and supervised-service owner observation are implemented. Abrupt native worker/process-tree loss is not assessed; process exit does not prove that an external SDK operation stopped or rolled back."),
             Feature("remote-oauth-redis-apps", "outside-workflow", "Remote deployments, replicas and MCP Apps remain optional/deferred. One shared service owns native engineering state.")
         },
         evidence_boundary = "Synthetic source/package/protocol checks do not establish installed Codex skill activation, native application or controller acceptance. Notifications are hints; refetch after reconnect. Never retry an uncertain effect."

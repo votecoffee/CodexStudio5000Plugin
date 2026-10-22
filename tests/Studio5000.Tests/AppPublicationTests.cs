@@ -67,7 +67,7 @@ public sealed class AppPublicationTests
         var doctor = AppPublication.Workflow(args.GetProperty("workflowId").GetString()!, args.GetProperty("expectedRevision").GetString()!);
         Assert.Equal("standalone-dotnet", doctor.GetProperty("profile").GetString());
         var features = doctor.GetProperty("features").EnumerateArray().ToArray();
-        Assert.Equal(12, features.Length);
+        Assert.Equal(14, features.Length);
         Assert.Equal("blocked", features.Single(f => f.GetProperty("id").GetString() == "tasks").GetProperty("state").GetString());
         Assert.Contains("no Skills handlers", features.Single(f => f.GetProperty("id").GetString() == "skills-over-mcp").GetProperty("reason").GetString());
         Assert.DoesNotContain("tokenFile", doctor.GetRawText());

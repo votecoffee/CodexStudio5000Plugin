@@ -18,6 +18,8 @@
     "ExtensionsDirectory": "extensions",
     "ExtensionWorkerPath": "artifacts/app/ExtensionWorker/Studio5000.ExtensionWorker.exe",
     "ExtensionTimeoutSeconds": 240,
+    "MaximumMcpClients": 4,
+    "McpShutdownTimeoutSeconds": 10,
     "MaximumConcurrentMutations": 8,
     "MaximumQueuedMutations": 256
   },

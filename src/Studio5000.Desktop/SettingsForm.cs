@@ -49,7 +49,8 @@ public sealed class SettingsForm : WorkspaceForm
             ("ViewDesignerPath", "View Designer executable"), ("ExtensionsDirectory", "Extension packages directory"), ("ExtensionWorkerPath", "Extension worker executable") })
         { var field = new TextBox { Dock = DockStyle.Fill }; paths.Add(key, field); Row(runtime, label, field); }
         foreach (var (key, label, maximum) in new[] { ("NativeTimeoutSeconds", "Native job timeout (seconds)", 86400), ("ExtensionTimeoutSeconds", "Extension timeout (seconds)", 1800),
-            ("MaximumConcurrentMutations", "Concurrent mutations", 32), ("MaximumQueuedMutations", "Queued mutations", 4096) })
+            ("MaximumConcurrentMutations", "Concurrent mutations", 32), ("MaximumQueuedMutations", "Queued mutations", 4096),
+            ("MaximumMcpClients", "MCP frontend instances", 16), ("McpShutdownTimeoutSeconds", "MCP shutdown timeout (seconds)", 30) })
         { var field = new NumericUpDown { Minimum = 1, Maximum = maximum, Dock = DockStyle.Fill }; numbers.Add(key, field); Row(runtime, label, field); }
         runtimePage.Controls.Add(runtime); jsonPage.Controls.Add(json);
         var effectivePage = new TabPage("Running service"); effective.ReadOnly = true; effectivePage.Controls.Add(effective);
@@ -57,7 +58,7 @@ public sealed class SettingsForm : WorkspaceForm
         tabs.TabPages.AddRange([accessPage, targetPage, runtimePage, jsonPage, effectivePage, checksPage]);
         tabs.Selecting += (_, e) => { if (!loading && tabs.SelectedTab == jsonPage) try { Fill(Parse(json.Text)); } catch (Exception ex) { e.Cancel = true; state.Text = ex.Message; } };
         tabs.SelectedIndexChanged += (_, _) => { if (!loading && tabs.SelectedTab == jsonPage) json.Text = ReadFields().ToJsonString(ServiceSettingsStore.Json); };
-        var footer = new Label { Text = "Save creates a private backup and stages settings for the next service start. Active polling and jobs continue unchanged.", Dock = DockStyle.Bottom, Height = 42, Padding = new(10) };
+        var footer = new Label { Text = "Save creates a private backup. Service settings apply on service restart; MCP limits apply to new frontends. Active polling and jobs continue unchanged.", Dock = DockStyle.Bottom, Height = 42, Padding = new(10) };
         Controls.Add(tabs); Controls.Add(state); Controls.Add(toolbar); Controls.Add(footer);
         Shown += async (_, _) => { if (!fixture) await Run(ReloadAsync); };
     }
