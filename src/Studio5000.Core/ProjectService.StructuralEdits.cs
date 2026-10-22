@@ -60,7 +60,8 @@ public sealed partial class ProjectService
         using (await EnterWorkspaceAsync(request.ProjectId, ct))
         {
             var preview = BuildStructuralEdits(request).Preview;
-            var receipt = StructuralArtifact(request.ProjectId, "json", JsonSerializer.SerializeToUtf8Bytes(new StructuralPreviewDocument("structural_preview", DateTimeOffset.UtcNow, preview), Json));
+            var receipt = StructuralArtifact(request.ProjectId, "json", JsonSerializer.SerializeToUtf8Bytes(new StructuralPreviewDocument("structural_preview", DateTimeOffset.UtcNow, preview,
+                SchemaVersion: 1, Producer: WorkspaceIdentity.Name, ToolVersion: WorkspaceIdentity.Version), Json));
             Audit("structural_preview", Get(request.ProjectId), preview.Source.Sha256, preview.ResultSha256, receipt.Id);
             return preview with { PreviewReceipt = receipt };
         }
@@ -105,7 +106,7 @@ public sealed partial class ProjectService
             Save(path, new StructuralApplyState("applying-indeterminate", built.Preview.ReviewSha256, null));
             var project = PublishDiagnosticProject(built.Bytes, "REVIEW ONLY: Scoped structural batch", "structural-edit:" + built.Preview.Source.Id);
             var candidate = StructuralArtifact(project.Id, "l5x", built.Bytes);
-            var receipt = StructuralArtifact(project.Id, "json", JsonSerializer.SerializeToUtf8Bytes(new { schemaVersion = 1, kind = "structural_apply", toolVersion = WorkspaceIdentity.Version, createdAt = DateTimeOffset.UtcNow, previewReceipt = retained.Artifact, preview = built.Preview, project, candidate, nativeAcceptance = "not-performed" }, Json));
+            var receipt = StructuralArtifact(project.Id, "json", JsonSerializer.SerializeToUtf8Bytes(new { schemaVersion = 1, kind = "structural_apply", producer = WorkspaceIdentity.Name, toolVersion = WorkspaceIdentity.Version, createdAt = DateTimeOffset.UtcNow, previewReceipt = retained.Artifact, preview = built.Preview, project, candidate, nativeAcceptance = "not-performed" }, Json));
             var applied = new StructuralEditResult(project, candidate, receipt, built.Preview.ReviewSha256); Save(path, new StructuralApplyState("applied", built.Preview.ReviewSha256, applied));
             Audit("structural_apply", project, built.Preview.Source.Sha256, candidate.Sha256, receipt.Id); return applied;
         }

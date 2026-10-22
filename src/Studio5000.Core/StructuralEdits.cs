@@ -37,7 +37,8 @@ public sealed record StructuralEditPreview(StructuralEditRequest Request, Compar
 public sealed record StructuralApplyRequest(StructuralEditRequest Preview, string ExpectedReviewSha256, string PreviewReceiptId, string PreviewReceiptSha256);
 public sealed record StructuralEditResult(ProjectInfo Project, Artifact Candidate, Artifact Receipt, string ReviewSha256, bool ReviewOnly = true, string NativeAcceptance = "not-performed");
 public sealed record StructuralEditStatus(Artifact PreviewReceipt, StructuralEditPreview Preview, string Status, StructuralEditResult? Result, string Boundary);
-internal sealed record StructuralPreviewDocument(string Kind, DateTimeOffset CreatedAt, StructuralEditPreview Preview);
+internal sealed record StructuralPreviewDocument(string Kind, DateTimeOffset CreatedAt, StructuralEditPreview Preview,
+    int? SchemaVersion = null, string? Producer = null, string? ToolVersion = null);
 internal sealed record StructuralApplyState(string Status, string ReviewSha256, StructuralEditResult? Result);
 
 internal static partial class StructuralEditing

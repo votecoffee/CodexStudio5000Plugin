@@ -1,5 +1,6 @@
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using System.Xml.Linq;
 using Studio5000.Core;
 using Xunit;
@@ -42,6 +43,68 @@ public sealed class StructuralEditTests : IDisposable
     private static string Tag(string name) => "/RSLogix5000Content/Controller/Tags/Tag[@Name='" + name + "']";
     private static string Routine(string name) => "/RSLogix5000Content/Controller/Programs/Program[@Name='App']/Routines/Routine[@Name='" + name + "']";
     private byte[] Revision(ProjectInfo p) => File.ReadAllBytes(Path.Combine(root, "state", "projects", p.Id, "revision-" + p.Revision + ".l5x"));
+    private Artifact LegacyReceipt(Artifact source, Action<JsonObject> transform)
+    {
+        var document = JsonNode.Parse(File.ReadAllBytes(service.Download(source.Id).Path))!.AsObject(); transform(document);
+        var bytes = JsonSerializer.SerializeToUtf8Bytes(document, ProjectService.Json); var id = Guid.NewGuid().ToString("N");
+        var directory = Path.Combine(root, "state", "artifacts", id); Directory.CreateDirectory(directory);
+        var artifact = source with { Id = id, Sha256 = ProjectService.Hash(bytes), Bytes = bytes.Length };
+        File.WriteAllBytes(Path.Combine(directory, "project.json"), bytes); File.WriteAllText(Path.Combine(directory, "artifact.json"), JsonSerializer.Serialize(artifact, ProjectService.Json));
+        return artifact;
+    }
+
+    [Fact]
+    public async Task New_structural_receipts_identify_the_actual_producer_and_tool_version()
+    {
+        var p = await Register(); var preview = await service.PreviewStructuralEditsAsync(Request(p, await Edit(p, "set_text", MainText, "NOP();")));
+        var previewBytes = File.ReadAllBytes(service.Download(preview.PreviewReceipt!.Id).Path);
+        using var previewDocument = JsonDocument.Parse(previewBytes);
+        var result = await service.ApplyStructuralEditsAsync(Apply(preview));
+        var applyBytes = File.ReadAllBytes(service.Download(result.Receipt.Id).Path); using var applyDocument = JsonDocument.Parse(applyBytes);
+        foreach (var document in new[] { previewDocument, applyDocument })
+        {
+            Assert.Equal(1, document.RootElement.GetProperty("schemaVersion").GetInt32());
+            Assert.Equal(WorkspaceIdentity.Name, document.RootElement.GetProperty("producer").GetString());
+            Assert.Equal(WorkspaceIdentity.Version, document.RootElement.GetProperty("toolVersion").GetString());
+            Assert.Equal(p.CurrentSha256, document.RootElement.GetProperty("preview").GetProperty("source").GetProperty("sha256").GetString());
+            Assert.Equal(result.Candidate.Sha256, document.RootElement.GetProperty("preview").GetProperty("resultSha256").GetString());
+        }
+        Assert.Equal("structural_preview", previewDocument.RootElement.GetProperty("kind").GetString()); Assert.Equal("structural_apply", applyDocument.RootElement.GetProperty("kind").GetString());
+        Assert.Equal(preview.PreviewReceipt.Sha256, ProjectService.Hash(previewBytes)); Assert.Equal(result.Receipt.Sha256, ProjectService.Hash(applyBytes));
+        Assert.Equal(previewBytes, File.ReadAllBytes(service.Download(preview.PreviewReceipt.Id).Path));
+    }
+    [Fact]
+    public async Task Legacy_unversioned_preview_is_read_without_stamping_or_rewriting_its_metadata()
+    {
+        var p = await Register(); var preview = await service.PreviewStructuralEditsAsync(Request(p, await Edit(p, "set_text", MainText, "NOP();")));
+        var legacy = LegacyReceipt(preview.PreviewReceipt!, document => { document.Remove("schemaVersion"); document.Remove("producer"); document.Remove("toolVersion"); });
+        var bytes = File.ReadAllBytes(service.Download(legacy.Id).Path); preview = preview with { PreviewReceipt = legacy };
+        var status = await service.StructuralEditStatusAsync(legacy.Id, legacy.Sha256); Assert.Equal("previewed", status.Status); Assert.Equal(preview.ReviewSha256, status.Preview.ReviewSha256);
+        var result = await service.ApplyStructuralEditsAsync(Apply(preview)); Assert.Equal("not-performed", result.NativeAcceptance);
+        Assert.Equal(bytes, File.ReadAllBytes(service.Download(legacy.Id).Path));
+        using var document = JsonDocument.Parse(bytes); Assert.False(document.RootElement.TryGetProperty("toolVersion", out _)); Assert.False(document.RootElement.TryGetProperty("producer", out _));
+    }
+    [Fact]
+    public async Task Completed_legacy_apply_reconciles_its_original_receipt_without_current_version_backfill()
+    {
+        var p = await Register(); var preview = await service.PreviewStructuralEditsAsync(Request(p, await Edit(p, "set_text", MainText, "NOP();"))); var result = await service.ApplyStructuralEditsAsync(Apply(preview));
+        var legacy = LegacyReceipt(result.Receipt, document => { document.Remove("producer"); document["toolVersion"] = "0.35.3"; });
+        var bytes = File.ReadAllBytes(service.Download(legacy.Id).Path); var retained = result with { Receipt = legacy };
+        File.WriteAllText(Path.Combine(root, "state", "artifacts", preview.PreviewReceipt!.Id, "structural-apply.json"), JsonSerializer.Serialize(new { status = "applied", reviewSha256 = preview.ReviewSha256, result = retained }, ProjectService.Json));
+        var reconciled = await service.ApplyStructuralEditsAsync(Apply(preview)); var status = await service.StructuralEditStatusAsync(preview.PreviewReceipt.Id, preview.PreviewReceipt.Sha256);
+        Assert.Equal(legacy, reconciled.Receipt); Assert.Equal(legacy, status.Result!.Receipt); Assert.Equal(2, service.Projects().Length);
+        Assert.Equal(bytes, File.ReadAllBytes(service.Download(legacy.Id).Path)); using var document = JsonDocument.Parse(bytes);
+        Assert.Equal("0.35.3", document.RootElement.GetProperty("toolVersion").GetString()); Assert.False(document.RootElement.TryGetProperty("producer", out _));
+    }
+    [Fact]
+    public async Task Changing_producer_metadata_breaks_the_retained_receipt_hash_before_apply()
+    {
+        var p = await Register(); var preview = await service.PreviewStructuralEditsAsync(Request(p, await Edit(p, "set_text", MainText, "NOP();")));
+        var path = service.Download(preview.PreviewReceipt!.Id).Path; var document = JsonNode.Parse(File.ReadAllBytes(path))!.AsObject(); document["producer"] = "OtherProducer";
+        File.WriteAllBytes(path, JsonSerializer.SerializeToUtf8Bytes(document, ProjectService.Json));
+        Assert.Equal("artifact_tampered", (await Assert.ThrowsAsync<OperationException>(() => service.StructuralEditStatusAsync(preview.PreviewReceipt.Id, preview.PreviewReceipt.Sha256))).Code);
+        Assert.Equal("artifact_tampered", (await Assert.ThrowsAsync<OperationException>(() => service.ApplyStructuralEditsAsync(Apply(preview)))).Code); Assert.Single(service.Projects());
+    }
 
     [Fact]
     public async Task Batch_context_matches_exact_single_reads_and_pages_in_requested_order()
