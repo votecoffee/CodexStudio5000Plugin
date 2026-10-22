@@ -6,6 +6,7 @@ using Google.Protobuf;
 using RockwellAutomation.LogixDesigner;
 using RockwellAutomation.LogixDesigner.Logging;
 using Studio5000.Core;
+using Studio5000.Core.Resources;
 
 namespace Studio5000.NativeBridge;
 
@@ -68,6 +69,7 @@ internal static partial class SdkRunner
         var request = JsonSerializer.Deserialize<SdkBridgeRequest>(await Console.In.ReadToEndAsync(), Json)
             ?? throw new ArgumentException("Missing request.");
         SdkCatalog.ValidateCalls(request.Calls);
+        using var lifecycle = NativeLifecycleJournal.FromEnvironment();
         var secrets = request.Calls.SelectMany(c => c.Arguments).Where(p => SdkCatalog.IsSecret(p.Key))
             .Select(p => p.Value.GetString()).Where(s => !string.IsNullOrEmpty(s)).Cast<string>().Distinct().OrderByDescending(s => s.Length).ToArray();
         string Redact(string text) { foreach (var secret in secrets) text = text.Replace(secret, "[redacted]", StringComparison.Ordinal); return text; }
@@ -91,6 +93,7 @@ internal static partial class SdkRunner
                 {
                     if (SdkCatalog.Factories.Contains(call.Method))
                     {
+                        lifecycle?.BeforeStep(i, call.Method);
                         project = await CreateAsync(call.Method, call.Arguments, logger, CancellationToken.None);
                         if (request.CommunicationsPath is not null) await project.SetCommunicationsPathAsync(request.CommunicationsPath);
                         value = new { opened = true };
@@ -98,6 +101,7 @@ internal static partial class SdkRunner
                     else
                     {
                         if (!SdkCatalog.Find(call.Method).IsStatic && project is null) throw new ArgumentException("This method requires a source project or a preceding project factory.");
+                        lifecycle?.BeforeStep(i, call.Method);
                         value = await InvokeAsync(project, call.Method, call.Arguments, CancellationToken.None);
                     }
                     JsonElement? json = value switch
@@ -108,19 +112,36 @@ internal static partial class SdkRunner
                         _ => JsonSerializer.SerializeToElement(value, Json)
                     };
                     steps.Add(new(i, call.Method, "succeeded", json));
+                    lifecycle?.AfterStep();
                 }
                 catch { steps.Add(new(i, call.Method, "failed", null)); throw; }
             }
             if (project is not null)
             {
+                lifecycle?.BeforeStep(request.Calls.Length, "PreserveWorkingCopyAndDisconnect");
                 if (await project.ReadConnectedStateAsync() is LogixProject.ConnectedState.Online or LogixProject.ConnectedState.Connected)
                     await project.GoOfflineAsync();
                 await project.SaveAsAsync(Path.Combine(request.WorkDirectory, "final.acd"));
                 await project.SaveAsAsync(Path.Combine(request.WorkDirectory, "final.l5x"));
+                lifecycle?.AfterStep();
             }
             result = new("succeeded", steps.ToArray(), events.ToArray());
         }
-        catch (Exception ex) { result = new("failed", steps.ToArray(), events.ToArray(), Redact(ex.Message)); }
+        catch (Exception ex)
+        {
+            result = new("failed", steps.ToArray(), events.ToArray(), Redact(ex.Message));
+            // Save only a separate private recovery copy. This preserves dirty
+            // work without clearing the failed call's unknown external effects.
+            if (project is not null)
+            {
+                try
+                {
+                    if (await project.ReadConnectedStateAsync() is LogixProject.ConnectedState.Online or LogixProject.ConnectedState.Connected) await project.GoOfflineAsync();
+                    await project.SaveAsAsync(Path.Combine(request.WorkDirectory, "recovery.acd"), false);
+                }
+                catch { /* Retained lifecycle barrier and SDK failure remain authoritative. */ }
+            }
+        }
         finally
         {
             if (project is not null)
@@ -130,6 +151,7 @@ internal static partial class SdkRunner
                 project.Dispose();
             }
         }
+        lifecycle?.Complete(result.Status == "succeeded", result.Status == "succeeded", true);
         await File.WriteAllTextAsync(resultPath, JsonSerializer.Serialize(result, Json));
         return 0; // Domain failures are represented by the result, not a lost process response.
     }

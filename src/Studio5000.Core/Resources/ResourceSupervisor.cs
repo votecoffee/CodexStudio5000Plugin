@@ -14,14 +14,35 @@ public sealed class ResourceSupervisor : IDisposable
     public string Root { get; }
     public ResourceLedger Ledger { get; }
     public ResourceLedger.ResourceOwner Owner { get; }
+    public NativeSessionRegistry NativeSessions { get; }
     public int MaximumProcesses { get; }
     public static ResourceSupervisor RequireCurrent() => current ?? throw new OperationException("resource_owner_required", "Initialize the long-lived application resource owner before launching workers; no untracked fallback is allowed.");
     public ResourceSupervisor(string root, string registry, int maximumProcesses = 32, int maximumResources = 32)
     {
         Root = Path.GetFullPath(root); MaximumProcesses = maximumProcesses; OwnedProcessContainment.ValidateLimit(maximumProcesses);
         if (File.Exists(Path.Combine(Root, ".local", "maintenance-hold.json"))) throw new InvalidOperationException("Operator maintenance hold blocks application resource startup.");
-        Ledger = new(registry, new WindowsResourceProcessDriver(), maximumResources); Owner = Ledger.Owner("rockwell-mcp-server");
+        Ledger = new(registry, new WindowsResourceProcessDriver(), maximumResources, nestedServiceOwner: true); Owner = Ledger.Owner("rockwell-mcp-server");
+        NativeSessions = new(Owner, Path.Combine(Root, ".local", "native-sessions"));
         if (Interlocked.CompareExchange(ref current, this, null) is not null) throw new InvalidOperationException("This process already has a resource supervisor.");
+    }
+    public OwnedNativeWorker LaunchNative(ProcessStartInfo start, string label)
+    {
+        lock (sync)
+        {
+            ObjectDisposedException.ThrowIf(disposed, this);
+            if (closing) throw new OperationException("resource_owner_closing", "Native session admission is fenced for shutdown.");
+            var id = Guid.NewGuid().ToString("N");
+            var receipt = Path.Combine(Root, ".local", "native-sessions", id + ".worker.json");
+            var lease = NativeSessions.Attach(new("rockwell-logix-sdk", id, "sdk-session"));
+            start.Environment["ROCKWELL_NATIVE_LIFECYCLE"] = receipt;
+            start.Environment["ROCKWELL_NATIVE_SESSION"] = id;
+            try { return new(Launch(start, label, "sdk-worker"), lease, receipt, id); }
+            catch
+            {
+                lease.Close(() => NativeCloseResult.Uncertain("Native worker admission failed; inspect the launch claim before attesting that no native code ran."));
+                throw;
+            }
+        }
     }
     public WindowsChildProcess Launch(ProcessStartInfo start, string label, string kind)
     {

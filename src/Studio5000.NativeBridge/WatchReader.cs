@@ -1,6 +1,7 @@
 using System.Text.Json;
 using RockwellAutomation.LogixDesigner;
 using Studio5000.Core;
+using Studio5000.Core.Resources;
 
 namespace Studio5000.NativeBridge;
 
@@ -10,6 +11,7 @@ internal static partial class SdkRunner
     // EOF when the parent service exits closes both sessions; no saves or writes target the controller.
     public static async Task<int> RunWatchAsync()
     {
+        using var lifecycle = NativeLifecycleJournal.FromEnvironment();
         var protocol = Console.Out; Console.SetOut(TextWriter.Null);
         var json = new JsonSerializerOptions(ProjectService.Json) { WriteIndented = false };
         LogixProject? source = null, mirror = null;
@@ -63,12 +65,18 @@ internal static partial class SdkRunner
         catch (Exception ex) { await Reply(new(false, [], ex.Message)); return 1; }
         finally
         {
-            if (source is not null)
+            try
             {
-                try { if (await source.ReadConnectedStateAsync() is LogixProject.ConnectedState.Online or LogixProject.ConnectedState.Connected) await source.GoOfflineAsync(); }
-                finally { source.Dispose(); }
+                if (source is not null)
+                {
+                    try { if (await source.ReadConnectedStateAsync() is LogixProject.ConnectedState.Online or LogixProject.ConnectedState.Connected) await source.GoOfflineAsync(); }
+                    finally { source.Dispose(); }
+                }
             }
-            mirror?.Dispose();
+            finally { mirror?.Dispose(); }
+            // Source operations are reads. Modified mirror values belong only
+            // to the explicitly disposable private decoding copy.
+            lifecycle?.Complete(true, true, true);
         }
     }
 }

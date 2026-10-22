@@ -1,6 +1,7 @@
 using RockwellAutomation.LogixDesigner;
 using RockwellAutomation.LogixDesigner.Logging;
 using Studio5000.NativeBridge;
+using Studio5000.Core.Resources;
 
 if (args.Length == 1 && args[0] == "--sdk-coverage")
 {
@@ -28,14 +29,16 @@ if (args.Length == 2 && args[0] == "--create-fixture")
 if (args.Length != 2) { Console.Error.WriteLine("Usage: Studio5000.NativeBridge <input.acd|l5x> <new-output.acd|l5x>"); return 2; }
 try
 {
+    using var lifecycle = NativeLifecycleJournal.FromEnvironment();
     var input = Path.GetFullPath(args[0]); var output = Path.GetFullPath(args[1]);
     if (!File.Exists(input) || File.Exists(output) ||
         !new[] { ".acd", ".l5x" }.Contains(Path.GetExtension(input).ToLowerInvariant()) ||
         !new[] { ".acd", ".l5x" }.Contains(Path.GetExtension(output).ToLowerInvariant()))
         throw new ArgumentException("Input must exist; output must be a new ACD/L5X path.");
-    using LogixProject project = await LogixProject.OpenLogixProjectAsync(input, new StdOutEventLogger());
-    await project.SaveAsAsync(output, false);
+    using (LogixProject project = await LogixProject.OpenLogixProjectAsync(input, new StdOutEventLogger()))
+        await project.SaveAsAsync(output, false);
     if (!File.Exists(output) || new FileInfo(output).Length == 0) throw new IOException("Native SDK returned an empty result.");
+    lifecycle?.Complete(true, true, true);
     return 0;
 }
 catch (Exception ex) { Console.Error.WriteLine(ex); return 1; }

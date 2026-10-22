@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Text.Json;
+using Studio5000.Core.Resources;
 
 namespace Studio5000.Core;
 
@@ -16,16 +17,22 @@ public sealed partial class NativeConverter : IWatchSessionFactory
             request = request with { SourcePath = acd };
         }
         var start = Start(); start.ArgumentList.Add("--watch");
-        var process = Process.Start(start) ?? throw new IOException("Could not start the watch reader.");
-        var session = new NativeWatchSession(process, gate, options.NativeTimeoutSeconds);
+        var worker = ResourceSupervisor.RequireCurrent().LaunchNative(start, "Rockwell SDK watch session");
+        var session = new NativeWatchSession(worker, gate, options.NativeTimeoutSeconds);
         try { await session.ExchangeAsync<WatchBridgeOpen, WatchBridgeReply>(request, ct); return session; }
         catch { await session.DisposeAsync(); throw; }
     }
 
-    private sealed class NativeWatchSession(Process process, SemaphoreSlim nativeGate, int timeoutSeconds) : IWatchSession
+    private sealed class NativeWatchSession : IWatchSession
     {
+        private readonly OwnedNativeWorker worker;
+        private readonly WindowsChildProcess process;
+        private readonly SemaphoreSlim nativeGate;
+        private readonly int timeoutSeconds;
+        private readonly Task stderr;
+        public NativeWatchSession(OwnedNativeWorker worker, SemaphoreSlim nativeGate, int timeoutSeconds)
+        { this.worker = worker; process = worker.Process; this.nativeGate = nativeGate; this.timeoutSeconds = timeoutSeconds; stderr = process.StandardError.BaseStream.CopyToAsync(Stream.Null); }
         private static readonly JsonSerializerOptions WireJson = new(ProjectService.Json) { WriteIndented = false };
-        private readonly Task stderr = process.StandardError.BaseStream.CopyToAsync(Stream.Null);
         public async Task<TResponse> ExchangeAsync<TRequest, TResponse>(TRequest request, CancellationToken ct)
         {
             await nativeGate.WaitAsync(ct);
@@ -53,7 +60,8 @@ public sealed partial class NativeConverter : IWatchSessionFactory
             }
             catch (Exception ex) when (ex is OperationCanceledException or IOException or InvalidOperationException)
             { if (!process.HasExited) process.Kill(entireProcessTree: true); await process.WaitForExitAsync(); }
-            finally { await stderr; process.Dispose(); }
+            finally { await stderr; worker.Dispose(); }
+            if (worker.CloseResult?.Outcome != "closed") throw new OperationException("native_recovery_required", "SDK watch stopped without matching native close evidence; inspect the retained session.");
         }
     }
 }

@@ -55,6 +55,26 @@ public sealed class ResourceLedgerTests : IDisposable
         Assert.ThrowsAny<Exception>(() => ResourceJson.Read(Encoding.UTF8.GetBytes(text.Replace("\"app_id\":", "\"extra\":1,\"app_id\":", StringComparison.Ordinal))));
     }
     [Fact]
+    public void Service_can_retire_an_inner_job_but_attachments_and_siblings_still_block_it()
+    {
+        if (!OperatingSystem.IsWindows()) return;
+        var ledger = new ResourceLedger(root, driver, nestedServiceOwner: true);
+        var outerOwner = ledger.Owner("rockwell-fixture");
+        driver.Live[100] = Driver.Identity(100, "200"); driver.Live[101] = Driver.Identity(101, "300");
+        var outer = outerOwner.BindProcess(outerOwner.BeginLaunch("Outer service job", cleanupMode: "terminate").ResourceId, 100, "windows_job");
+        driver.Actor = driver.Live[100]; var serviceOwner = ledger.Owner("rockwell-fixture");
+        var child = serviceOwner.BindProcess(serviceOwner.BeginLaunch("Inner worker", cleanupMode: "terminate").ResourceId, 101, "windows_job");
+        driver.Actor = outerOwner.Identity;
+        outerOwner.PublishMembers(outer.ResourceId, [driver.Live[100], driver.Live[101]]);
+        Assert.Throws<InvalidOperationException>(() => outerOwner.Cleanup(outer.ResourceId, ledger.Get(outer.ResourceId).Revision, new('d', 32)));
+        driver.Actor = serviceOwner.Identity;
+        var attachment = serviceOwner.BindProcess(serviceOwner.BeginLaunch("User attachment", ownership: "attached").ResourceId, 101);
+        Assert.Throws<InvalidOperationException>(() => serviceOwner.Cleanup(child.ResourceId, child.Revision, new('d', 32)));
+        serviceOwner.ReleaseAttachment(attachment.ResourceId);
+        Assert.Equal("terminated", serviceOwner.Cleanup(child.ResourceId, child.Revision, new('d', 32)).Outcome);
+        Assert.Equal(1, driver.Effects); Assert.Equal("active", ledger.Get(outer.ResourceId).State);
+    }
+    [Fact]
     public void Records_survive_reopen_and_cleanup_has_one_durable_effect()
     {
         if (!OperatingSystem.IsWindows()) return;

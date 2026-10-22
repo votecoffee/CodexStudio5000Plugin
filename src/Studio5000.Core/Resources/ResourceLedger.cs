@@ -27,7 +27,7 @@ public interface IResourceProcessGroup
 // Native counterpart of framework 0.20 resources/, including its byte-zero
 // ledger.lock and canonical model revision. All mutation stays in the surviving
 // owning process; no helper process may impersonate a retained generation.
-public sealed class ResourceLedger(string registry, IResourceProcessDriver driver, int maximumActivePerApp = 32)
+public sealed class ResourceLedger(string registry, IResourceProcessDriver driver, int maximumActivePerApp = 32, bool nestedServiceOwner = false)
 {
     private readonly object mutex = new();
     public string DirectoryPath { get; } = Path.Combine(Path.GetFullPath(registry), "resources");
@@ -99,6 +99,13 @@ public sealed class ResourceLedger(string registry, IResourceProcessDriver drive
     {
         var identities = record.Members.ToHashSet(); if (record.Process is not null) identities.Add(record.Process);
         return identities.Count != 0 && Records().Any(other => other.ResourceId != record.ResourceId && !other.Terminal &&
+            // An app-owned service may retire its own inner job while the
+            // Python supervisor retains the outer job. This is delegation only
+            // from the exact root process identity, never another attachment,
+            // sibling, app, manager or departed service generation.
+            !(nestedServiceOwner && other.AppId == record.AppId && other.Process == record.Owner &&
+                other.Ownership == "private" && other.CleanupMode == "terminate" && other.Containment == "windows_job" &&
+                other.State == "active" && other.Receipt is null) &&
             (other.Process is not null && identities.Contains(other.Process) || other.Members.Any(identities.Contains)));
     }
 

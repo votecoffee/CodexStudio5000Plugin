@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Text.Json;
+using Studio5000.Core.Resources;
 
 namespace Studio5000.Core;
 
@@ -12,7 +13,7 @@ public sealed partial class NativeConverter(ServiceOptions options)
     {
         if (!Available) throw new OperationException("native_unavailable", "Build and configure the installed SDK native bridge.");
         var start = Start(); start.ArgumentList.Add("--sdk-coverage");
-        using var process = Process.Start(start)!;
+        using var process = ResourceSupervisor.RequireCurrent().Launch(start, "Rockwell SDK coverage inspection", "sdk-inspection");
         var output = process.StandardOutput.ReadToEndAsync(ct); var error = process.StandardError.ReadToEndAsync(ct);
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct); timeout.CancelAfter(TimeSpan.FromSeconds(15));
         try { await process.WaitForExitAsync(timeout.Token); }
@@ -21,7 +22,7 @@ public sealed partial class NativeConverter(ServiceOptions options)
         using var doc = JsonDocument.Parse(await output); return doc.RootElement.Clone();
     }
 
-    private ProcessStartInfo Start() => new(options.NativeBridgePath!)
+    private ProcessStartInfo Start() => new(Path.GetFullPath(options.NativeBridgePath!))
     { UseShellExecute = false, CreateNoWindow = true, RedirectStandardInput = true, RedirectStandardOutput = true, RedirectStandardError = true };
 
     public async Task<SdkBridgeResult> ExecuteSdkAsync(SdkBridgeRequest request, CancellationToken ct)
@@ -33,7 +34,8 @@ public sealed partial class NativeConverter(ServiceOptions options)
             ct.ThrowIfCancellationRequested();
             var resultPath = Path.Combine(request.WorkDirectory, "result.json");
             var start = Start(); start.ArgumentList.Add("--sdk"); start.ArgumentList.Add(resultPath);
-            using var process = Process.Start(start) ?? throw new IOException("Could not start SDK bridge.");
+            using var worker = ResourceSupervisor.RequireCurrent().LaunchNative(start, "Rockwell SDK operation session");
+            var process = worker.Process;
             // Password arguments travel only over stdin. No raw request, stdout or stderr is persisted.
             var output = process.StandardOutput.BaseStream.CopyToAsync(Stream.Null, CancellationToken.None);
             var error = process.StandardError.BaseStream.CopyToAsync(Stream.Null, CancellationToken.None);
@@ -60,7 +62,9 @@ public sealed partial class NativeConverter(ServiceOptions options)
             }
             if (process.ExitCode != 0 || !File.Exists(resultPath))
                 return new("indeterminate", [], [], "SDK process exited without a complete result. Inspect any external target before retrying.");
-            return JsonSerializer.Deserialize<SdkBridgeResult>(await File.ReadAllTextAsync(resultPath, CancellationToken.None), ProjectService.Json)!;
+            var result = JsonSerializer.Deserialize<SdkBridgeResult>(await File.ReadAllTextAsync(resultPath, CancellationToken.None), ProjectService.Json)!;
+            worker.Dispose();
+            return worker.CloseResult?.Outcome == "closed" ? result : result with { Status = "indeterminate", Error = "Native save/close/effect evidence is incomplete. Inspect the retained session and original operation result before retrying." };
         }
         finally { gate.Release(); }
     }
@@ -72,13 +76,11 @@ public sealed partial class NativeConverter(ServiceOptions options)
         await gate.WaitAsync(ct);
         try
         {
-            var start = new ProcessStartInfo(options.NativeBridgePath!)
-            {
-                UseShellExecute = false, CreateNoWindow = true, RedirectStandardOutput = true, RedirectStandardError = true
-            };
+            var start = Start();
             start.ArgumentList.Add(input);
             start.ArgumentList.Add(output);
-            using var process = Process.Start(start) ?? throw new IOException("Could not start native bridge.");
+            using var worker = ResourceSupervisor.RequireCurrent().LaunchNative(start, "Rockwell native project conversion");
+            var process = worker.Process; process.StandardInput.Close();
             var stdout = process.StandardOutput.ReadToEndAsync(ct);
             var stderr = process.StandardError.ReadToEndAsync(ct);
             using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
@@ -94,6 +96,8 @@ public sealed partial class NativeConverter(ServiceOptions options)
             var errorLog = await stderr;
             if (process.ExitCode != 0 || !File.Exists(output) || new FileInfo(output).Length == 0)
                 throw new OperationException("native_failed", $"Logix SDK conversion failed ({process.ExitCode}). {errorLog} {outputLog}"[..Math.Min(4000, $"Logix SDK conversion failed ({process.ExitCode}). {errorLog} {outputLog}".Length)]);
+            worker.Dispose();
+            if (worker.CloseResult?.Outcome != "closed") throw new OperationException("native_recovery_required", "Conversion returned without matching document/connection close evidence; inspect the retained native session.");
         }
         finally { gate.Release(); }
     }
