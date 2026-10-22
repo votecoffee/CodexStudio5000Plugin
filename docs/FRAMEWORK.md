@@ -6,7 +6,7 @@ The existing standalone Codex plugin, 59-tool adapter, GUI and REST service rema
 
 The 0.18 alignment keeps the assessed legacy `2025-11-25` wire profile, transient adapters, disabled discovery caching and explicit refresh. Publication pins structural argument budgets to 64 levels and 100,000 nodes, alongside the existing 8 MiB byte budget. Verification rejects unassessed protocol/cache/budget edits. The standalone plugin still calls the C# adapter directly; no broker installation route is added.
 
-Framework 0.18 provides optional [Tasks, Skills and lifecycle APIs](https://github.com/votecoffee/CodexMCPBroker/blob/7d8a0ccdc06598313061147ee8774837118a8861/docs/extension-development.md). This adapter does not enable them. Native SDK jobs, ownership, approvals, revision checks and uncertain outcomes keep their existing app contracts. Adopting Tasks requires a deliberate adapter for those durable jobs; a dependency upgrade cannot wrap or replay native operations. Packaged workflow skills retain their normal Codex installation lifecycle.
+Framework 0.18 provides optional [Tasks, Skills and lifecycle APIs](https://github.com/votecoffee/CodexMCPBroker/blob/7d8a0ccdc06598313061147ee8774837118a8861/docs/extension-development.md). The explicit `--skills` profile enables app-owned guidance publication on compatible endpoints. Tasks and modern native job relays remain blocked by the concrete gaps in the [feature report](PROTOCOL_FEATURES.md). Native SDK jobs, ownership, approvals, revision checks and uncertain outcomes keep their existing app contracts; no generic call becomes a Task.
 
 The optional [remote OAuth, protocol relay, Apps and Redis deployment profiles](https://github.com/votecoffee/CodexMCPBroker/blob/7d8a0ccdc06598313061147ee8774837118a8861/docs/deployment.md) are outside this local integration. The host retains one owning process and loopback authentication. No remote endpoint, replicated worker, Redis extra or UI extension is enabled by installation. Native jobs and engineering sessions remain in the shared Rockwell service, with their existing receipts and recovery barriers.
 
@@ -61,6 +61,36 @@ It authenticates loopback HTTP using credentials in its dedicated state. Each fr
 
 The frontend's stdout is MCP only. It uses the packaged `RemoteBackend` and `create_surface`, giving each process independent affinity and the framework's request-bound routing. It never starts the universal daemon or the app host automatically. The existing standalone plugin continues to call the C# adapter directly; these commands do not edit its manifest or install a different plugin.
 
+## Current guidance and Skills-over-MCP
+
+The selected standalone .NET endpoint keeps its 59 ordinary tools. It has no configured Skills extension handlers. Its packaged `skills/` files are small bootstrap instructions that fetch the full revision-bound guides and references from shared Core, whose only maintained sources are in `workflows/`.
+
+For a separately configured, compatible app-owned Python endpoint, explicitly opt in:
+
+```powershell
+& $python -m rockwell_framework --state .local/framework-host serve --skills
+& $python -m rockwell_framework --state .local/framework-host frontend --skills
+```
+
+Each endpoint publishes its own real three-skill catalog; enable the flag on the endpoint the client actually uses. It does not automatically proxy the other endpoint's extensions or switch the installed standalone plugin. A running backend with `skill_source` support is required; legacy metadata fails clearly instead of publishing an empty catalog. The app's existing loopback credential authenticates metadata reads. No caller URL, filesystem path or engineering target is accepted.
+
+The `SkillCatalog`/`ExtensionServer` profile supports `skills/list`, `skills/get` and ordinary `resources/read`, with exact manifest sizes/hashes and the original distinct names/descriptions. Directory reads are disabled. It snapshots immutable canonical bytes, validates the narrower OpenAI importer budgets, and executes no contributed code. No native skill discovery folder is written.
+
+Two metadata tools supplement the fourteen ordinary framework tools:
+
+| Tool | Contract |
+|---|---|
+| `rockwell_protocol_doctor` | Read the endpoint's current catalog revision/generation, source bindings and feature gaps. No engineering I/O. |
+| `rockwell_refresh_guidance(expectedRevision)` | Read current app metadata and explicitly publish a fully validated replacement with `catalog.publish(..., expected_revision=...)`. Metadata mutation only; no engineering approval, operation or route change. |
+
+Unchanged workflow revisions reuse the endpoint's immutable bytes after one fresh capability read. A changed guide fetches its full pinned guide/reference set and checks the source workflow bindings again before publication. No project data, approvals or invocation results are cached. Concurrent stale publication, malformed content, hash mismatches and mid-fetch source changes retain the prior catalog. A changed generation rejects old pagination cursors. Resource-list/generation notifications are hints; reconnecting clients refetch and verify current manifests rather than assuming an event history.
+
+Cancellation during notification delivery can follow a committed metadata publication; it does not undo the new catalog. Its source bindings remain attached, and a caller with a lost reply reads the doctor before another refresh. While publication is in progress, the doctor marks source bindings temporarily unknown rather than combining different generations. This metadata behavior does not bind MCP cancellation to native engineering jobs.
+
+Tests demonstrate updates/additions/removals through one already connected modern client and isolation between catalog instances. The generated three-guide/three-reference benchmark reduces unchanged-refresh metadata round trips from eight to one; this is synthetic metadata evidence, not production engineering latency. Detailed guides remain embedded in Core, so updating them first requires the normal shared-service deployment. Editing source Markdown alone changes no running endpoint.
+
+OpenAI currently imports MCP skills as submission-time snapshots; scanning/submitting a plugin update and native host activation remain separate from live publication. See [official importer guidance](https://developers.openai.com/plugins/build/skills#import-a-skill-from-mcp). Neither these protocol checks nor package installation establishes native Codex skill selection or controller acceptance.
+
 ## State, publication and recovery
 
 Framework state cannot reuse a universal broker's registrations, another app root or the service's workspace state. A local OS lock serializes publishers. The backend has a stable resource ID derived from the explicit app root, with `session_mode: transient`: each adapter connection is temporary while projects, jobs, transactions and durable apply receipts belong to the independent service. There is no implicit per-chat selected document or controller in this adapter. Calls through one framework backend remain serialized; this profile does not claim throughput or latency parity.
@@ -78,6 +108,7 @@ Write request IDs are durably claimed by the framework. Inspect `get_request_sta
 & $python -m pytest -q framework/tests
 .\scripts\Verify-Isolated.ps1
 & $python scripts/verify_framework.py --workspace-root <isolated-profile>
+& $python scripts/verify_guidance.py --workspace-root <isolated-profile>
 ```
 
 The framework profile rejects controller-enabled profiles, configured targets and SDK/CIP bridges. It starts only its own offline service/host/stdio children, uses the installed wheel, and retains private evidence under ignored paths. It compares all actual C# tool definitions and complete selected results, checks both connected frontends through deployment replacement, preserves workflow contents, rejects stale revisions and unauthorized write channels, exercises Core preview/apply and durable receipts, and verifies the framework's app-error reconciliation barrier. Pure tests cover publication defaults, full dependency tampering, routing, competing publishers and link rejection.

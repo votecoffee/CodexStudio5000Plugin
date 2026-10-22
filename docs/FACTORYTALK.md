@@ -78,7 +78,7 @@ To check a private export corpus, run the integration verifier's `--factorytalk-
 
 Schema validation and desktop renders do not establish native wizard import, save/re-export or runtime acceptance for either edition. Validate those steps on the intended native project copy and record application, edition, language and observed outcomes in private local notes. See [VALIDATION.md](VALIDATION.md).
 
-Official workflow references are included in [the bundled skill reference](../skills/factorytalk-studio/references/native-workflow.md).
+Official workflow references are included in [the bundled skill reference](../workflows/factorytalk-studio/references/native-workflow.md).
 
 ## Multilingual text
 

@@ -36,12 +36,20 @@ public static class AppPublication
 
     public static JsonElement Workflow(string workflowId, string expectedRevision)
     {
+        if (workflowId == "protocol-features")
+        {
+            var report = ProtocolFeatureReport.Read();
+            if (!StringComparer.Ordinal.Equals(Hash(report.GetRawText()), expectedRevision))
+                throw new InvalidOperationException("stale_workflow_revision: rediscover the protocol report before reading it.");
+            return report;
+        }
         var guide = Find(workflowId); CheckRevision(guide, expectedRevision);
         var text = Instructions(guide);
         var result = JsonSerializer.SerializeToElement(new
         {
             schema_version = 1, id = guide.Id, revision = expectedRevision, description = guide.Description,
             instructions = new { format = "markdown", text, sha256 = Hash(text) },
+            skill_source = new { path = "SKILL.md", text = Text(guide.Source), sha256 = Hash(Text(guide.Source)) },
             tools = guide.Tools.Select(t => new { tool = t, purpose = "Inspect the live definition and use the app workflow and policy for " + t + "." }),
             references = guide.References.Select(r => new
             {
@@ -79,6 +87,8 @@ public static class AppPublication
         foreach (var guide in Guides)
             entries.Add(new { id = "workflow." + guide.Id, description = guide.Description, tags = new[] { "workflow", "rockwell", guide.Id },
                 discovery = new { tool = "rockwell_read_workflow", arguments = new { workflowId = guide.Id, expectedRevision = Revision(guide) } } });
+        entries.Add(new { id = "protocol.features", description = "Read-only protocol feature doctor: selected route, tested metadata features and concrete acceptance gaps. No native discovery or target selection.", tags = new[] { "diagnostics", "mcp", "doctor", "rockwell" },
+            discovery = new { tool = "rockwell_read_workflow", arguments = new { workflowId = "protocol-features", expectedRevision = Hash(ProtocolFeatureReport.Read().GetRawText()) } } });
         var revision = Hash(JsonSerializer.Serialize(entries));
         var result = JsonSerializer.SerializeToElement(new { schema_version = 1, catalog_revision = revision, capabilities = entries });
         if (entries.Count > 1000 || Encoding.UTF8.GetByteCount(result.GetRawText()) > 512 * 1024)

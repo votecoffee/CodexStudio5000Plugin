@@ -73,7 +73,7 @@ enabled = false
     $server = @($servers | Where-Object name -CEQ 'rockwell-mcp-server')
     Check ($server.Count -eq 1 -and $server[0].enabled -eq $false) 'Real Codex config loader discovers the refreshed server and honors its retained disabled-server policy'
     Check ((Test-Path -LiteralPath (Join-Path $cache 'LICENSE')) -and
-        (Get-ChildItem -LiteralPath $cache -File -Recurse).Count -eq 17) 'The real plugin cache contains the MIT license and only allowlisted package files'
+        (Get-ChildItem -LiteralPath $cache -File -Recurse).Count -eq 10) 'The real plugin cache contains the MIT license and only allowlisted package files'
 
     $currentConfig = [IO.File]::ReadAllText($configPath)
     $pattern = '(?m)^(\[plugins\."rockwell-mcp-server@rockwell-mcp-server-local"\]\r?\n)enabled = true\r?$'

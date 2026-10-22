@@ -9,6 +9,7 @@ from universal_tools.framework import serve_application
 from universal_tools.models import load_settings
 from universal_tools.surface import RemoteBackend, create_surface
 
+from .guidance import AppGuidanceCatalog, GuidanceSource
 from .publication import INSTRUCTIONS, check_versions, profile, publish, verify
 
 
@@ -24,11 +25,21 @@ def main():
     prepare.add_argument("--port", type=int)
     prepare.add_argument("--allow-write-tool", action="append", default=[])
     commands.add_parser("verify", help="check dependency and complete deployment inventory")
-    commands.add_parser(
+    serve = commands.add_parser(
         "serve", help="start this app's authenticated host, never the universal daemon"
     )
-    commands.add_parser(
+    serve.add_argument(
+        "--skills",
+        action="store_true",
+        help="publish canonical app guidance through Skills-over-MCP",
+    )
+    frontend = commands.add_parser(
         "frontend", help="connect stdio to an already running app host; no auto-start"
+    )
+    frontend.add_argument(
+        "--skills",
+        action="store_true",
+        help="publish guidance on this stdio endpoint too; no route switch",
     )
     args = parser.parse_args()
     check_versions()
@@ -56,13 +67,16 @@ def main():
     elif args.command == "serve":
         marker = verify(args.state)
         os.environ["STUDIO5000_PLUGIN_ROOT"] = marker["app_root"]
-        serve_application(args.state, args.state / "application.json")
+        skills = AppGuidanceCatalog(GuidanceSource(marker["app_root"])) if args.skills else None
+        serve_application(args.state, args.state / "application.json", skills=skills)
     else:
-        profile(args.state)
+        marker = profile(args.state)
+        skills = AppGuidanceCatalog(GuidanceSource(marker["app_root"])) if args.skills else None
         create_surface(
             RemoteBackend(load_settings(args.state)),
             name="RockwellMCPServer",
             instructions=INSTRUCTIONS,
+            skills=skills,
         ).run(transport="stdio")
 
 

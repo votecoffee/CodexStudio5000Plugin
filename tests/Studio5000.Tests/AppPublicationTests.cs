@@ -39,6 +39,12 @@ public sealed class AppPublicationTests
             Assert.DoesNotContain("Universal Tools", text);
             Assert.DoesNotContain("broker", text, StringComparison.OrdinalIgnoreCase);
             Assert.Equal(ProjectService.Hash(System.Text.Encoding.UTF8.GetBytes(text)).ToLowerInvariant(), instructions.GetProperty("sha256").GetString());
+            var source = guide.GetProperty("skill_source"); var sourceText = source.GetProperty("text").GetString()!;
+            Assert.Equal("SKILL.md", source.GetProperty("path").GetString());
+            Assert.StartsWith("---", sourceText);
+            Assert.Contains("name: " + id, sourceText);
+            Assert.EndsWith(sourceText, text);
+            Assert.Equal(ProjectService.Hash(System.Text.Encoding.UTF8.GetBytes(sourceText)).ToLowerInvariant(), source.GetProperty("sha256").GetString());
             Assert.Throws<InvalidOperationException>(() => AppPublication.Workflow(id, "stale"));
             Assert.Throws<ArgumentException>(() => AppPublication.Reference(id, revision, "../../secrets", "hash"));
             foreach (var reference in guide.GetProperty("references").EnumerateArray())
@@ -51,6 +57,21 @@ public sealed class AppPublicationTests
             }
         }
         Assert.Throws<ArgumentException>(() => AppPublication.Workflow("unknown", "revision"));
+    }
+
+    [Fact]
+    public void Doctor_reports_selected_route_and_concrete_gaps_without_native_discovery()
+    {
+        var args = AppPublication.Catalog(Fixture()).GetProperty("capabilities").EnumerateArray()
+            .Single(c => c.GetProperty("id").GetString() == "protocol.features").GetProperty("discovery").GetProperty("arguments");
+        var doctor = AppPublication.Workflow(args.GetProperty("workflowId").GetString()!, args.GetProperty("expectedRevision").GetString()!);
+        Assert.Equal("standalone-dotnet", doctor.GetProperty("profile").GetString());
+        var features = doctor.GetProperty("features").EnumerateArray().ToArray();
+        Assert.Equal(12, features.Length);
+        Assert.Equal("blocked", features.Single(f => f.GetProperty("id").GetString() == "tasks").GetProperty("state").GetString());
+        Assert.Contains("no Skills handlers", features.Single(f => f.GetProperty("id").GetString() == "skills-over-mcp").GetProperty("reason").GetString());
+        Assert.DoesNotContain("tokenFile", doctor.GetRawText());
+        Assert.Throws<InvalidOperationException>(() => AppPublication.Workflow("protocol-features", "stale"));
     }
 
     [Fact]

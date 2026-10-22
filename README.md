@@ -4,13 +4,13 @@
 
 Shared Rockwell engineering service with MCP, REST, a desktop GUI and reloadable extensions.
 
-The shared Windows MCP Service Manager can report this app's service activity and installed/running versions through an app-owned supervisor. Tray restart remains disabled until full engineering quiescence can be enforced; see [service management](docs/SERVICE_MANAGEMENT.md).
+The shared Windows MCP Service Manager can report this app's service activity and installed/running versions through an app-owned supervisor. Tray restart remains disabled until full engineering quiescence can be enforced; see [service management](docs/SERVICE_MANAGEMENT.md). Small packaged skills fetch current canonical guidance from the shared service; compatible clients can explicitly select [Skills-over-MCP publication](docs/FRAMEWORK.md#current-guidance-and-skills-over-mcp). The read-only [protocol feature report](docs/PROTOCOL_FEATURES.md) lists tested features and concrete gaps.
 
 Inspect and edit **Studio 5000 Logix Designer**, **FactoryTalk View Studio ME/SE** and **Studio 5000 View Designer** project exports from a Codex chat or the desktop workspace. Browse tags and UDTs, create watch lists, record values and export trends. Optional Logix Designer SDK jobs provide native project and configured controller operations.
 
 All clients use one authenticated local service and the same operations. Source files are preserved; reviewed changes create managed revisions and new exports. Controller operations are disabled by default.
 
-Scoped structural reviews can inspect up to 128 exact element paths in one context request, retaining source/value fingerprints and protected flags while reducing repeated client calls. The GUI exposes this under **Diagnostics & workflows → Scoped structural batch**; see the [structural workflow](skills/rockwell-engineering/references/structural-edits.md).
+Scoped structural reviews can inspect up to 128 exact element paths in one context request, retaining source/value fingerprints and protected flags while reducing repeated client calls. The GUI exposes this under **Diagnostics & workflows → Scoped structural batch**; see the [structural workflow](workflows/rockwell-engineering/references/structural-edits.md).
 
 The plugin identifier is `rockwell-mcp-server`. Internal `Studio5000.*` assemblies, environment variables and existing tool names remain for compatibility.
 
@@ -54,8 +54,8 @@ RockwellMCPServer gives agents and engineers a shared workspace for project insp
 | Logic/value preservation | Merge reviewed program routines while retaining all fresh saved tag records/representations and configuration, with exact MESSAGE field exceptions and reviewed preservation receipts. |
 | Scalar XML preservation | Edit PLC/FactoryTalk text and existing attributes while retaining source encoding, BOM, line endings and every unselected byte. |
 | Controller-tag rename | Review scoped references, ambiguous operands and safety handling; publish a separate byte-preserved project with all saved values and a reference receipt. |
-| [Module connection timing](skills/rockwell-engineering/references/module-connections.md) | Browse exact RPI/delay/reaction-time fields, review source/hash/before-values and safety metadata, then publish a separate byte-preserved review copy and receipt. |
-| [Scoped structural review](skills/rockwell-engineering/references/structural-edits.md) | Edit scoped routines/tags/UDTs with raw source preservation, exact reference AOI/UDT additions, saved-state decisions and retained preview/apply receipts identifying their producer and version. |
+| [Module connection timing](workflows/rockwell-engineering/references/module-connections.md) | Browse exact RPI/delay/reaction-time fields, review source/hash/before-values and safety metadata, then publish a separate byte-preserved review copy and receipt. |
+| [Scoped structural review](workflows/rockwell-engineering/references/structural-edits.md) | Edit scoped routines/tags/UDTs with raw source preservation, exact reference AOI/UDT additions, saved-state decisions and retained preview/apply receipts identifying their producer and version. |
 | Named validation profiles | Offline integrity, whole-project merge preservation and existing native readback comparison, with new/inherited/expected findings and immutable machine-readable receipts. |
 | Version workflows | Separate native upgrade/readback jobs and bounded v35-to-v32 review-only L5K preparation, with explicit compatibility boundaries. |
 | Reloadable extensions | Discover operation schemas and reload compatible modules through MCP or the GUI while the host and chat remain running. |
@@ -99,7 +99,7 @@ Installation uses Rockwell's **standalone Codex plugin**, preserving its enabled
 
 If skills appear while tools are missing, follow the [MCP discovery and reconnect checks](docs/CODEX_INTEGRATION.md#skills-appear-but-tools-are-missing). Plugin installation and a working service do not establish that Codex loaded the tools.
 
-If you authorize continuing through the installed service while MCP is unavailable, the [documented REST fallback](skills/rockwell-engineering/references/structural-edits.md#authorized-rest-fallback) keeps the same review and receipt guards. Requested named L5X copies are saved with hash readback after the edits and required scoped checks; native import/build remains a separate user-owned or separately requested step.
+If you authorize continuing through the installed service while MCP is unavailable, the [documented REST fallback](workflows/rockwell-engineering/references/structural-edits.md#authorized-rest-fallback) keeps the same review and receipt guards. Requested named L5X copies are saved with hash readback after the edits and required scoped checks; native import/build remains a separate user-owned or separately requested step.
 
 Reinstallation refreshes enabled standalone plugins owned by this installation. For disabled plugins, it publishes updated guidance for a later host refresh and keeps them disabled. Existing packages from other installations are retained.
 
@@ -139,7 +139,7 @@ Use `scripts/Start.ps1` for the equivalent PowerShell entry point, `Start-Servic
 
 ### Connect an MCP client
 
-Start the service first. Installation packages a small standalone Codex plugin with portable/compatibility manifests, three workflow skills and a launcher pointing at the app installation. It excludes projects, credentials, build outputs and service state. To configure integration separately, run `.\scripts\Configure-Codex.ps1 -PlanOnly`, inspect the result, then run without `-PlanOnly`. The REST URL is not an HTTP MCP endpoint.
+Start the service first. Installation packages a small standalone Codex plugin with portable/compatibility manifests, three bootstrap skills and a launcher pointing at the app installation. It excludes projects, credentials, build outputs and service state. To configure integration separately, run `.\scripts\Configure-Codex.ps1 -PlanOnly`, inspect the result, then run without `-PlanOnly`. The REST URL is not an HTTP MCP endpoint.
 
 For direct Codex MCP registration, run from this checkout:
 
@@ -147,7 +147,7 @@ For direct Codex MCP registration, run from this checkout:
 codex mcp add rockwell-mcp-server -- powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path (Get-Location) 'scripts\Start-Mcp.ps1')
 ```
 
-The launcher starts the stdio MCP adapter and connects it to the shared service. Direct MCP registration does not install the bundled workflow skills; they are available under [skills/](skills/). Other MCP clients can read the same guide text through versioned, hash-bound app tools.
+The launcher starts the stdio MCP adapter and connects it to the shared service. Direct MCP registration does not install the bundled bootstrap skills; they are available under [skills/](skills/). Detailed guides and references have one maintained source under [workflows/](workflows/). Connected chats read them through ordinary versioned, hash-bound app tools. Changed embedded guidance needs a shared-service deployment; after deployment, fetching a new revision does not require replacing native skills or tool schemas.
 
 Example chat request using the generated L5X fixture:
 
@@ -181,7 +181,7 @@ Use **PLC where used…**, **Where used…** in the tag browser, or **Where used
 
 **Extensions…** exposes the live catalog, operation forms, reload and jobs. Compatible extension updates can be reloaded without restarting Codex. Shared host, SDK binding or contract changes can require a service restart; see [extension updating and rollback](docs/EXTENSIONS.md).
 
-**Diagnostics & workflows…** groups logic tracing, captured rung explanation, triggered recording, whole-project keep-current-values merging, preservation/integrity validation, legacy review-copy preparation and native version compatibility. Choose saved snapshots and watch context, then open a populated operation editor. **Trends & recording…** also saves/loads/updates trend views, gathers bounded statistics and exports hash-bound results. These workflows preserve source revisions and leave polling stopped unless it is started separately. Use the separate candidate/readback selector for validation. See the [merge and validation workflow](skills/rockwell-engineering/references/logic-value-merge.md), [legacy review-copy workflow](skills/rockwell-engineering/references/legacy-review-copy.md) and [diagnostic/trend workflows](docs/DIAGNOSTICS.md).
+**Diagnostics & workflows…** groups logic tracing, captured rung explanation, triggered recording, whole-project keep-current-values merging, preservation/integrity validation, legacy review-copy preparation and native version compatibility. Choose saved snapshots and watch context, then open a populated operation editor. **Trends & recording…** also saves/loads/updates trend views, gathers bounded statistics and exports hash-bound results. These workflows preserve source revisions and leave polling stopped unless it is started separately. Use the separate candidate/readback selector for validation. See the [merge and validation workflow](workflows/rockwell-engineering/references/logic-value-merge.md), [legacy review-copy workflow](workflows/rockwell-engineering/references/legacy-review-copy.md) and [diagnostic/trend workflows](docs/DIAGNOSTICS.md).
 
 **Documentation…** searches multilingual project text, stages language-specific tag/member/rung comments and component descriptions, previews before/after translations and applies a reviewed managed revision. Plain text keeps an explicit unlocalized identity; adding translations requires naming its original language. Export all matching text as JSON or hand off a separate L5X/ACD. See [multilingual documentation](docs/PROJECT_DOCUMENTATION.md).
 
