@@ -113,6 +113,7 @@ public sealed partial class ProjectService
     {
         lock (watchLock)
         {
+            if (shutdownRequested) throw new OperationException("service_stopping", "Watch admission is fenced for reviewed service shutdown.");
             var watch = Watch(id); var request = watch.Definition.Settings;
             if (watch.Task is { IsCompleted: false }) return Task.FromResult(Status(watch));
             var target = WatchTarget(request); ValidateWatchPolicy(request, target);

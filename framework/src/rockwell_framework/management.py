@@ -6,8 +6,10 @@ import argparse
 import importlib.metadata
 import ipaddress
 import json
+import signal
 import threading
 import time
+from contextlib import contextmanager
 from pathlib import Path
 from urllib.parse import urlsplit
 
@@ -198,6 +200,17 @@ def poll_activity(root, client):
     return json.loads(raw)
 
 
+@contextmanager
+def deferred_interrupt():
+    """Record Ctrl+C without unwinding the surviving native resource owner."""
+    requested = threading.Event()
+    previous = signal.signal(signal.SIGINT, lambda *_: requested.set())
+    try:
+        yield requested
+    finally:
+        signal.signal(signal.SIGINT, previous)
+
+
 def run(root, *, registry=None):
     check_versions()
     root = ordinary(root)
@@ -211,27 +224,28 @@ def run(root, *, registry=None):
         InstanceLock(local / "management-supervisor.lock"),
         managed_service(cache, stamp["pluginId"], registry),
         launch_service_tree(root, registry=registry) as child,
+        deferred_interrupt() as interrupt,
     ):
-        try:
-            atomic_json(local / "service.pid", child.pid)
-            atomic_json(local / "management-supervisor.json", child.receipt_metadata())
-            refreshed = time.monotonic()
-            with httpx.Client(timeout=1, trust_env=False, follow_redirects=False) as client:
-                while (exit_code := child.poll()) is None:
-                    if child.stop_requested(root):
-                        return 0  # The owner context records and verifies tree cleanup.
-                    if time.monotonic() - refreshed >= 2:
-                        child.refresh()  # Ledger failure differs from status failure.
-                        refreshed = time.monotonic()
-                    try:
-                        cache.update(poll_activity(root, client), versions(root))
-                    except Exception:  # noqa: BLE001 - status failures must not stop engineering work
-                        # Reporting failures cannot interrupt the independently serving app.
-                        cache.unavailable()
-                    time.sleep(0.5)
-            return exit_code
-        except KeyboardInterrupt:
-            return 130
+        atomic_json(local / "service.pid", child.pid)
+        atomic_json(local / "management-supervisor.json", child.receipt_metadata())
+        refreshed = time.monotonic()
+        with httpx.Client(timeout=1, trust_env=False, follow_redirects=False) as client:
+            while (exit_code := child.poll()) is None:
+                if child.stop_requested(root) or interrupt.is_set():
+                    interrupt.clear()
+                    # Repeated Ctrl+C observes the same retained intent.
+                    child.request_stop(root)
+                child.forward_stop_result(root)
+                if time.monotonic() - refreshed >= 2:
+                    child.refresh()  # Ledger failure differs from status failure.
+                    refreshed = time.monotonic()
+                try:
+                    cache.update(poll_activity(root, client), versions(root))
+                except Exception:  # noqa: BLE001 - status failures must not stop engineering work
+                    # Reporting failures cannot interrupt the independently serving app.
+                    cache.unavailable()
+                time.sleep(0.5)
+        return exit_code
 
 
 def main():

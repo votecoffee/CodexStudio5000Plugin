@@ -11,7 +11,8 @@ import re
 from contextlib import contextmanager
 from pathlib import Path
 
-from universal_tools.resources import ResourceLedger
+from universal_tools.models import atomic_json
+from universal_tools.resources import ProcessIdentity, ResourceLedger
 
 from .publication import APP_ID, ordinary
 
@@ -81,6 +82,9 @@ class ServiceTree:
     def __init__(self, ledger, launch, handle, *, exit_code=None):
         self.ledger, self.launch, self.handle = ledger, launch, handle
         self.exit_code = exit_code or windows_exit_code
+        self.stop_request_id = None
+        self.stop_owner_id = None
+        self.stop_delivered = set()
 
     @property
     def pid(self):
@@ -127,6 +131,8 @@ class ServiceTree:
         record = self.ledger.get(self.launch.resource_id)
         if request["ownerId"] != record.owner_id or request["resourceId"] != record.resource_id:
             return False
+        if request["requestId"] in self.stop_delivered:
+            return False
         key_path = ordinary(Path(root) / ".local/service.key")
         try:
             with key_path.open("rb") as stream:
@@ -134,9 +140,84 @@ class ServiceTree:
             key = key.decode("utf-8-sig").strip()
         except (OSError, UnicodeError):
             return False
-        return 32 <= len(key) <= 4096 and hmac.compare_digest(
+        verified = 32 <= len(key) <= 4096 and hmac.compare_digest(
             request["signature"],
             stop_signature(key, record.owner_id, record.resource_id, request["requestId"]),
+        )
+        if verified:
+            self.stop_request_id = request["requestId"]
+        return verified
+
+    def request_stop(self, root, request_id=None):
+        from uuid import uuid4
+
+        root = ordinary(root)
+        intent_id = request_id or self.stop_request_id or uuid4().hex
+        if intent_id in self.stop_delivered:
+            return
+        path = ordinary(root / ".local/service-owner.json")
+        with path.open("rb") as stream:
+            raw = stream.read(32769)
+        if len(raw) > 32768:
+            raise ValueError("Native service ownership receipt exceeds its bound")
+        receipt = json.loads(raw.decode("utf-8-sig"))
+        record = self.ledger.get(self.launch.resource_id)
+        if (
+            receipt.get("schemaVersion") != 1
+            or ProcessIdentity.model_validate(receipt.get("owner")) != record.process
+            or not re.fullmatch("[0-9a-f]{32}", receipt.get("ownerId", ""))
+        ):
+            raise ValueError(
+                "Service ownership generation does not match the exact launched process"
+            )
+        with ordinary(root / ".local/service.key").open("rb") as stream:
+            key = stream.read(4097).decode("utf-8-sig").strip()
+        if not 32 <= len(key) <= 4096:
+            raise ValueError("Private stop authentication is unavailable")
+        service_owner = receipt["ownerId"]
+        atomic_json(
+            root / ".local/service-owner-stop.json",
+            {
+                "schemaVersion": 1,
+                "ownerId": service_owner,
+                "resourceId": service_owner,
+                "requestId": intent_id,
+                "signature": stop_signature(key, service_owner, service_owner, intent_id),
+            },
+        )
+        self.stop_owner_id, self.stop_request_id = service_owner, intent_id
+        self.stop_delivered.add(intent_id)
+
+    def forward_stop_result(self, root):
+        if self.stop_owner_id is None:
+            return
+        root = ordinary(root)
+        path = ordinary(root / ".local/service-owner-stop-result.json")
+        if not path.exists():
+            return
+        with path.open("rb") as stream:
+            raw = stream.read(8193)
+        if len(raw) > 8192:
+            raise ValueError("Service stop result exceeds its bound")
+        response = json.loads(raw.decode("utf-8-sig"))
+        if (
+            response.get("ownerId") != self.stop_owner_id
+            or response.get("requestId") != self.stop_request_id
+        ):
+            return
+        if response.get("state") not in {"reviewing", "blocked", "uncertain", "completed"}:
+            raise ValueError("Invalid owner stop state")
+        record = self.ledger.get(self.launch.resource_id)
+        atomic_json(
+            root / ".local/service-stop-result.json",
+            {
+                "schemaVersion": 1,
+                "ownerId": record.owner_id,
+                "resourceId": record.resource_id,
+                "requestId": self.stop_request_id,
+                "state": response["state"],
+                "message": str(response.get("message", ""))[:512],
+            },
         )
 
     def receipt_metadata(self):
@@ -175,6 +256,7 @@ def launch_service_tree(root, *, registry=None, ledger_factory=ResourceLedger):
                 "STUDIO5000_PLUGIN_ROOT": str(root),
                 "ROCKWELL_MANAGED_SERVICE": "1",
                 "ROCKWELL_RESOURCE_PROFILE": OFFLINE_PROFILE,
+                "ROCKWELL_RESOURCE_REGISTRY": str(ledger.directory.parent),
             },
             max_processes=maximum,
         ) as launch,

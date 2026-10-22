@@ -54,6 +54,41 @@ try {
     if (Test-Path -LiteralPath (Join-Path $local 'service-stop-request.json')) { throw 'Changed identity produced a stop request.' }
     if ($global:RockwellOwnedStopFixture.Waits -ne 1) { throw 'Changed identity reached a process wait/stop.' }
     $checks++
+    # Direct .NET generation: exact host/image/creation plus signed owner IPC.
+    Remove-Item -LiteralPath (Join-Path $local 'management-supervisor.json')
+    $baseKey = [Microsoft.Win32.RegistryKey]::OpenBaseKey([Microsoft.Win32.RegistryHive]::LocalMachine, [Microsoft.Win32.RegistryView]::Registry64)
+    try { $cryptoKey = $baseKey.OpenSubKey('SOFTWARE\Microsoft\Cryptography'); try { $machine = ([Guid]::Parse([string]$cryptoKey.GetValue('MachineGuid'))).ToString('D').ToLowerInvariant() } finally { $cryptoKey.Dispose() } } finally { $baseKey.Dispose() }
+    $sha = [Security.Cryptography.SHA256]::Create()
+    try { $hostId = -join ($sha.ComputeHash([Text.Encoding]::UTF8.GetBytes($machine)) | ForEach-Object { $_.ToString('x2') }) } finally { $sha.Dispose() }
+    $owner = [pscustomobject]@{ schemaVersion=1; ownerId=('a'*32); owner=[pscustomobject]@{ host_id=$hostId; pid=424242; executable=$image; created=$started.ToFileTimeUtc().ToString([Globalization.CultureInfo]::InvariantCulture) } }
+    $owner | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath (Join-Path $local 'service-owner.json') -Encoding UTF8
+    [pscustomobject]@{ schemaVersion=1; ownerId=('a'*32); resourceId=('a'*32); requestId=('c'*32); signature=('0'*64) } |
+        ConvertTo-Json | Set-Content -LiteralPath (Join-Path $local 'service-owner-stop.json') -Encoding UTF8
+    $process | Add-Member ScriptMethod WaitForExit {
+        param($milliseconds)
+        $global:RockwellOwnedStopFixture.Waits++
+        $fixtureLocal = Join-Path $global:RockwellOwnedStopFixture.Root '.local'
+        $pending = Get-Content -LiteralPath (Join-Path $fixtureLocal 'service-owner-stop.json') -Raw | ConvertFrom-Json
+        if ($pending.ownerId -cne ('a'*32) -or $pending.resourceId -cne ('a'*32) -or $pending.requestId -cne ('c'*32) -or $pending.signature -notmatch '^[0-9a-f]{64}$' -or $pending.signature -eq ('0'*64)) { throw 'Direct signed identity-bound intent was not written.' }
+        [pscustomobject]@{ schemaVersion=1; ownerId=$pending.ownerId; requestId=$pending.requestId; state='blocked'; message='Synthetic dirty native document' } |
+            ConvertTo-Json | Set-Content -LiteralPath (Join-Path $fixtureLocal 'service-owner-stop-result.json') -Encoding UTF8
+        return $false
+    } -Force
+    try { & $scriptPath; throw 'Dirty native refusal was ignored.' }
+    catch { if ($_.Exception.Message -notmatch 'Direct service stop blocked') { throw } }
+    $checks++
+    $waits = $global:RockwellOwnedStopFixture.Waits
+    try { & $scriptPath; throw 'A blocked stop was automatically retried.' }
+    catch { if ($_.Exception.Message -notmatch 'Prior stop blocked') { throw } }
+    if ($global:RockwellOwnedStopFixture.Waits -ne $waits) { throw 'A blocked request reached dispatch twice.' }
+    $checks++
+    $owner.owner.host_id = '0'*64
+    $owner | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath (Join-Path $local 'service-owner.json') -Encoding UTF8
+    $calls = $global:RockwellOwnedStopFixture.Calls
+    try { & $scriptPath; throw 'Foreign host was adopted.' }
+    catch { if ($_.Exception.Message -notmatch 'ownership host') { throw } }
+    if ($global:RockwellOwnedStopFixture.Calls -ne $calls) { throw 'Foreign host triggered local PID lookup.' }
+    $checks++
     [pscustomobject]@{ passed = $checks; actualProcessStops = 0; actualServersStarted = 0 } | ConvertTo-Json -Compress
 } finally {
     Remove-Variable -Name RockwellOwnedStopFixture -Scope Global -ErrorAction SilentlyContinue

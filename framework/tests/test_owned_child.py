@@ -25,6 +25,12 @@ class Child:
     def stop_requested(self, root):
         return False
 
+    def request_stop(self, root):
+        self.stop_sent = True
+
+    def forward_stop_result(self, root):
+        pass
+
 
 @pytest.fixture
 def supervisor(tmp_path, monkeypatch):
@@ -85,8 +91,26 @@ def test_ledger_failure_stops_owned_tree_without_replaying(supervisor, monkeypat
 def test_owner_stop_request_closes_once_without_a_pid_kill(supervisor, monkeypatch):
     management, child, root = supervisor
     monkeypatch.setattr(child, "stop_requested", lambda _: True)
-    assert management.run(root) == 0
+    assert management.run(root) == 7
+    assert child.stop_sent
     assert child.closes == 1
+
+
+def test_ctrl_c_requests_owned_close_without_unwinding_surviving_owner(supervisor, monkeypatch):
+    import signal
+
+    management, child, root = supervisor
+    child.polls = iter([None, None, 7])
+    previous = signal.getsignal(signal.SIGINT)
+
+    def interrupt(_):
+        signal.getsignal(signal.SIGINT)(signal.SIGINT, None)
+        assert child.closes == 0
+
+    monkeypatch.setattr(management.time, "sleep", interrupt)
+    assert management.run(root) == 7
+    assert child.stop_sent and child.closes == 1
+    assert signal.getsignal(signal.SIGINT) is previous
 
 
 def test_held_supervisor_never_registers_or_launches(tmp_path, monkeypatch):

@@ -3,6 +3,7 @@ using System.Security.Cryptography;
 using System.Text;
 using Studio5000.Core;
 using Studio5000.Extensibility;
+using Studio5000.Core.Resources;
 
 var root = Path.GetFullPath(Environment.GetEnvironmentVariable("STUDIO5000_PLUGIN_ROOT") ?? Directory.GetCurrentDirectory());
 if (File.Exists(Path.Combine(root, ".local", "maintenance-hold.json"))) throw new InvalidOperationException("RockwellMCPServer is on operator maintenance hold; explicit human release is required.");
@@ -40,6 +41,8 @@ if (supervisorOwner is not null) ManagedResourcePolicy.Validate(Environment.GetE
 // Self-membership precedes all business service/worker initialization. Never
 // assign an existing user-owned engineering application to this private job.
 OwnedProcessContainment.EnterCurrentProcess(options.MaximumOwnedProcesses);
+using var resourceSupervisor = new ResourceSupervisor(root,
+    Environment.GetEnvironmentVariable("ROCKWELL_RESOURCE_REGISTRY") ?? WindowsResourceProcessDriver.DefaultRegistry(), options.MaximumOwnedProcesses);
 var local = Path.Combine(root, ".local");
 Directory.CreateDirectory(local);
 ProjectService.RejectLinks(local);
@@ -51,8 +54,11 @@ builder.Services.AddSingleton(options);
 builder.Services.AddSingleton(new ServiceSettingsStore(root, url, options));
 builder.Services.AddSingleton<ProjectService>();
 builder.Services.AddSingleton(_ => new ExtensionHost(options, root));
+builder.Services.AddHostedService(provider => new OwnerStopService(root, resourceSupervisor, token,
+    provider.GetRequiredService<ProjectService>(), provider.GetRequiredService<ExtensionHost>(), provider.GetRequiredService<IHostApplicationLifetime>()));
 var app = builder.Build();
 _ = app.Services.GetRequiredService<ProjectService>(); // hold one exclusive process lock before publishing connection info
+resourceSupervisor.WriteOwnerReceipt();
 File.WriteAllText(Path.Combine(local, "connection.json"), System.Text.Json.JsonSerializer.Serialize(new { url, tokenFile = tokenPath }));
 app.Use(async (context, next) =>
 {
@@ -271,6 +277,26 @@ await app.RunAsync();
 sealed class SupervisorExitService(ParentProcessOwners owner, IHostApplicationLifetime lifetime) : BackgroundService
 {
     protected override Task ExecuteAsync(CancellationToken stoppingToken) => owner.RequestShutdownOnExitAsync(lifetime.StopApplication, stoppingToken);
+}
+
+sealed class OwnerStopService(string root, ResourceSupervisor resources, string key, ProjectService projects,
+    ExtensionHost extensions, IHostApplicationLifetime lifetime) : BackgroundService
+{
+    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+    {
+        var mailbox = new OwnerShutdownMailbox(root, resources.Owner.OwnerId, key);
+        while (!stoppingToken.IsCancellationRequested)
+        {
+            if (await mailbox.PollAsync(() =>
+            {
+                if (!projects.TryFenceShutdown()) return Task.FromResult(new OwnerShutdownDecision(false, "Finish active mutations, native jobs and polling before shutdown."));
+                if (!extensions.TryFenceShutdown()) { projects.ReleaseShutdownFence(); return Task.FromResult(new OwnerShutdownDecision(false, "Extension calls/reloads/jobs are still active.")); }
+                try { resources.CloseOwnedResources(); return Task.FromResult(new OwnerShutdownDecision(true, "Owned resource cleanup verified; service shutdown requested.")); }
+                catch { extensions.ReleaseShutdownFence(); projects.ReleaseShutdownFence(); throw; }
+            }, stoppingToken)) { lifetime.StopApplication(); return; }
+            await Task.Delay(100, stoppingToken);
+        }
+    }
 }
 
 public partial class Program { }

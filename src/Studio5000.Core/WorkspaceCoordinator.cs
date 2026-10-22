@@ -25,11 +25,14 @@ public sealed class WorkspaceCoordinator(int maximumActive = 8, int maximumQueue
     private readonly Dictionary<long, string[]?> active = [];
     private readonly HashSet<string> resources = new(StringComparer.OrdinalIgnoreCase);
     private IDisposable? legacy;
-    private bool exclusive, disposed;
+    private bool exclusive, disposed, shutdownFenced;
     private long sequence;
     internal Action? BeforeExclusive { get; set; }
     public WorkspaceConcurrencyStatus Status()
     { lock (sync) return new(maximumActive, maximumQueued, active.Count, waiting.Count, exclusive, resources.Order(StringComparer.Ordinal).ToArray()); }
+    internal bool TryFenceShutdown()
+    { lock (sync) { if (active.Count != 0 || waiting.Count != 0) return false; shutdownFenced = true; return true; } }
+    internal void ReleaseShutdownFence() { lock (sync) { if (!disposed) shutdownFenced = false; } }
     public Task<IDisposable> EnterAsync(string[] keys, CancellationToken ct = default)
     {
         if (keys is null || keys.Length is < 1 or > 16 || keys.Any(k => string.IsNullOrWhiteSpace(k) || k.Length > 1024)) throw new ArgumentException("Supply 1..16 bounded resource keys.");
@@ -41,6 +44,7 @@ public sealed class WorkspaceCoordinator(int maximumActive = 8, int maximumQueue
         lock (sync)
         {
             ObjectDisposedException.ThrowIf(disposed, this); ct.ThrowIfCancellationRequested();
+            if (shutdownFenced) throw new OperationException("service_stopping", "New mutations are fenced for reviewed service shutdown.");
             if (waiting.Count >= maximumQueued) throw new OperationException("request_queue_full", "Mutation queue is full; retry later after inspecting the operation's result.");
             var request = new Pending(keys, ct); request.Node = waiting.AddLast(request);
             request.Registration = ct.UnsafeRegister(_ => Cancel(request), null);

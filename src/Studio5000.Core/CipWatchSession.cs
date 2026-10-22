@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Text.Json;
+using Studio5000.Core.Resources;
 
 namespace Studio5000.Core;
 
@@ -24,13 +25,13 @@ internal sealed class CipWatchSessionFactory(ServiceOptions options) : IWatchSes
         var plan = CipWatchPlanning.Build(XmlProjects.Parse(await File.ReadAllBytesAsync(request.SourcePath, ct)), "", request.AllowedTags);
         var start = new ProcessStartInfo(Path.GetFullPath(options.CipBridgePath!))
         { UseShellExecute = false, CreateNoWindow = true, RedirectStandardInput = true, RedirectStandardOutput = true, RedirectStandardError = true };
-        var process = Process.Start(start) ?? throw new IOException("Could not start the CIP reader.");
+        var process = ResourceSupervisor.RequireCurrent().Launch(start, "Rockwell read-only CIP session", "cip-reader");
         var session = new Session(process, TimeSpan.FromMilliseconds((long)request.CipTarget.TimeoutMs * Math.Max(1, plan.UniqueLeafReads) * 2 + 5000));
         try { await session.ExchangeAsync(request, ct); return session; }
         catch { await session.DisposeAsync(); throw; }
     }
 
-    private sealed class Session(Process process, TimeSpan readTimeout) : IWatchSession
+    private sealed class Session(WindowsChildProcess process, TimeSpan readTimeout) : IWatchSession
     {
         private static readonly JsonSerializerOptions WireJson = new(ProjectService.Json) { WriteIndented = false };
         private readonly Task stderr = process.StandardError.BaseStream.CopyToAsync(Stream.Null);

@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using Studio5000.Extensibility;
+using Studio5000.Core.Resources;
 
 namespace Studio5000.Core;
 
@@ -30,7 +31,16 @@ public sealed class ExtensionHost : IDisposable
     private readonly List<Generation> retired = [];
     private readonly List<string> errors = [];
     private readonly Dictionary<string, (ExtensionJob Job, CancellationTokenSource Cancel)> jobs = new();
-    private bool initialized, disposed;
+    private bool initialized, disposed, shutdownFenced;
+    public bool TryFenceShutdown()
+    {
+        lock (sync)
+        {
+            if (initialize.CurrentCount == 0 || reload.CurrentCount == 0 || active.Values.Concat(retired).Any(g => g.Leases != 0) || jobs.Values.Any(j => j.Job.Status is "queued" or "running")) return false;
+            shutdownFenced = true; return true;
+        }
+    }
+    public void ReleaseShutdownFence() { lock (sync) shutdownFenced = false; }
 
     public ExtensionHost(ServiceOptions options, string workspaceRoot, Func<string, string, IExtensionWorker>? factory = null)
     {
@@ -89,6 +99,7 @@ public sealed class ExtensionHost : IDisposable
             ObjectDisposedException.ThrowIf(disposed, this);
             lock (sync)
             {
+                if (shutdownFenced) throw Error("service_stopping", "Extension reload admission is fenced for service shutdown.");
                 if (active.Count + retired.Count >= 16) throw Error("extension_busy", "Too many active/draining generations; wait for jobs to finish.");
                 if (request.ExpectedGeneration is not null && (!active.TryGetValue(id, out var current) || current.Summary.Generation != request.ExpectedGeneration))
                     throw Error("stale_generation", "Extension generation changed; refresh the catalog.");
@@ -161,6 +172,7 @@ public sealed class ExtensionHost : IDisposable
     {
         lock (sync)
         {
+            if (shutdownFenced) throw Error("service_stopping", "Extension call admission is fenced for service shutdown.");
             var (generation, operation) = Find(call.ExtensionId, call.Operation, call.Generation);
             if (operation.Effect != effect) throw Error("effect_mismatch", "Operation requires the " + operation.Effect + " channel.");
             if (call.Arguments.ValueKind != JsonValueKind.Object || call.Arguments.GetRawText().Length > 1024 * 1024) throw Error("invalid_arguments", "Arguments must be an object under 1 MiB.");
@@ -254,7 +266,7 @@ public sealed class ExtensionHost : IDisposable
 
 internal sealed class ProcessExtensionWorker : IExtensionWorker
 {
-    private readonly Process process;
+    private readonly WindowsChildProcess process;
     private readonly SemaphoreSlim gate = new(1);
     private int closed;
     public ProcessExtensionWorker(string executable, string assembly, string type, string workspace)
@@ -264,7 +276,7 @@ internal sealed class ProcessExtensionWorker : IExtensionWorker
         var start = new ProcessStartInfo(executable) { UseShellExecute = false, CreateNoWindow = true, RedirectStandardInput = true,
             RedirectStandardOutput = true, RedirectStandardError = true, WorkingDirectory = Path.GetDirectoryName(assembly)! };
         start.ArgumentList.Add(assembly); start.ArgumentList.Add(type); start.ArgumentList.Add(workspace);
-        process = Process.Start(start) ?? throw new IOException("Extension worker did not start.");
+        process = ResourceSupervisor.RequireCurrent().Launch(start, "Rockwell extension worker", "extension-worker");
         _ = Task.Run(async () => { try { while (await process.StandardError.ReadLineAsync() is not null) { } } catch (Exception ex) when (ex is ObjectDisposedException or IOException) { } });
     }
     public async Task<ExtensionOperation[]> DescribeAsync(CancellationToken ct) => (await ExchangeAsync(new("describe"), ct)).Deserialize<ExtensionOperation[]>(ExtensionProtocol.Json)!;

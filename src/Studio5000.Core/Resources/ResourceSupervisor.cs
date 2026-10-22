@@ -1,0 +1,77 @@
+using System.Diagnostics;
+using System.Text.Json;
+
+namespace Studio5000.Core.Resources;
+
+// One actual surviving service or stdio-supervisor process owns this scope.
+// It never adopts a prior generation or starts a registration helper.
+public sealed class ResourceSupervisor : IDisposable
+{
+    private static ResourceSupervisor? current;
+    private readonly object sync = new();
+    private readonly List<WindowsChildProcess> children = [];
+    private bool closing, disposed;
+    public string Root { get; }
+    public ResourceLedger Ledger { get; }
+    public ResourceLedger.ResourceOwner Owner { get; }
+    public int MaximumProcesses { get; }
+    public static ResourceSupervisor RequireCurrent() => current ?? throw new OperationException("resource_owner_required", "Initialize the long-lived application resource owner before launching workers; no untracked fallback is allowed.");
+    public ResourceSupervisor(string root, string registry, int maximumProcesses = 32, int maximumResources = 32)
+    {
+        Root = Path.GetFullPath(root); MaximumProcesses = maximumProcesses; OwnedProcessContainment.ValidateLimit(maximumProcesses);
+        if (File.Exists(Path.Combine(Root, ".local", "maintenance-hold.json"))) throw new InvalidOperationException("Operator maintenance hold blocks application resource startup.");
+        Ledger = new(registry, new WindowsResourceProcessDriver(), maximumResources); Owner = Ledger.Owner("rockwell-mcp-server");
+        if (Interlocked.CompareExchange(ref current, this, null) is not null) throw new InvalidOperationException("This process already has a resource supervisor.");
+    }
+    public WindowsChildProcess Launch(ProcessStartInfo start, string label, string kind)
+    {
+        lock (sync)
+        {
+            ObjectDisposedException.ThrowIf(disposed, this);
+            if (closing) throw new OperationException("resource_owner_closing", "Worker admission is fenced for shutdown.");
+            children.RemoveAll(c => c.HandlesClosed);
+            var child = WindowsChildProcess.Launch(Owner, start, label, kind, MaximumProcesses);
+            children.Add(child); return child;
+        }
+    }
+    public void WriteOwnerReceipt()
+    {
+        var local = Path.Combine(Root, ".local"); ProjectService.RejectLinks(local); Directory.CreateDirectory(local);
+        var path = Path.Combine(local, "service-owner.json"); ProjectService.RejectLinks(path);
+        var bytes = JsonSerializer.SerializeToUtf8Bytes(new { schemaVersion = 1, ownerId = Owner.OwnerId, owner = Owner.Identity, registry = Path.GetDirectoryName(Ledger.DirectoryPath) });
+        var temporary = path + "." + Guid.NewGuid().ToString("N") + ".tmp";
+        try
+        {
+            using (var output = new FileStream(temporary, FileMode.CreateNew, FileAccess.Write, FileShare.None)) { output.Write(bytes); output.Flush(true); }
+            if (File.Exists(path)) File.Replace(temporary, path, null); else File.Move(temporary, path);
+        }
+        finally { if (File.Exists(temporary)) File.Delete(temporary); }
+    }
+    public void Refresh()
+    {
+        lock (sync)
+        {
+            children.RemoveAll(c => c.HandlesClosed);
+            foreach (var child in children) if (child.Record.State == "active") child.Refresh();
+        }
+    }
+    public ResourceRecord[] ShutdownBlockers()
+    {
+        lock (sync)
+            return Ledger.Records().Where(r => r.AppId == Owner.AppId && r.OwnerId == Owner.OwnerId && !r.Terminal &&
+                (r.RecoveryBarrier is not null || r.Receipt is not null || r.Ownership != "private" || r.CleanupMode != "terminate" || r.State != "active")).ToArray();
+    }
+    public void CloseOwnedResources()
+    {
+        lock (sync)
+        {
+            if (disposed) return;
+            if (ShutdownBlockers().Length != 0) throw new OperationException("native_recovery_required", "Owned documents, attachments, shared leases or uncertain receipts require app-owned close/recovery before shutdown.");
+            closing = true; Owner.FenceAndInspectClose();
+            foreach (var child in children.Where(c => !c.HandlesClosed))
+                if (child.Close().Outcome == "uncertain") throw new OperationException("resource_cleanup_uncertain", "Resource cleanup is uncertain; keep admission fenced and inspect the retained receipt.");
+            children.Clear(); disposed = true; Interlocked.CompareExchange(ref current, null, this);
+        }
+    }
+    public void Dispose() => CloseOwnedResources();
+}

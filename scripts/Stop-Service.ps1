@@ -1,3 +1,4 @@
+param([switch]$ReviewBlockedStop)
 $ErrorActionPreference = 'Stop'
 $repo = Split-Path -Parent $PSScriptRoot
 $pidFile = Join-Path $repo '.local/service.pid'
@@ -36,6 +37,14 @@ if (Test-Path -LiteralPath $supervisorFile) {
                 if ($prior.ownerId -eq $owned.ownerId -and $prior.resourceId -eq $owned.resourceId) {
                     if ($prior.requestId -notmatch '^[0-9a-f]{32}$') { throw 'Existing stop request is invalid; preserve it for inspection.' }
                     $requestId = $prior.requestId # Observe the same intent, never replace its ID.
+                    $priorReplyPath = Join-Path $repo '.local/service-stop-result.json'
+                    if (Test-Path -LiteralPath $priorReplyPath) {
+                        $priorReply = Get-Content -LiteralPath $priorReplyPath -Raw | ConvertFrom-Json
+                        if ($priorReply.ownerId -eq $owned.ownerId -and $priorReply.resourceId -eq $owned.resourceId -and $priorReply.requestId -eq $requestId) {
+                            if ($priorReply.state -eq 'blocked' -and $ReviewBlockedStop) { $requestId = [Guid]::NewGuid().ToString('N') }
+                            elseif ($priorReply.state -in @('blocked','uncertain','completed')) { throw ('Prior owner stop '+$priorReply.state+'; inspect it. -ReviewBlockedStop applies only after resolving a verified zero-effect refusal.') }
+                        }
+                    }
                 }
             }
             $body = "rockwell-stop-v1`n$($owned.ownerId)`n$($owned.resourceId)`n$requestId"
@@ -48,7 +57,17 @@ if (Test-Path -LiteralPath $supervisorFile) {
                 [IO.File]::WriteAllText($temporary, ($request | ConvertTo-Json -Compress), (New-Object Text.UTF8Encoding($false)))
                 if (Test-Path -LiteralPath $requestPath) { [IO.File]::Replace($temporary, $requestPath, [NullString]::Value) } else { [IO.File]::Move($temporary, $requestPath) }
             } finally { if (Test-Path -LiteralPath $temporary) { Remove-Item -LiteralPath $temporary -Force } }
-            if (!$ownedProcess.WaitForExit(20000)) { throw 'Owner stop has no confirmed terminal outcome; inspect the same request/resource and do not retry with another ID.' }
+            $waitDeadline = [DateTimeOffset]::UtcNow.AddSeconds(20)
+            while (!$ownedProcess.WaitForExit(100)) {
+                $replyPath = Join-Path $repo '.local/service-stop-result.json'
+                if (Test-Path -LiteralPath $replyPath) {
+                    $reply = Get-Content -LiteralPath $replyPath -Raw | ConvertFrom-Json
+                    if ($reply.ownerId -eq $owned.ownerId -and $reply.resourceId -eq $owned.resourceId -and $reply.requestId -eq $requestId -and $reply.state -in @('blocked','uncertain')) {
+                        throw ('Owner stop '+$reply.state+': '+$reply.message+' Inspect the retained request/resource; no PID was stopped.')
+                    }
+                }
+                if ([DateTimeOffset]::UtcNow -ge $waitDeadline) { throw 'Owner stop has no confirmed terminal outcome; inspect the same request/resource and do not retry with another ID.' }
+            }
             $deadline = [DateTimeOffset]::UtcNow.AddSeconds(10)
             do {
                 $result = Get-Content -LiteralPath $resourcePath -Raw | ConvertFrom-Json
@@ -60,23 +79,56 @@ if (Test-Path -LiteralPath $supervisorFile) {
         } finally { $ownedProcess.Dispose() }
     }
 }
+$ownerPath = Join-Path $repo '.local/service-owner.json'
+if (!(Test-Path -LiteralPath $ownerPath)) { throw 'No creation-bound service ownership receipt exists. Do not terminate from this legacy PID file; inspect the old instance manually.' }
+$direct = Get-Content -LiteralPath $ownerPath -Raw | ConvertFrom-Json
+if ($direct.schemaVersion -ne 1 -or $direct.ownerId -notmatch '^[0-9a-f]{32}$' -or $direct.owner.pid -ne $serviceProcessId) { throw 'Direct service ownership generation differs; no stop requested.' }
+$baseKey = [Microsoft.Win32.RegistryKey]::OpenBaseKey([Microsoft.Win32.RegistryHive]::LocalMachine, [Microsoft.Win32.RegistryView]::Registry64)
+try { $cryptoKey = $baseKey.OpenSubKey('SOFTWARE\Microsoft\Cryptography'); try { $machine = ([Guid]::Parse([string]$cryptoKey.GetValue('MachineGuid'))).ToString('D').ToLowerInvariant() } finally { if ($cryptoKey) { $cryptoKey.Dispose() } } } finally { $baseKey.Dispose() }
+$sha = [Security.Cryptography.SHA256]::Create()
+try { $hostId = -join ($sha.ComputeHash([Text.Encoding]::UTF8.GetBytes($machine)) | ForEach-Object { $_.ToString('x2') }) } finally { $sha.Dispose() }
+if ($direct.owner.host_id -cne $hostId) { throw 'Foreign/unverifiable service ownership host; no local PID lookup is permitted.' }
 $process = Get-Process -Id $serviceProcessId -ErrorAction SilentlyContinue
-if (!$process) { Write-Output 'The recorded service process has stopped.'; exit 0 }
-$expected = [IO.Path]::GetFullPath((Join-Path $repo 'artifacts/app/Service/Studio5000.Service.exe'))
-if (!$process.Path -or !([IO.Path]::GetFullPath($process.Path).Equals($expected, [StringComparison]::OrdinalIgnoreCase))) {
-    throw 'Recorded PID belongs to a different executable; refusing to stop it.'
-}
-$parentProcessId = (Get-CimInstance Win32_Process -Filter "ProcessId = $serviceProcessId").ParentProcessId
-Stop-Process -Id $serviceProcessId
-$process.WaitForExit()
-Write-Output "Stopped shared service PID $serviceProcessId."
-$supervisorFile = Join-Path $repo '.local/management-supervisor.json'
-if (Test-Path -LiteralPath $supervisorFile) {
-    $record = Get-Content -LiteralPath $supervisorFile -Raw | ConvertFrom-Json
-    if ($record.servicePid -eq $serviceProcessId -and $record.pid -eq $parentProcessId) {
-        $supervisor = Get-Process -Id $record.pid -ErrorAction SilentlyContinue
-        if ($supervisor -and $supervisor.ProcessName -in @('python','pythonw')) {
-            if (!$supervisor.WaitForExit(5000)) { throw 'The reporting supervisor is still stopping; wait before restarting the service.' }
+if (!$process) { throw 'Recorded service is gone; inspect retained resource outcomes instead of replaying stop.' }
+try {
+    [void]$process.Handle
+    $expected = [IO.Path]::GetFullPath((Join-Path $repo 'artifacts/app/Service/Studio5000.Service.exe'))
+    if ($process.HasExited -or !$process.Path -or !([IO.Path]::GetFullPath($process.Path).Equals($expected, [StringComparison]::OrdinalIgnoreCase)) -or
+        !([IO.Path]::GetFullPath($direct.owner.executable).Equals($expected, [StringComparison]::OrdinalIgnoreCase)) -or
+        $process.StartTime.ToUniversalTime().ToFileTimeUtc().ToString([Globalization.CultureInfo]::InvariantCulture) -cne [string]$direct.owner.created) { throw 'Direct service process identity changed; no stop requested.' }
+    $requestPath = Join-Path $repo '.local/service-owner-stop.json'; $replyPath = Join-Path $repo '.local/service-owner-stop-result.json'
+    $requestId = [Guid]::NewGuid().ToString('N')
+    if (Test-Path -LiteralPath $requestPath) {
+        $prior = Get-Content -LiteralPath $requestPath -Raw | ConvertFrom-Json
+        if ($prior.ownerId -eq $direct.ownerId) {
+            $requestId = $prior.requestId
+            if (Test-Path -LiteralPath $replyPath) {
+                $reply = Get-Content -LiteralPath $replyPath -Raw | ConvertFrom-Json
+                if ($reply.ownerId -eq $direct.ownerId -and $reply.requestId -eq $requestId -and $reply.state -eq 'blocked' -and $ReviewBlockedStop) { $requestId = [Guid]::NewGuid().ToString('N') }
+                elseif ($reply.ownerId -eq $direct.ownerId -and $reply.requestId -eq $requestId -and $reply.state -in @('blocked','uncertain','completed')) { throw ('Prior stop '+$reply.state+'; inspect its outcome. Use -ReviewBlockedStop only after a verified zero-effect refusal is resolved.') }
+            }
         }
     }
-}
+    if ($requestId -notmatch '^[0-9a-f]{32}$') { throw 'Retained stop request identity is invalid.' }
+    $key = [IO.File]::ReadAllText((Join-Path $repo '.local/service.key')).TrimStart([char]0xfeff).Trim()
+    if ($key.Length -lt 32 -or $key.Length -gt 4096) { throw 'Private stop authentication is unavailable.' }
+    $body = "rockwell-stop-v1`n$($direct.ownerId)`n$($direct.ownerId)`n$requestId"
+    $hmac = New-Object Security.Cryptography.HMACSHA256
+    try { $hmac.Key = [Text.Encoding]::UTF8.GetBytes($key); $signature = -join ($hmac.ComputeHash([Text.Encoding]::UTF8.GetBytes($body)) | ForEach-Object { $_.ToString('x2') }) } finally { $hmac.Dispose() }
+    $value = [ordered]@{ schemaVersion=1; ownerId=$direct.ownerId; resourceId=$direct.ownerId; requestId=$requestId; signature=$signature }
+    $temporary = $requestPath + '.' + [Guid]::NewGuid().ToString('N') + '.tmp'
+    try { [IO.File]::WriteAllText($temporary, ($value | ConvertTo-Json -Compress), (New-Object Text.UTF8Encoding($false))); if (Test-Path -LiteralPath $requestPath) { [IO.File]::Replace($temporary,$requestPath,[NullString]::Value) } else { [IO.File]::Move($temporary,$requestPath) } }
+    finally { if (Test-Path -LiteralPath $temporary) { Remove-Item -LiteralPath $temporary -Force } }
+    $deadline = [DateTimeOffset]::UtcNow.AddSeconds(20)
+    while (!$process.WaitForExit(100)) {
+        if (Test-Path -LiteralPath $replyPath) {
+            $reply = Get-Content -LiteralPath $replyPath -Raw | ConvertFrom-Json
+            if ($reply.ownerId -eq $direct.ownerId -and $reply.requestId -eq $requestId -and $reply.state -in @('blocked','uncertain')) { throw ('Direct service stop '+$reply.state+': '+$reply.message) }
+        }
+        if ([DateTimeOffset]::UtcNow -ge $deadline) { throw 'Direct stop outcome is not confirmed; inspect the same intent instead of creating another request.' }
+    }
+    if (!(Test-Path -LiteralPath $replyPath)) { throw 'Service exited without an owned shutdown receipt; retain the uncertain outcome.' }
+    $reply = Get-Content -LiteralPath $replyPath -Raw | ConvertFrom-Json
+    if ($reply.ownerId -ne $direct.ownerId -or $reply.requestId -ne $requestId -or $reply.state -ne 'completed') { throw 'Service exit lacks matching verified shutdown evidence.' }
+    Write-Output 'Direct service owner confirmed cleanup and shutdown.'
+} finally { $process.Dispose() }

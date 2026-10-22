@@ -232,3 +232,44 @@ def test_stop_intent_requires_exact_generation_and_signature_without_exposing_ke
         path.write_text(json.dumps(valid), encoding="utf-8")
         assert child.stop_requested(root)
         assert key not in path.read_text("utf-8")
+
+
+def test_parent_forwards_only_to_exact_service_owner_and_keeps_refusal_alive(app):
+    root, _, ledger, registry = app
+    local = root / ".local"
+    local.mkdir()
+    (local / "service.key").write_text("k" * 64, encoding="utf-8")
+    with launch_service_tree(root, registry=registry, ledger_factory=lambda _: ledger) as child:
+        record = ledger.get(child.launch.resource_id)
+        (local / "service-owner.json").write_text(
+            json.dumps(
+                {
+                    "schemaVersion": 1,
+                    "ownerId": "e" * 32,
+                    "owner": record.process.model_dump(),
+                }
+            ),
+            encoding="utf-8",
+        )
+        child.request_stop(root, "f" * 32)
+        forwarded = json.loads((local / "service-owner-stop.json").read_text("utf-8"))
+        assert forwarded["ownerId"] == "e" * 32 and forwarded["resourceId"] == "e" * 32
+        assert forwarded["signature"] == stop_signature("k" * 64, "e" * 32, "e" * 32, "f" * 32)
+        (local / "service-owner-stop-result.json").write_text(
+            json.dumps(
+                {
+                    "schemaVersion": 1,
+                    "ownerId": "e" * 32,
+                    "requestId": "f" * 32,
+                    "state": "blocked",
+                    "message": "Native session still active",
+                }
+            ),
+            encoding="utf-8",
+        )
+        child.forward_stop_result(root)
+        response = json.loads((local / "service-stop-result.json").read_text("utf-8"))
+        assert response["state"] == "blocked" and response["ownerId"] == record.owner_id
+        assert child.poll() is None  # Refusal never turns into parent-context teardown.
+        child.request_stop(root, "f" * 32)
+        assert child.stop_delivered == {"f" * 32}

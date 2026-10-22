@@ -68,6 +68,7 @@ public sealed class WindowsChildProcess : IResourceProcessGroup, IDisposable
         }
     }
     public ResourceRecord Record => owner.Ledger.Get(ResourceId);
+    public bool HandlesClosed => process is null;
     public ResourceRecord Refresh() => owner.PublishMembers(ResourceId, Identities());
     public void SetRecoveryBarrier(string reason) => owner.SetRecoveryBarrier(ResourceId, reason);
     public void ResolveRecoveryBarrier(string revision, string evidence) => owner.ResolveRecoveryBarrier(ResourceId, revision, evidence);
@@ -127,13 +128,18 @@ public sealed class WindowsChildProcess : IResourceProcessGroup, IDisposable
     }
     public CleanupReceipt Close()
     {
-        if (receipt is not null) return receipt;
-        var record = Record;
+        var record = receipt is null ? Record : null;
         // A refused native/dirty barrier deliberately keeps these handles rooted
         // in the owning supervisor. Dispose never turns refusal into silent kill.
-        receipt = owner.Cleanup(ResourceId, record.Revision, Guid.NewGuid().ToString("N"), this);
+        receipt ??= owner.Cleanup(ResourceId, record!.Revision, Guid.NewGuid().ToString("N"), this);
         try { CloseHandles(); } finally { Retained.TryRemove(ResourceId, out _); }
         return receipt;
+    }
+    public void Kill(bool entireProcessTree = true)
+    {
+        if (!entireProcessTree) throw new ArgumentException("Owned resources require exact whole-job cleanup.");
+        receipt ??= owner.Cleanup(ResourceId, Record.Revision, Guid.NewGuid().ToString("N"), this);
+        if (receipt.Outcome == "uncertain") throw new IOException("Owned cleanup is uncertain; inspect its retained receipt and do not retry.");
     }
     public void Dispose() => Close();
     private void CloseHandles()
