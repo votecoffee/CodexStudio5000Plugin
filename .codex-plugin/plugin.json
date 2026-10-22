@@ -1,6 +1,6 @@
 {
   "name": "rockwell-mcp-server",
-  "version": "0.36.1",
+  "version": "0.36.2",
   "description": "Shared Rockwell engineering service with MCP, REST, a desktop GUI and reloadable extensions.",
   "skills": "./skills/",
   "mcpServers": "./.mcp.json",

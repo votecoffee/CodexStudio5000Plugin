@@ -26,7 +26,7 @@ Authenticated `/api/management/activity` adds `process_containment` with the sel
 
 ## Remaining ownership work
 
-Durable resource recovery and operating-system containment are not accepted runtime capabilities yet. Containment has a source implementation only. The pinned framework 0.18.0 package does not supply the forthcoming shared resource-ownership ledger. App integration must await a published, reviewed API rather than assuming package presence implements recovery.
+Durable resource recovery and operating-system containment are not accepted runtime capabilities yet. Containment has a source implementation only. The reviewed framework 0.20.0 package now supplies a language-neutral resource ledger and contained background launcher. App integration and native registration still need separate implementation/acceptance; package presence alone does not record this app's resources. Native .NET bindings are not supplied by the framework.
 
 The application must separately track exclusive launches, user-owned attachments and shared leases; pin process creation identities; retain dirty/uncertain evidence; and keep shared resources alive until their last authorized owner closes. Native SDK/COM/server-owned processes may fall outside a normal child tree. User-owned engineering applications must never be inferred to be disposable from their names or current project.
 

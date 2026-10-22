@@ -78,7 +78,9 @@ def test_versions_distinguish_local_installed_running_available_and_unknown(tmp_
     current = versions(tmp_path)
     assert current["app"].installed == "0.35.5" and current["app"].update_pending
     assert current["plugin"].running is None and current["plugin"].update_pending
-    assert current["framework"].running == "0.18.0" and current["mcp-python"].running == "2.3.0"
+    assert current["framework"].installed == "0.18.0"  # Deliberately older local metadata.
+    assert current["framework"].running == "0.20.0" and current["mcp-python"].running == "2.3.0"
+    assert current["framework"].update_pending
     assert current["mcp-dotnet"].available is None
     assert component(None).installed == "unknown" and component(None).available is None
 

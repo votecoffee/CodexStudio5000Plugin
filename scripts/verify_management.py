@@ -55,7 +55,7 @@ def main():
                 "pythonSha256": hashlib.sha256(
                     Path(sys.executable).read_bytes()
                 ).hexdigest(),
-                "frameworkVersion": "0.18.0",
+                "frameworkVersion": "0.20.0",
                 "mcpPythonSdk": "2.3.0",
                 "registry": str(registry),
             }
@@ -119,7 +119,7 @@ def main():
             "Actual .NET running version is observed through metadata only",
         )
         check(
-            status["versions"]["framework"]["running"] == "0.18.0"
+            status["versions"]["framework"]["running"] == "0.20.0"
             and status["versions"]["mcp-python"]["running"] == "2.3.0",
             "Compatible installed framework and SDK versions are reported",
         )

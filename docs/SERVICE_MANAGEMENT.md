@@ -1,8 +1,8 @@
 # Service manager reporting
 
-Rockwell uses the shared `universal-codex-tools==0.18.0` management interface through an app-owned Python supervisor for its existing .NET service. The standalone plugin still connects to the .NET MCP adapter. The optional framework MCP front door remains optional. No universal broker, additional manager instance, Tasks, Skills API, OAuth, Apps UI or Redis profile is activated.
+Rockwell uses the shared `universal-codex-tools==0.20.0` management interface through an app-owned Python supervisor for its existing .NET service. The standalone plugin still connects to the .NET MCP adapter. The optional framework MCP front door remains optional. No universal broker, additional manager instance, Tasks, Skills API, OAuth, Apps UI or Redis profile is activated.
 
-The Windows MCP Service Manager is a separate shared application. This app does not install or start another manager. Follow the framework's [manager documentation](https://github.com/votecoffee/CodexMCPBroker/blob/7d8a0ccdc06598313061147ee8774837118a8861/docs/service-management.md) if a manager is needed.
+The Windows MCP Service Manager is a separate shared application. This app does not install or start another manager. Follow the framework's [manager documentation](https://github.com/votecoffee/CodexMCPBroker/blob/5b2cac50ca24d21a15b732e0424bb02fd794e1fb/docs/service-management.md) if a manager is needed.
 
 Each app keeps its own Codex plugin and native skills. The shared framework and independent manager do not aggregate plugins or create a universal Codex MCP connection. The Python package/import names remain `universal-codex-tools` / `universal_tools` for compatibility. This app's exact reviewed package pin remains authoritative until an app-owned migration is reviewed and validated; architecture announcements do not install a release or supply the pending durable resource-ledger API.
 
@@ -11,13 +11,13 @@ Each app keeps its own Codex plugin and native skills. The shared framework and 
 Prepare a new compatible environment using the exact reviewed wheel in `framework/src/rockwell_framework/baseline.json`:
 
 ```powershell
-.\scripts\Initialize-Framework.ps1 -FrameworkWheel 'C:\Packages\universal_codex_tools-0.18.0-py3-none-any.whl' -RuntimeDirectory .local/framework-runtime-0.18.0
+.\scripts\Initialize-Framework.ps1 -FrameworkWheel 'C:\Packages\universal_codex_tools-0.20.0-py3-none-any.whl' -RuntimeDirectory .local/framework-runtime-0.20.0
 ```
 
 After the application has been built and installed, select that verified runtime:
 
 ```powershell
-.\scripts\Enable-Management.ps1 -RuntimeDirectory .local/framework-runtime-0.18.0 -FrameworkWheel 'C:\Packages\universal_codex_tools-0.18.0-py3-none-any.whl'
+.\scripts\Enable-Management.ps1 -RuntimeDirectory .local/framework-runtime-0.20.0 -FrameworkWheel 'C:\Packages\universal_codex_tools-0.20.0-py3-none-any.whl'
 ```
 
 Selection affects the next ordinary service start. Finish active work before stopping the existing service. `Run.cmd`, the GUI shortcut and `Start-Service.ps1` use the selected supervisor; without a selected runtime, direct service startup remains supported. Dependency or provenance failures fail explicitly rather than silently switching runtimes. The old environment and runtime state are preserved. Python MCP SDK remains 2.3.0; the .NET adapter has its independently locked 2.2.0 SDK.

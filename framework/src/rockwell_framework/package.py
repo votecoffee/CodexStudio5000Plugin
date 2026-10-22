@@ -36,8 +36,9 @@ def verify_wheel(path):
             if distribution.locate_file(name).read_bytes() != data:
                 raise ValueError("Installed framework bytes differ from reviewed wheel")
             checked += 1
-        if "universal_tools/management.py" not in wheel.namelist():
-            raise ValueError("Reviewed management implementation is missing")
+        required = {"universal_tools/management.py", "universal_tools/resources.py", "universal_tools/windows_resources.py"}
+        if not required.issubset(wheel.namelist()):
+            raise ValueError("Reviewed management/resource ownership implementation is missing")
     return {
         "framework": distribution.version,
         "mcp": importlib.metadata.version("mcp"),
