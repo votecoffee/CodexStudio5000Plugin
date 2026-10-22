@@ -35,6 +35,7 @@ RockwellMCPServer gives agents and engineers a shared workspace for project insp
 | Logix project editing | Inspect and preview/apply L5X component changes; export L5X or exploded ZIP. Optional SDK conversion supports ACD files. |
 | Project review | Compare hash-bound Logix snapshots, find PLC tag where-used candidates in saved RLL/ST and direct aliases, and preview ladder branches as drawing geometry and passive SVG. |
 | Logix SDK jobs | Ordered native calls for projects, builds, imports, typed/raw tags and other operations in the bound SDK version. Availability depends on the installed Logix version and project. |
+| [SDK service recovery](docs/SDK_SERVICE_RECOVERY.md) | Start a stopped Logix Designer SDK Service from chat or the GUI, or before new SDK work. Retain request receipts and leave a running service running. |
 | FactoryTalk View ME/SE | Edit existing graphics XML properties using matching installed schemas; resolve tag references against saved PLC metadata using explicit shortcut/parameter context, prepare import packages and compare re-exports. |
 | View Designer | Edit existing properties in exported `.hmi` folders, preserve assets, prepare import ZIPs and compare re-exports. |
 | Tag/UDT browser and watches | Search snapshot structures, expand members/arrays, create stopped watch lists, poll authorized tags and extract structures as JSON. |
