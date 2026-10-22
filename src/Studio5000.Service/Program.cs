@@ -36,6 +36,7 @@ if (configuredKeys.Contains(nameof(ServiceOptions.AllowedRoots))) options.Allowe
 if (configuredKeys.Contains(nameof(ServiceOptions.OutputRoots))) options.OutputRoots = [];
 settingsSection.Bind(options);
 ServiceSettingsStore.ResolveAndValidate(options, root);
+if (supervisorOwner is not null) ManagedResourcePolicy.Validate(Environment.GetEnvironmentVariable("ROCKWELL_RESOURCE_PROFILE"), options);
 // Self-membership precedes all business service/worker initialization. Never
 // assign an existing user-owned engineering application to this private job.
 OwnedProcessContainment.EnterCurrentProcess(options.MaximumOwnedProcesses);

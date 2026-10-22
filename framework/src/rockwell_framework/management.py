@@ -6,8 +6,6 @@ import argparse
 import importlib.metadata
 import ipaddress
 import json
-import os
-import subprocess
 import threading
 import time
 from pathlib import Path
@@ -23,6 +21,7 @@ from universal_tools.management import (
 )
 from universal_tools.models import atomic_json
 
+from .ownership import launch_service_tree, service_tree_limit
 from .publication import APP_ID, baseline, check_versions, ordinary
 
 RESTART_REASON = (
@@ -199,72 +198,40 @@ def poll_activity(root, client):
     return json.loads(raw)
 
 
-def stop_owned_child(child):
-    """Close only this invocation's Popen handle; saved PID files are not authority."""
-    if child is None or child.poll() is not None:
-        return
-    child.terminate()
-    try:
-        child.wait(timeout=10)
-    except subprocess.TimeoutExpired:
-        child.kill()
-        child.wait(timeout=5)
-
-
 def run(root, *, registry=None):
     check_versions()
     root = ordinary(root)
     local = ordinary(root / ".local")
     if (local / "maintenance-hold.json").exists():
         raise ValueError("Operator maintenance hold requires explicit human release before startup")
+    service_tree_limit(root)  # Fail before registration or process creation.
     stamp = installation(root)
-    executable = ordinary(root / "artifacts/app/Service/Studio5000.Service.exe")
-    child = None
     cache = CachedStatus(versions(root))
     with (
         InstanceLock(local / "management-supervisor.lock"),
         managed_service(cache, stamp["pluginId"], registry),
-        (local / "service.stdout.log").open("w", encoding="utf-8") as out,
-        (local / "service.stderr.log").open("w", encoding="utf-8") as err,
+        launch_service_tree(root, registry=registry) as child,
     ):
         try:
-            child = subprocess.Popen(
-                [str(executable)],
-                cwd=root,
-                stdout=out,
-                stderr=err,
-                env={
-                    **os.environ,
-                    "STUDIO5000_PLUGIN_ROOT": str(root),
-                    "ROCKWELL_MANAGED_SERVICE": "1",
-                },
-                creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
-            )
             atomic_json(local / "service.pid", child.pid)
-            atomic_json(
-                local / "management-supervisor.json",
-                {
-                    "schemaVersion": 1,
-                    "pid": os.getpid(),
-                    "servicePid": child.pid,
-                    "python": str(Path(os.sys.executable).resolve()),
-                },
-            )
+            atomic_json(local / "management-supervisor.json", child.receipt_metadata())
+            refreshed = time.monotonic()
             with httpx.Client(timeout=1, trust_env=False, follow_redirects=False) as client:
-                while child.poll() is None:
+                while (exit_code := child.poll()) is None:
+                    if child.stop_requested(root):
+                        return 0  # The owner context records and verifies tree cleanup.
+                    if time.monotonic() - refreshed >= 2:
+                        child.refresh()  # Ledger failure differs from status failure.
+                        refreshed = time.monotonic()
                     try:
                         cache.update(poll_activity(root, client), versions(root))
                     except Exception:  # noqa: BLE001 - status failures must not stop engineering work
                         # Reporting failures cannot interrupt the independently serving app.
                         cache.unavailable()
                     time.sleep(0.5)
-            return child.returncode
+            return exit_code
         except KeyboardInterrupt:
             return 130
-        finally:
-            # Own only the child created in this invocation. Process loss is not
-            # reconciliation of native effects; existing durable barriers remain.
-            stop_owned_child(child)
 
 
 def main():

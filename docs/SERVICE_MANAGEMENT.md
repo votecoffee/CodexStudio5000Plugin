@@ -4,7 +4,7 @@ Rockwell uses the shared `universal-codex-tools==0.20.0` management interface th
 
 The Windows MCP Service Manager is a separate shared application. This app does not install or start another manager. Follow the framework's [manager documentation](https://github.com/votecoffee/CodexMCPBroker/blob/5b2cac50ca24d21a15b732e0424bb02fd794e1fb/docs/service-management.md) if a manager is needed.
 
-Each app keeps its own Codex plugin and native skills. The shared framework and independent manager do not aggregate plugins or create a universal Codex MCP connection. The Python package/import names remain `universal-codex-tools` / `universal_tools` for compatibility. This app's exact reviewed package pin remains authoritative until an app-owned migration is reviewed and validated; architecture announcements do not install a release or supply the pending durable resource-ledger API.
+Each app keeps its own Codex plugin and native skills. The shared framework and independent manager do not aggregate plugins or create a universal Codex MCP connection. The Python package/import names remain `universal-codex-tools` / `universal_tools` for compatibility. This app's exact reviewed package pin remains authoritative; preparing an isolated review environment does not migrate a live registration or install/enable a plugin.
 
 ## Enable an app-owned runtime
 
@@ -22,13 +22,17 @@ After the application has been built and installed, select that verified runtime
 
 Selection affects the next ordinary service start. Finish active work before stopping the existing service. `Run.cmd`, the GUI shortcut and `Start-Service.ps1` use the selected supervisor; without a selected runtime, direct service startup remains supported. Dependency or provenance failures fail explicitly rather than silently switching runtimes. The old environment and runtime state are preserved. Python MCP SDK remains 2.3.0; the .NET adapter has its independently locked 2.2.0 SDK.
 
+The current supervisor source accepts only `offline-contained-v1`: no configured SDK/CIP bridge, enabled controller operations or controller targets. It refuses a native-enabled profile before manager registration or child launch; Core repeats that check against effective options. Settings remain untouched and no fallback route is selected. Native-enabled supervisor support awaits the app's .NET resource registration/recovery adapter. `Enable-Management.ps1` also refuses runtime-pointer mutation while the operator maintenance marker is present. Do not select/install this source profile during a runtime hold.
+
 The installer records the actual installed canonical plugin ID and version plus the built application version/Core hash. The selected runtime pointer and manager registration are private local state. Runtime setup verifies wheel SHA-256, RECORD/package bytes and dependency consistency; it does not install packages during live requests.
 
 ## Status and restart boundaries
 
 The supervisor owns one .NET child and one `ManagedService` registration with a fresh random instance ID. Its fast, thread-safe status callback returns a cached snapshot. A separate loop polls only the authenticated `/api/management/activity` endpoint and bounded installation metadata. The endpoint reads in-memory workspace/native-job/watch/extension counts without attaching projects, enumerating retained plans, starting workers or contacting controllers. Activity counts are conservative; they are not a restart approval.
 
-Source lifecycle handling now observes the supervisor's pinned process identity from its marked child and closes that invocation's child on controlled exit or failure after launch. This is separate from the forthcoming durable resource ledger and has no abrupt native-tree cleanup acceptance yet. See [process ownership](PROCESS_LIFETIMES.md).
+The supervisor owns the service-tree resource through the framework's durable `ResourceLedger`/`ResourceOwner` API and suspended Windows job launch. Its generation, exact process identity, member snapshots and cleanup receipt survive manager endpoint loss. It observes a pinned service handle rather than reopening saved PIDs. The marked child also observes its supervisor's pinned identity. Failure after launch and controlled exit close only the recorded tree; uncertain cleanup remains retained. Harmless process fixtures have passed; actual service/native acceptance is separate. See [process ownership](PROCESS_LIFETIMES.md).
+
+For the version-2 managed receipt, `Stop-Service.ps1` authenticates a private, generation-bound stop intent and waits for the owner to record verified tree cleanup. It does not terminate the service from a saved PID. Same-generation pending intents keep their ID; uncertain or terminal resource records require inspection. Stub fixtures verify this protocol across PowerShell versions; the actual application channel is still pending controlled runtime acceptance. Existing direct-service startup/stop is a separate legacy path with incomplete durable ownership coverage.
 
 Version rows distinguish installed, running and locally available app/plugin/framework/SDK versions and explicit `update_pending`. Plugin versions loaded by individual chats are unknown. Availability is local installation/source metadata, not a package-feed or GitHub query; unknown values stay unknown. Reporting failures mark the row degraded and cannot terminate the serving child.
 
@@ -41,5 +45,7 @@ The default registry uses the Windows user's Local AppData known folder without 
 ## Verification
 
 Run `python -m pytest -q framework/tests` in the installed app-owned runtime. Management fixtures cover cached status, unknown/pending versions, authentication, credential-free snapshots, stale/busy denial, concurrent duplicates with independent zero-effect counts, durable uncertain barriers and clean shutdown. Upstream management tests use only synthetic workers for accepted-restart effect counts; they do not prove a real Rockwell restart.
+
+During a runtime hold, select only the documented pure file/stub tests. The separate opt-in harmless Python resource fixtures start no engineering server. Package/provenance and these fixtures do not establish app-host, MCP EOF, native resource or installed acceptance of framework 0.20.
 
 `scripts/verify_management.py --workspace-root <isolated-profile>` exercises the normal launch/stop scripts, owning supervisor, actual isolated .NET service, manager row and real authenticated restart refusal. It rejects profiles with controllers or native SDK/CIP bridges enabled. `scripts/verify_framework.py` separately checks existing tool/schema parity through the installed optional framework host. Actual live restart acceptance remains unavailable until Rockwell implements and validates its full restart fence.

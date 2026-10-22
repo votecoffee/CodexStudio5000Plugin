@@ -2,6 +2,7 @@ param([Parameter(Mandatory=$true)][string]$RuntimeDirectory,
     [Parameter(Mandatory=$true)][string]$FrameworkWheel, [string]$RegistryDirectory)
 $ErrorActionPreference = 'Stop'
 $repo = Split-Path -Parent $PSScriptRoot
+if (Test-Path -LiteralPath (Join-Path $repo '.local/maintenance-hold.json')) { throw 'Operator maintenance hold blocks management runtime selection until explicitly released.' }
 $runtime = (Resolve-Path -LiteralPath (Join-Path $RuntimeDirectory 'Scripts/python.exe')).Path
 $baseline = Get-Content -LiteralPath (Join-Path $repo 'framework/src/rockwell_framework/baseline.json') -Raw | ConvertFrom-Json
 & $runtime -m pip check

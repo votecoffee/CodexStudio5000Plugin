@@ -153,7 +153,7 @@ The launcher starts the stdio MCP adapter and connects it to the shared service.
 
 The Windows adapter limits new frontend instances using OS-owned file leases and observes its launcher/parent handles. Configure the limit and shutdown timeout in **Settings…**. Closing a frontend leaves the shared service available to other clients. See [process ownership and outstanding lifecycle validation](docs/PROCESS_LIFETIMES.md); source implementation does not establish installed runtime cleanup acceptance.
 
-The service source also contains a bounded Windows process job for inherited children. Native GUI launch through the service is blocked until durable ownership and dirty-state recovery are integrated; launch FactoryTalk Studio manually for the existing export/import workflow. Runtime containment and resource-ledger acceptance remain outstanding.
+The service source also contains a bounded Windows process job for inherited children. The optional framework 0.20 supervisor records its offline service tree in the shared durable resource ledger and launches it suspended inside a private Windows job before execution. Native-enabled managed profiles remain blocked pending .NET resource registration/recovery; existing local settings are preserved. Native GUI launch through the service is also blocked until ownership and dirty-state recovery are integrated; launch FactoryTalk Studio manually for the existing export/import workflow. Harmless process fixtures have passed; real service, native and installed acceptance remain outstanding.
 
 Example chat request using the generated L5X fixture:
 

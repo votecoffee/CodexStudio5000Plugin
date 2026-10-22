@@ -6,6 +6,7 @@ ApplicationConfiguration.Initialize();
 try
 {
     var root = ServiceClient.FindRoot();
+    if (File.Exists(Path.Combine(root, ".local", "maintenance-hold.json"))) throw new InvalidOperationException("Operator maintenance hold blocks GUI connections until explicitly released.");
     using var client = new ServiceClient(root);
     if (args.Length == 2 && args[0] == "--self-test-settings-workflow")
     {
