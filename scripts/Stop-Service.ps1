@@ -1,5 +1,24 @@
 param([switch]$ReviewBlockedStop)
 $ErrorActionPreference = 'Stop'
+function Publish-RockwellStopIntent([string]$Temporary, [string]$Target, [scriptblock]$ReplaceFile) {
+    # Retry only unchanged-name metadata replacement. No new request is minted
+    # and no app/resource close operation is repeated by this helper.
+    for ($attempt=0; ; $attempt++) {
+        try {
+            if (Test-Path -LiteralPath $Target) {
+                if ($ReplaceFile) { & $ReplaceFile $Temporary $Target }
+                else { [IO.File]::Replace($Temporary,$Target,[NullString]::Value) }
+            } else { [IO.File]::Move($Temporary,$Target) }
+            return
+        } catch {
+            $failure = $_.Exception
+            while ($failure.InnerException) { $failure = $failure.InnerException }
+            if ($failure -isnot [IO.IOException] -or ($failure.HResult -band 0xffff) -notin @(32,33,1175) -or
+                $attempt -ge 6 -or !(Test-Path -LiteralPath $Temporary) -or !(Test-Path -LiteralPath $Target)) { throw }
+            Start-Sleep -Milliseconds (25 -shl $attempt)
+        }
+    }
+}
 $repo = Split-Path -Parent $PSScriptRoot
 $pidFile = Join-Path $repo '.local/service.pid'
 if (!(Test-Path -LiteralPath $pidFile)) { throw 'No background service PID file was found.' }
@@ -55,7 +74,7 @@ if (Test-Path -LiteralPath $supervisorFile) {
             $temporary = $requestPath + '.' + [Guid]::NewGuid().ToString('N') + '.tmp'
             try {
                 [IO.File]::WriteAllText($temporary, ($request | ConvertTo-Json -Compress), (New-Object Text.UTF8Encoding($false)))
-                if (Test-Path -LiteralPath $requestPath) { [IO.File]::Replace($temporary, $requestPath, [NullString]::Value) } else { [IO.File]::Move($temporary, $requestPath) }
+                Publish-RockwellStopIntent $temporary $requestPath
             } finally { if (Test-Path -LiteralPath $temporary) { Remove-Item -LiteralPath $temporary -Force } }
             $waitDeadline = [DateTimeOffset]::UtcNow.AddSeconds(20)
             while (!$ownedProcess.WaitForExit(100)) {
@@ -117,7 +136,7 @@ try {
     try { $hmac.Key = [Text.Encoding]::UTF8.GetBytes($key); $signature = -join ($hmac.ComputeHash([Text.Encoding]::UTF8.GetBytes($body)) | ForEach-Object { $_.ToString('x2') }) } finally { $hmac.Dispose() }
     $value = [ordered]@{ schemaVersion=1; ownerId=$direct.ownerId; resourceId=$direct.ownerId; requestId=$requestId; signature=$signature }
     $temporary = $requestPath + '.' + [Guid]::NewGuid().ToString('N') + '.tmp'
-    try { [IO.File]::WriteAllText($temporary, ($value | ConvertTo-Json -Compress), (New-Object Text.UTF8Encoding($false))); if (Test-Path -LiteralPath $requestPath) { [IO.File]::Replace($temporary,$requestPath,[NullString]::Value) } else { [IO.File]::Move($temporary,$requestPath) } }
+    try { [IO.File]::WriteAllText($temporary, ($value | ConvertTo-Json -Compress), (New-Object Text.UTF8Encoding($false))); Publish-RockwellStopIntent $temporary $requestPath }
     finally { if (Test-Path -LiteralPath $temporary) { Remove-Item -LiteralPath $temporary -Force } }
     $deadline = [DateTimeOffset]::UtcNow.AddSeconds(20)
     while (!$process.WaitForExit(100)) {
