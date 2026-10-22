@@ -50,7 +50,15 @@ The SDK bridge journals an exact worker/session handshake before native entry an
 
 An inner service job can retire its own worker despite the retained outer supervisor snapshot only when that snapshot names the exact current service process as its private Windows-job root. Attachments, siblings, other apps, receipt-bearing or departed generations still block cleanup. The common manager remains conservative about these overlapping claims and cannot apply this service-only delegation.
 
-Native session/lease fixtures use synthetic providers and identities. The proprietary SDK bridge has been compiled with the new lifecycle protocol, but native operations have not been run for this increment. Native GUI lifecycle remains separate source work.
+Native session/lease fixtures use synthetic providers and identities. The proprietary SDK bridge has been compiled with the new lifecycle protocol, but native operations have not been run for this increment.
+
+## User-owned native GUI handoff
+
+FactoryTalk launch now hands an empty application launch to the user's existing desktop shell. It pins the shell's full identity from the desktop window, records an attached COM-provider lease and flushes a handoff intent before dispatch. The implementation obtains the existing desktop automation object with [IShellWindows::FindWindowSW](https://learn.microsoft.com/en-us/windows/win32/api/exdisp/nf-exdisp-ishellwindows-findwindowsw) and invokes [IShellDispatch2::ShellExecute](https://learn.microsoft.com/en-us/windows/win32/shell/ishelldispatch2-shellexecute). There is no local `Process.Start`, private GUI job or fallback to a new shell.
+
+The application does not open a native document or retain a native editing connection through this handoff. Studio and later user-opened documents stay user-owned, so service shutdown does not attempt to save/close/terminate them. A successful handoff releases only its COM-provider observation/proxy references. The shell API does not return the target instance identity; receipts state that explicitly and do not infer it from a process-name scan. Actual Studio startup still needs observation. An uncertain dispatch retains its native barrier and immutable handoff record and blocks another launch until app-owned recovery; it cannot be retried automatically.
+
+Fake-provider tests cover successful detach, preservation of user software, uncertain handoff retention and replay refusal. No desktop COM handoff or native GUI has been executed for this increment. The service also routes console stop through the same signed owner mailbox, so Ctrl+C cannot bypass dirty/shared/native refusal via the default host lifetime. Uncertain teardown leaves admission fenced.
 
 ## Stdio transport owner
 

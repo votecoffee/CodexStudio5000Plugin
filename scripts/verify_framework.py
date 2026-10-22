@@ -92,7 +92,7 @@ async def exercise(root, state, output, check):
         env=dict(os.environ),
     )
     direct_params = StdioServerParameters(
-        command=str(root / "artifacts/app/Mcp/Studio5000.Mcp.exe"),
+        command=str(root / "artifacts/app/Mcp/Studio5000.StdioHost.exe"),
         env=dict(os.environ, STUDIO5000_PLUGIN_ROOT=str(root)),
     )
     async with AsyncExitStack() as stack:

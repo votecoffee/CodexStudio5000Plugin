@@ -51,6 +51,7 @@ if (!File.Exists(tokenPath)) File.WriteAllText(tokenPath, Convert.ToHexString(Ra
 var token = File.ReadAllText(tokenPath).Trim();
 if (token.Length < 32) throw new InvalidOperationException("service.key is too short.");
 builder.Services.AddSingleton(options);
+builder.Services.AddSingleton<IHostLifetime>(new OwnerConsoleLifetime(new OwnerShutdownMailbox(root, resourceSupervisor.Owner.OwnerId, token)));
 builder.Services.AddSingleton(new ServiceSettingsStore(root, url, options));
 builder.Services.AddSingleton<ProjectService>();
 builder.Services.AddSingleton(_ => new ExtensionHost(options, root));
@@ -291,8 +292,13 @@ sealed class OwnerStopService(string root, ResourceSupervisor resources, string 
             {
                 if (!projects.TryFenceShutdown()) return Task.FromResult(new OwnerShutdownDecision(false, "Finish active mutations, native jobs and polling before shutdown."));
                 if (!extensions.TryFenceShutdown()) { projects.ReleaseShutdownFence(); return Task.FromResult(new OwnerShutdownDecision(false, "Extension calls/reloads/jobs are still active.")); }
+                if (resources.ShutdownBlockers().Length != 0)
+                {
+                    extensions.ReleaseShutdownFence(); projects.ReleaseShutdownFence();
+                    return Task.FromResult(new OwnerShutdownDecision(false, "Native connections, dirty/unknown documents or shared leases require app-owned close/recovery before shutdown."));
+                }
                 try { resources.CloseOwnedResources(); return Task.FromResult(new OwnerShutdownDecision(true, "Owned resource cleanup verified; service shutdown requested.")); }
-                catch { extensions.ReleaseShutdownFence(); projects.ReleaseShutdownFence(); throw; }
+                catch { /* Keep all admission fences after uncertain teardown. */ throw; }
             }, stoppingToken)) { lifetime.StopApplication(); return; }
             await Task.Delay(100, stoppingToken);
         }

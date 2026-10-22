@@ -13,6 +13,26 @@ public sealed class OwnerShutdownMailbox(string root, string ownerId, string key
 {
     private readonly SemaphoreSlim poll = new(1, 1);
     private readonly Dictionary<string, object> delivered = [];
+    private string? consoleRequestId;
+    public void RequestOnce()
+    {
+        lock (delivered)
+        {
+            if (consoleRequestId is not null) return;
+            var path = Path.Combine(root, ".local", "service-owner-stop.json"); ProjectService.RejectLinks(path);
+            if (File.Exists(path))
+            {
+                using var file = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
+                if (file.Length > 8192) throw new IOException("Existing owner stop intent requires inspection.");
+                var prior = JsonSerializer.Deserialize<StopIntent>(file);
+                if (prior?.OwnerId == ownerId && prior.ResourceId == ownerId) { ResourceRules.Token(prior.RequestId, 32); consoleRequestId = prior.RequestId; return; }
+            }
+            consoleRequestId = Guid.NewGuid().ToString("N");
+            var body = "rockwell-stop-v1\n" + ownerId + "\n" + ownerId + "\n" + consoleRequestId;
+            var signature = Convert.ToHexString(HMACSHA256.HashData(Encoding.UTF8.GetBytes(key), Encoding.UTF8.GetBytes(body))).ToLowerInvariant();
+            NativeLifecycleJournal.WriteAtomic(path, JsonSerializer.SerializeToUtf8Bytes(new StopIntent(1, ownerId, ownerId, consoleRequestId, signature)));
+        }
+    }
     public async Task<bool> PollAsync(Func<Task<OwnerShutdownDecision>> closeOwnedResources, CancellationToken ct)
     {
         await poll.WaitAsync(ct);

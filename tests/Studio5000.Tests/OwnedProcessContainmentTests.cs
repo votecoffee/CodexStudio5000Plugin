@@ -46,8 +46,8 @@ public sealed class OwnedProcessContainmentTests
         {
             using var service = new ProjectService(new() { StateDirectory = Path.Combine(root, "state"), AllowedRoots = [root] });
             var error = Assert.Throws<OperationException>(() => service.LaunchFactoryTalkStudio());
-            Assert.Equal("native_gui_ownership_required", error.Code);
-            Assert.Contains("Launch Studio manually", error.Message);
+            Assert.Equal("resource_owner_required", error.Code);
+            Assert.Contains("long-lived application resource owner", error.Message);
         }
         finally { Directory.Delete(root, true); }
     }

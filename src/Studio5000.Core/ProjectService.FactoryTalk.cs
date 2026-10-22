@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.IO.Compression;
 using System.Xml.Linq;
+using Studio5000.Core.Resources;
 
 namespace Studio5000.Core;
 
@@ -27,14 +28,13 @@ public sealed partial class ProjectService
             schemaDirectory = options.FactoryTalkSchemaDirectory, schemaFiles, windows,
             supportedEdits = new[] { "set_attribute", "set_text", "replace_element (existing properties)" },
             nativeIntegration = "Studio Graphics Import Export Wizard through the bundled Codex skill and available Computer Use tools. The REST service prepares and checks files; it does not drive wizard controls.",
-            nativeLaunchAvailable = false,
-            nativeLaunchReason = "A new Studio GUI requires durable resource ownership and dirty-state recovery; launch Studio manually while this integration remains unavailable.",
+            nativeLaunchAvailable = installed,
+            nativeLaunchReason = "Launch is handed to the existing user desktop shell with an explicit provider identity and retained receipt. Studio and its documents remain user-owned; native startup must be observed.",
             nativeImportStatus = "not_observed", languagePolicy = "Export and import in the same confirmed application language."
         };
     }
 
-    public object LaunchFactoryTalkStudio() => throw new OperationException("native_gui_ownership_required",
-        "Starting a native GUI requires durable resource ownership and dirty-state recovery, which are not integrated yet. Launch Studio manually and use the existing export/import preparation workflow; user-owned applications remain untouched.");
+    public object LaunchFactoryTalkStudio() => ResourceSupervisor.RequireCurrent().LaunchUserGui(options.FactoryTalkStudioPath);
 
     public GraphicsValidation ValidateGraphics(string id)
     {

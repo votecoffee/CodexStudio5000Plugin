@@ -11,10 +11,12 @@ public sealed class ResourceSupervisor : IDisposable
     private readonly object sync = new();
     private readonly List<WindowsChildProcess> children = [];
     private bool closing, disposed;
+    private bool serviceReceiptPublished;
     public string Root { get; }
     public ResourceLedger Ledger { get; }
     public ResourceLedger.ResourceOwner Owner { get; }
     public NativeSessionRegistry NativeSessions { get; }
+    private readonly NativeGuiHandoff nativeGui;
     public int MaximumProcesses { get; }
     public static ResourceSupervisor RequireCurrent() => current ?? throw new OperationException("resource_owner_required", "Initialize the long-lived application resource owner before launching workers; no untracked fallback is allowed.");
     public ResourceSupervisor(string root, string registry, int maximumProcesses = 32, int maximumResources = 32)
@@ -23,7 +25,17 @@ public sealed class ResourceSupervisor : IDisposable
         if (File.Exists(Path.Combine(Root, ".local", "maintenance-hold.json"))) throw new InvalidOperationException("Operator maintenance hold blocks application resource startup.");
         Ledger = new(registry, new WindowsResourceProcessDriver(), maximumResources, nestedServiceOwner: true); Owner = Ledger.Owner("rockwell-mcp-server");
         NativeSessions = new(Owner, Path.Combine(Root, ".local", "native-sessions"));
+        nativeGui = new(NativeSessions, Path.Combine(Root, ".local", "native-gui-handoffs"), () => new WindowsUserShellHandoff());
         if (Interlocked.CompareExchange(ref current, this, null) is not null) throw new InvalidOperationException("This process already has a resource supervisor.");
+    }
+    public NativeGuiHandoffResult LaunchUserGui(string executable)
+    {
+        lock (sync)
+        {
+            ObjectDisposedException.ThrowIf(disposed, this);
+            if (closing || File.Exists(Path.Combine(Root, ".local", "maintenance-hold.json"))) throw new OperationException("resource_owner_closing", "GUI admission is fenced or under operator maintenance hold.");
+            return nativeGui.Launch(executable);
+        }
     }
     public OwnedNativeWorker LaunchNative(ProcessStartInfo start, string label)
     {
@@ -67,6 +79,7 @@ public sealed class ResourceSupervisor : IDisposable
             if (File.Exists(path)) File.Replace(temporary, path, null); else File.Move(temporary, path);
         }
         finally { if (File.Exists(temporary)) File.Delete(temporary); }
+        serviceReceiptPublished = true;
     }
     public void Refresh()
     {
@@ -91,6 +104,9 @@ public sealed class ResourceSupervisor : IDisposable
             closing = true; Owner.FenceAndInspectClose();
             foreach (var child in children.Where(c => !c.HandlesClosed))
                 if (child.Close().Outcome == "uncertain") throw new OperationException("resource_cleanup_uncertain", "Resource cleanup is uncertain; keep admission fenced and inspect the retained receipt.");
+            if (serviceReceiptPublished)
+                NativeLifecycleJournal.WriteAtomic(Path.Combine(Root, ".local", "service-owner-exit.json"),
+                    JsonSerializer.SerializeToUtf8Bytes(new { schemaVersion = 1, ownerId = Owner.OwnerId, owner = Owner.Identity, state = "closed" }));
             children.Clear(); disposed = true; Interlocked.CompareExchange(ref current, null, this);
         }
     }
