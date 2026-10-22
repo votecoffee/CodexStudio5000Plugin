@@ -1,5 +1,22 @@
 param([switch]$ReviewBlockedStop)
 $ErrorActionPreference = 'Stop'
+function Read-RockwellStopJson([string]$Path) {
+    # Pollers must share delete as the owner atomically replaces its receipt.
+    for ($attempt=0; ; $attempt++) {
+        $stream=$null
+        try {
+            $stream=[IO.FileStream]::new($Path,[IO.FileMode]::Open,[IO.FileAccess]::Read,([IO.FileShare]::ReadWrite -bor [IO.FileShare]::Delete))
+            $bytes=New-Object byte[] 32769; $count=0
+            while($count -lt $bytes.Length) { $read=$stream.Read($bytes,$count,$bytes.Length-$count);if(!$read){break};$count+=$read }
+            if($count -gt 32768){throw 'Stop metadata exceeds its bounded read limit.'}
+            return ([Text.Encoding]::UTF8.GetString($bytes,0,$count).TrimStart([char]0xfeff) | ConvertFrom-Json)
+        } catch {
+            $failure=$_.Exception;while($failure.InnerException){$failure=$failure.InnerException}
+            if($failure -isnot [IO.IOException] -or ($failure.HResult -band 0xffff) -notin @(2,32,33) -or $attempt -ge 6){throw}
+            Start-Sleep -Milliseconds (25 -shl $attempt)
+        } finally { if($stream){$stream.Dispose()} }
+    }
+}
 function Publish-RockwellStopIntent([string]$Temporary, [string]$Target, [scriptblock]$ReplaceFile) {
     # Retry only unchanged-name metadata replacement. No new request is minted
     # and no app/resource close operation is repeated by this helper.
@@ -25,12 +42,12 @@ if (!(Test-Path -LiteralPath $pidFile)) { throw 'No background service PID file 
 $serviceProcessId = [int](Get-Content -LiteralPath $pidFile -Raw).Trim()
 $supervisorFile = Join-Path $repo '.local/management-supervisor.json'
 if (Test-Path -LiteralPath $supervisorFile) {
-    $owned = Get-Content -LiteralPath $supervisorFile -Raw | ConvertFrom-Json
+    $owned = Read-RockwellStopJson $supervisorFile
     if ($owned.schemaVersion -eq 2) {
         if ($owned.servicePid -ne $serviceProcessId -or $owned.ownerId -notmatch '^[0-9a-f]{32}$' -or
             $owned.resourceId -notmatch '^[0-9a-f]{32}$' -or !$owned.resourceRegistry) { throw 'Managed ownership receipt differs; no stop was requested.' }
         $resourcePath = Join-Path ([IO.Path]::GetFullPath($owned.resourceRegistry)) ('resources/' + $owned.resourceId + '.json')
-        $resource = Get-Content -LiteralPath $resourcePath -Raw | ConvertFrom-Json
+        $resource = Read-RockwellStopJson $resourcePath
         if ($resource.schema_version -ne 1 -or $resource.app_id -ne 'rockwell-mcp-server' -or
             $resource.resource_id -ne $owned.resourceId -or $resource.owner_id -ne $owned.ownerId -or
             $resource.ownership -ne 'private' -or $resource.containment -ne 'windows_job' -or
@@ -52,13 +69,13 @@ if (Test-Path -LiteralPath $supervisorFile) {
             $requestPath = Join-Path $repo '.local/service-stop-request.json'
             $requestId = [Guid]::NewGuid().ToString('N')
             if (Test-Path -LiteralPath $requestPath) {
-                $prior = Get-Content -LiteralPath $requestPath -Raw | ConvertFrom-Json
+                $prior = Read-RockwellStopJson $requestPath
                 if ($prior.ownerId -eq $owned.ownerId -and $prior.resourceId -eq $owned.resourceId) {
                     if ($prior.requestId -notmatch '^[0-9a-f]{32}$') { throw 'Existing stop request is invalid; preserve it for inspection.' }
                     $requestId = $prior.requestId # Observe the same intent, never replace its ID.
                     $priorReplyPath = Join-Path $repo '.local/service-stop-result.json'
                     if (Test-Path -LiteralPath $priorReplyPath) {
-                        $priorReply = Get-Content -LiteralPath $priorReplyPath -Raw | ConvertFrom-Json
+                        $priorReply = Read-RockwellStopJson $priorReplyPath
                         if ($priorReply.ownerId -eq $owned.ownerId -and $priorReply.resourceId -eq $owned.resourceId -and $priorReply.requestId -eq $requestId) {
                             if ($priorReply.state -eq 'blocked' -and $ReviewBlockedStop) { $requestId = [Guid]::NewGuid().ToString('N') }
                             elseif ($priorReply.state -in @('blocked','uncertain','completed')) { throw ('Prior owner stop '+$priorReply.state+'; inspect it. -ReviewBlockedStop applies only after resolving a verified zero-effect refusal.') }
@@ -80,7 +97,7 @@ if (Test-Path -LiteralPath $supervisorFile) {
             while (!$ownedProcess.WaitForExit(100)) {
                 $replyPath = Join-Path $repo '.local/service-stop-result.json'
                 if (Test-Path -LiteralPath $replyPath) {
-                    $reply = Get-Content -LiteralPath $replyPath -Raw | ConvertFrom-Json
+                    $reply = Read-RockwellStopJson $replyPath
                     if ($reply.ownerId -eq $owned.ownerId -and $reply.resourceId -eq $owned.resourceId -and $reply.requestId -eq $requestId -and $reply.state -in @('blocked','uncertain')) {
                         throw ('Owner stop '+$reply.state+': '+$reply.message+' Inspect the retained request/resource; no PID was stopped.')
                     }
@@ -89,7 +106,7 @@ if (Test-Path -LiteralPath $supervisorFile) {
             }
             $deadline = [DateTimeOffset]::UtcNow.AddSeconds(10)
             do {
-                $result = Get-Content -LiteralPath $resourcePath -Raw | ConvertFrom-Json
+                $result = Read-RockwellStopJson $resourcePath
                 if ($result.receipt -and $result.receipt.outcome -in @('terminated','already_exited')) { Write-Output 'Managed owner confirmed resource-tree cleanup.'; return }
                 if ($result.receipt -and $result.receipt.outcome -eq 'uncertain') { throw 'Resource cleanup is uncertain; preserve the receipt and do not replay.' }
                 Start-Sleep -Milliseconds 100
@@ -100,7 +117,7 @@ if (Test-Path -LiteralPath $supervisorFile) {
 }
 $ownerPath = Join-Path $repo '.local/service-owner.json'
 if (!(Test-Path -LiteralPath $ownerPath)) { throw 'No creation-bound service ownership receipt exists. Do not terminate from this legacy PID file; inspect the old instance manually.' }
-$direct = Get-Content -LiteralPath $ownerPath -Raw | ConvertFrom-Json
+$direct = Read-RockwellStopJson $ownerPath
 if ($direct.schemaVersion -ne 1 -or $direct.ownerId -notmatch '^[0-9a-f]{32}$' -or $direct.owner.pid -ne $serviceProcessId) { throw 'Direct service ownership generation differs; no stop requested.' }
 $baseKey = [Microsoft.Win32.RegistryKey]::OpenBaseKey([Microsoft.Win32.RegistryHive]::LocalMachine, [Microsoft.Win32.RegistryView]::Registry64)
 try { $cryptoKey = $baseKey.OpenSubKey('SOFTWARE\Microsoft\Cryptography'); try { $machine = ([Guid]::Parse([string]$cryptoKey.GetValue('MachineGuid'))).ToString('D').ToLowerInvariant() } finally { if ($cryptoKey) { $cryptoKey.Dispose() } } } finally { $baseKey.Dispose() }
@@ -118,11 +135,11 @@ try {
     $requestPath = Join-Path $repo '.local/service-owner-stop.json'; $replyPath = Join-Path $repo '.local/service-owner-stop-result.json'
     $requestId = [Guid]::NewGuid().ToString('N')
     if (Test-Path -LiteralPath $requestPath) {
-        $prior = Get-Content -LiteralPath $requestPath -Raw | ConvertFrom-Json
+        $prior = Read-RockwellStopJson $requestPath
         if ($prior.ownerId -eq $direct.ownerId) {
             $requestId = $prior.requestId
             if (Test-Path -LiteralPath $replyPath) {
-                $reply = Get-Content -LiteralPath $replyPath -Raw | ConvertFrom-Json
+                $reply = Read-RockwellStopJson $replyPath
                 if ($reply.ownerId -eq $direct.ownerId -and $reply.requestId -eq $requestId -and $reply.state -eq 'blocked' -and $ReviewBlockedStop) { $requestId = [Guid]::NewGuid().ToString('N') }
                 elseif ($reply.ownerId -eq $direct.ownerId -and $reply.requestId -eq $requestId -and $reply.state -in @('blocked','uncertain','completed')) { throw ('Prior stop '+$reply.state+'; inspect its outcome. Use -ReviewBlockedStop only after a verified zero-effect refusal is resolved.') }
             }
@@ -141,13 +158,13 @@ try {
     $deadline = [DateTimeOffset]::UtcNow.AddSeconds(20)
     while (!$process.WaitForExit(100)) {
         if (Test-Path -LiteralPath $replyPath) {
-            $reply = Get-Content -LiteralPath $replyPath -Raw | ConvertFrom-Json
+            $reply = Read-RockwellStopJson $replyPath
             if ($reply.ownerId -eq $direct.ownerId -and $reply.requestId -eq $requestId -and $reply.state -in @('blocked','uncertain')) { throw ('Direct service stop '+$reply.state+': '+$reply.message) }
         }
         if ([DateTimeOffset]::UtcNow -ge $deadline) { throw 'Direct stop outcome is not confirmed; inspect the same intent instead of creating another request.' }
     }
     if (!(Test-Path -LiteralPath $replyPath)) { throw 'Service exited without an owned shutdown receipt; retain the uncertain outcome.' }
-    $reply = Get-Content -LiteralPath $replyPath -Raw | ConvertFrom-Json
+    $reply = Read-RockwellStopJson $replyPath
     if ($reply.ownerId -ne $direct.ownerId -or $reply.requestId -ne $requestId -or $reply.state -ne 'completed') { throw 'Service exit lacks matching verified shutdown evidence.' }
     Write-Output 'Direct service owner confirmed cleanup and shutdown.'
 } finally { $process.Dispose() }
