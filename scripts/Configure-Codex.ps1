@@ -1,6 +1,7 @@
 [CmdletBinding()]
 param([ValidateSet('Standalone','None')][string]$Route = 'Standalone', [switch]$PlanOnly)
 $ErrorActionPreference = 'Stop'
+if (!$PlanOnly -and (Test-Path -LiteralPath (Join-Path (Split-Path -Parent $PSScriptRoot) '.local/maintenance-hold.json'))) { throw 'RockwellMCPServer is on operator maintenance hold. Plugin installation/configuration requires explicit human release.' }
 . (Join-Path $PSScriptRoot 'CodexIntegration.ps1')
 Set-RockwellCodexIntegration -Root (Split-Path -Parent $PSScriptRoot) -Route $Route -PlanOnly:$PlanOnly
 if (!$PlanOnly -and $Route -eq 'Standalone') {

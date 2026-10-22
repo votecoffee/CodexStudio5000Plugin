@@ -6,6 +6,8 @@ Use generated fixtures and preserved source copies. Keep run reports, native exp
 
 The 0.18 management profile uses dedicated registries and generated services to verify cached status/version reporting, authentication, duplicate/stale/busy denial, durable uncertain barriers and operator shutdown. Real Rockwell tray restart is disabled and has no native acceptance claim. See [service management validation](SERVICE_MANAGEMENT.md#verification).
 
+`Verify-IdleMcpRefresh.ps1` uses mocked process identities and a generated loopback listener to reject active engineering processes, missing settings, remote/listening endpoints and recycled PIDs before stopping any frontend. No real process is stopped by that test. `Verify-InstallerSettings.ps1` invokes the real installer on generated marker files with mocked initialization/integration, checking exact configuration preservation, relative paths from another working directory and explicit new bindings. Neither fixture starts an engineering host.
+
 ## Automated checks without a controller
 
 From the repository root on Windows with the .NET 8 SDK:

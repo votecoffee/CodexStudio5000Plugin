@@ -33,6 +33,12 @@ Start the service with `Run.cmd` or `Start-Service.ps1`. A new Codex chat may be
 
 The installer holds an application-update file lock through binary publication and plugin configuration. The launcher rejects reconnect attempts while that lock is held, preventing a client from relaunching the bridge during replacement. The lock releases on success, failure or process exit; an unlocked leftover file does not block startup. Existing active clients and engineering work must still be stopped before binary replacement. The update lock does not cancel jobs, stop polling or authorize controller actions.
 
+After a reboot or an operator shutdown, Codex can retain thin frontends even though the shared service is stopped. Explicit `Install.cmd -ReconnectIdleMcpClients` can close those transports under the installer's update lock. It requires all service/GUI/SDK/CIP/extension-worker processes from this installation to be stopped, a literal loopback endpoint with a confirmed refused connection, and fresh matching executable/PID/creation-time identities. A listening or uncertain endpoint blocks it. It never stops a service, native GUI or engineering worker, and never retries an interrupted operation. Reconnect affected clients after installation; automatic host reconnection is not guaranteed. Ordinary service and MCP launchers refuse startup while the update lock is held. This stopped-service path does not enable tray restart or establish live engineering quiescence.
+
+Rebuilding already selected SDK/CIP bridges preserves the exact existing settings bytes, including broad local policy and a custom port. A bridge is selected through initialization only when its explicit install option requests a different path or the setting was absent. Existing unselected optional bridges stay unselected.
+
+An operator can retain an ignored `.local/maintenance-hold.json` marker during maintenance. Its presence makes the normal MCP/service launchers, installer and plugin configuration refuse startup or installation; its contents grant no authority. Clear it only after the human explicitly releases the hold. It does not stop a running process, replace outcome reconciliation, or prevent a separately invoked older executable from running. No automatic timeout or transport error clears it.
+
 ## Skills appear but tools are missing
 
 Plugin installation, skill discovery and MCP tool exposure are separate checks. Portable packages use root `mcp.json`, which must declare `$schema: "https://agent-plugins.org/schemas/1.0.0/mcp.schema.json"`. Keep `.mcp.json` for compatibility; it does not establish that Codex accepted the portable file. A missing schema can leave the skills installed while the MCP server is absent.
@@ -68,6 +74,8 @@ For API compatibility the authenticated REST paths remain `GET /api/broker/capab
 ```powershell
 .\scripts\Verify-CodexIntegration.ps1
 .\scripts\Verify-CodexPluginCli.ps1
+.\scripts\Verify-IdleMcpRefresh.ps1
+.\scripts\Verify-InstallerSettings.ps1
 .\scripts\Verify-Isolated.ps1
 ```
 

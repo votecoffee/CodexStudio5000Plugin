@@ -1,6 +1,12 @@
 param([switch]$Background)
 $ErrorActionPreference = 'Stop'
 $repo = Split-Path -Parent $PSScriptRoot
+if (Test-Path -LiteralPath (Join-Path $repo '.local/maintenance-hold.json')) { throw 'RockwellMCPServer is on operator maintenance hold. Obtain explicit human authorization before clearing the hold and starting the service.' }
+$updateLockPath = Join-Path $repo '.local/application-update.lock'
+if (Test-Path -LiteralPath $updateLockPath) {
+    try { $probe = [IO.File]::Open($updateLockPath, [IO.FileMode]::Open, [IO.FileAccess]::ReadWrite, [IO.FileShare]::None); $probe.Dispose() }
+    catch [IO.IOException] { throw 'RockwellMCPServer is being updated. Start the service after installation finishes.' }
+}
 $exe = Join-Path $repo 'artifacts/app/Service/Studio5000.Service.exe'
 if (!(Test-Path -LiteralPath $exe)) { throw 'Run scripts/Build.ps1 first.' }
 if (!(Test-Path -LiteralPath (Join-Path $repo 'service.local.json'))) { & (Join-Path $PSScriptRoot 'Initialize.ps1') }

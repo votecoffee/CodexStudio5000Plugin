@@ -1,5 +1,6 @@
 $ErrorActionPreference = 'Stop'
 $repo = Split-Path -Parent $PSScriptRoot
+if (Test-Path -LiteralPath (Join-Path $repo '.local/maintenance-hold.json')) { throw 'RockwellMCPServer is on operator maintenance hold. Obtain explicit human authorization before clearing the hold and reconnecting.' }
 $env:STUDIO5000_PLUGIN_ROOT = $repo
 $updateLockPath = Join-Path $repo '.local/application-update.lock'
 if (Test-Path -LiteralPath $updateLockPath -PathType Leaf) {

@@ -1,8 +1,9 @@
 [CmdletBinding()]
-param([switch]$WithSdk, [switch]$WithCip, [switch]$SkipBuild, [switch]$NoShortcut,
+param([switch]$WithSdk, [switch]$WithCip, [switch]$SkipBuild, [switch]$NoShortcut, [switch]$ReconnectIdleMcpClients,
     [ValidateSet('Standalone','None')][string]$CodexIntegration = 'Standalone')
 $ErrorActionPreference = 'Stop'
 $repo = Split-Path -Parent $PSScriptRoot
+if (Test-Path -LiteralPath (Join-Path $repo '.local/maintenance-hold.json')) { throw 'RockwellMCPServer is on operator maintenance hold. Do not reinstall or reconnect until the human explicitly releases the hold.' }
 $configPath = Join-Path $repo 'service.local.json'
 $localDirectory = Join-Path $repo '.local'
 New-Item -ItemType Directory -Path $localDirectory -Force | Out-Null
@@ -11,6 +12,7 @@ try { $updateLock = [IO.File]::Open((Join-Path $localDirectory 'application-upda
 catch [IO.IOException] { throw 'Another RockwellMCPServer update is in progress. Wait for it to finish before installing.' }
 try {
 
+if ($ReconnectIdleMcpClients) { & (Join-Path $PSScriptRoot 'Stop-IdleMcpClients.ps1') -UpdateLock $updateLock }
 if (!$SkipBuild -or $WithSdk -or $WithCip) {
     & (Join-Path $PSScriptRoot 'Assert-ApplicationsStopped.ps1')
 }
@@ -29,9 +31,12 @@ foreach ($name in @('Service', 'Mcp', 'Desktop', 'ExtensionWorker')) {
 if (!(Test-Path -LiteralPath $configPath)) {
     & (Join-Path $PSScriptRoot 'Initialize.ps1') -EnableSdk:$WithSdk -EnableCip:$WithCip
 } elseif ($WithSdk -or $WithCip) {
-    # Initialize defaults to port 5487; retain the configured port during an update.
+    # Rebuilding already configured bridges must preserve exact settings bytes.
     $settings = Get-Content -LiteralPath $configPath -Raw | ConvertFrom-Json
-    & (Join-Path $PSScriptRoot 'Initialize.ps1') -EnableSdk:$WithSdk -EnableCip:$WithCip -Port ([uri]$settings.ServiceUrl).Port
+    $enableSdk = $WithSdk -and (!$settings.Studio5000.NativeBridgePath -or ![IO.Path]::GetFullPath([IO.Path]::Combine($repo, $settings.Studio5000.NativeBridgePath)).Equals([IO.Path]::GetFullPath((Join-Path $repo 'artifacts/app/NativeBridge/Studio5000.NativeBridge.exe')), [StringComparison]::OrdinalIgnoreCase))
+    $enableCip = $WithCip -and (!$settings.Studio5000.CipBridgePath -or ![IO.Path]::GetFullPath([IO.Path]::Combine($repo, $settings.Studio5000.CipBridgePath)).Equals([IO.Path]::GetFullPath((Join-Path $repo 'artifacts/app/CipBridge/Studio5000.CipBridge.exe')), [StringComparison]::OrdinalIgnoreCase))
+    if ($enableSdk -or $enableCip) { & (Join-Path $PSScriptRoot 'Initialize.ps1') -EnableSdk:$enableSdk -EnableCip:$enableCip -Port ([uri]$settings.ServiceUrl).Port }
+    else { Write-Output 'Preserved existing service.local.json and configured SDK/CIP paths.' }
 } else {
     Write-Output 'Preserved existing service.local.json.'
 }
