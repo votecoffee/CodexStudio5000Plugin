@@ -369,6 +369,7 @@ def test_cli_skills_profile_is_explicit_on_both_endpoints(command, enabled, tmp_
         return Server()
 
     monkeypatch.setattr(entry, "create_surface", surface)
+    monkeypatch.setattr(entry, "run_frontend", lambda server, root: server.run(transport="stdio"))
     monkeypatch.setattr(
         "sys.argv",
         ["rockwell-framework", "--state", str(tmp_path), command]

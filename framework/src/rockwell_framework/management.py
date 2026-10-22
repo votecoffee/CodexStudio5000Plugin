@@ -230,22 +230,35 @@ def run(root, *, registry=None):
         atomic_json(local / "management-supervisor.json", child.receipt_metadata())
         refreshed = time.monotonic()
         with httpx.Client(timeout=1, trust_env=False, follow_redirects=False) as client:
-            while (exit_code := child.poll()) is None:
-                if child.stop_requested(root) or interrupt.is_set():
-                    interrupt.clear()
-                    # Repeated Ctrl+C observes the same retained intent.
-                    child.request_stop(root)
-                child.forward_stop_result(root)
-                if time.monotonic() - refreshed >= 2:
-                    child.refresh()  # Ledger failure differs from status failure.
-                    refreshed = time.monotonic()
+            while True:
                 try:
+                    exit_code = child.poll()
+                except Exception:  # noqa: BLE001 - unverifiable identity never authorizes teardown
+                    cache.unavailable()
+                    time.sleep(0.5)
+                    continue
+                if exit_code is not None:
+                    if child.confirm_exit(root):
+                        return exit_code
+                    # Keep the surviving owner/barrier after unverified exit;
+                    # no automatic kill, reconcile, restart or effect replay.
+                    cache.unavailable()
+                    time.sleep(0.5)
+                    continue
+                try:
+                    if child.stop_requested(root) or interrupt.is_set():
+                        interrupt.clear()
+                        child.request_stop(root)
+                    child.forward_stop_result(root)
+                    if time.monotonic() - refreshed >= 2:
+                        child.refresh()
+                        refreshed = time.monotonic()
                     cache.update(poll_activity(root, client), versions(root))
-                except Exception:  # noqa: BLE001 - status failures must not stop engineering work
-                    # Reporting failures cannot interrupt the independently serving app.
+                except Exception:  # noqa: BLE001 - retain native ownership on IPC/ledger/status failures
+                    # The durable native barrier remains. Never unwind a
+                    # serving native owner because reporting/IPC is unavailable.
                     cache.unavailable()
                 time.sleep(0.5)
-        return exit_code
 
 
 def main():

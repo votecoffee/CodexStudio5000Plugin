@@ -42,7 +42,8 @@ if (supervisorOwner is not null) ManagedResourcePolicy.Validate(Environment.GetE
 // assign an existing user-owned engineering application to this private job.
 OwnedProcessContainment.EnterCurrentProcess(options.MaximumOwnedProcesses);
 using var resourceSupervisor = new ResourceSupervisor(root,
-    Environment.GetEnvironmentVariable("ROCKWELL_RESOURCE_REGISTRY") ?? WindowsResourceProcessDriver.DefaultRegistry(), options.MaximumOwnedProcesses);
+    Environment.GetEnvironmentVariable("ROCKWELL_RESOURCE_REGISTRY") ?? WindowsResourceProcessDriver.DefaultRegistry(), options.MaximumOwnedProcesses, options.MaximumOwnedResources);
+if (supervisorOwner is not null) ManagedServiceAdmission.WaitForOwner(root, resourceSupervisor.Ledger);
 var local = Path.Combine(root, ".local");
 Directory.CreateDirectory(local);
 ProjectService.RejectLinks(local);
@@ -57,6 +58,7 @@ builder.Services.AddSingleton<ProjectService>();
 builder.Services.AddSingleton(_ => new ExtensionHost(options, root));
 builder.Services.AddHostedService(provider => new OwnerStopService(root, resourceSupervisor, token,
     provider.GetRequiredService<ProjectService>(), provider.GetRequiredService<ExtensionHost>(), provider.GetRequiredService<IHostApplicationLifetime>()));
+builder.Services.AddHostedService(_ => new ResourceRefreshService(resourceSupervisor));
 var app = builder.Build();
 _ = app.Services.GetRequiredService<ProjectService>(); // hold one exclusive process lock before publishing connection info
 resourceSupervisor.WriteOwnerReceipt();
@@ -286,8 +288,11 @@ sealed class OwnerStopService(string root, ResourceSupervisor resources, string 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         var mailbox = new OwnerShutdownMailbox(root, resources.Owner.OwnerId, key);
+        var reportingFailure = false;
         while (!stoppingToken.IsCancellationRequested)
         {
+            try
+            {
             if (await mailbox.PollAsync(() =>
             {
                 if (!projects.TryFenceShutdown()) return Task.FromResult(new OwnerShutdownDecision(false, "Finish active mutations, native jobs and polling before shutdown."));
@@ -300,7 +305,33 @@ sealed class OwnerStopService(string root, ResourceSupervisor resources, string 
                 try { resources.CloseOwnedResources(); return Task.FromResult(new OwnerShutdownDecision(true, "Owned resource cleanup verified; service shutdown requested.")); }
                 catch { /* Keep all admission fences after uncertain teardown. */ throw; }
             }, stoppingToken)) { lifetime.StopApplication(); return; }
+            }
+            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested) { return; }
+            catch (Exception)
+            {
+                // An unavailable mailbox/journal must not trigger the host's
+                // default background-failure shutdown of native resources.
+                if (!reportingFailure) { Console.Error.WriteLine("Owner shutdown reporting is unavailable; preserve the same intent and native state for inspection."); reportingFailure = true; }
+            }
             await Task.Delay(100, stoppingToken);
+        }
+    }
+}
+
+sealed class ResourceRefreshService(ResourceSupervisor resources) : BackgroundService
+{
+    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+    {
+        var reported = false;
+        while (!stoppingToken.IsCancellationRequested)
+        {
+            try { resources.Refresh(); }
+            catch (Exception)
+            {
+                // Reporting/identity uncertainty cannot unwind a native owner.
+                if (!reported) { Console.Error.WriteLine("Resource membership reporting is unavailable; retain the ledger and inspect before cleanup."); reported = true; }
+            }
+            await Task.Delay(2000, stoppingToken);
         }
     }
 }

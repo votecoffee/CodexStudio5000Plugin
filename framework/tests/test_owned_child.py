@@ -19,6 +19,9 @@ class Child:
     def refresh(self):
         raise ValueError("synthetic ledger failure")
 
+    def confirm_exit(self, root):
+        return True
+
     def receipt_metadata(self):
         return {"schemaVersion": 2, "resourceId": "synthetic"}
 
@@ -79,12 +82,13 @@ def test_reporting_failure_keeps_serving_until_observed_exit(supervisor, monkeyp
     assert saved["schemaVersion"] == 2 and saved["resourceId"] == "synthetic"
 
 
-def test_ledger_failure_stops_owned_tree_without_replaying(supervisor, monkeypatch):
+def test_ledger_failure_keeps_owner_until_verified_exit_without_effect_replay(
+    supervisor, monkeypatch
+):
     management, child, root = supervisor
     times = iter([0, 3])
     monkeypatch.setattr(management.time, "monotonic", lambda: next(times))
-    with pytest.raises(ValueError, match="ledger failure"):
-        management.run(root)
+    assert management.run(root) == 7
     assert child.closes == 1
 
 
@@ -94,6 +98,22 @@ def test_owner_stop_request_closes_once_without_a_pid_kill(supervisor, monkeypat
     assert management.run(root) == 7
     assert child.stop_sent
     assert child.closes == 1
+
+
+def test_unverified_exit_keeps_the_surviving_owner_until_close_readback(supervisor, monkeypatch):
+    management, child, root = supervisor
+    child.polls = iter([7, 7])
+    confirmed = iter([False, True])
+    monkeypatch.setattr(child, "confirm_exit", lambda _: next(confirmed))
+    waits = []
+
+    def observe(_):
+        assert child.closes == 0
+        waits.append(True)
+
+    monkeypatch.setattr(management.time, "sleep", observe)
+    assert management.run(root) == 7
+    assert len(waits) == 1 and child.closes == 1
 
 
 def test_ctrl_c_requests_owned_close_without_unwinding_surviving_owner(supervisor, monkeypatch):
@@ -126,16 +146,16 @@ def test_held_supervisor_never_registers_or_launches(tmp_path, monkeypatch):
         management.run(tmp_path)
 
 
-def test_native_profile_refuses_before_registration(tmp_path, monkeypatch):
+def test_invalid_limit_refuses_before_registration(tmp_path, monkeypatch):
     from rockwell_framework import management
 
     (tmp_path / ".local").mkdir()
     (tmp_path / "service.local.json").write_text(
-        '{"Studio5000":{"EnableControllerOperations":true}}', encoding="utf-8"
+        '{"Studio5000":{"MaximumOwnedProcesses":true}}', encoding="utf-8"
     )
     monkeypatch.setattr(management, "check_versions", lambda: None)
     monkeypatch.setattr(management, "installation", lambda _: pytest.fail("Read installation"))
-    with pytest.raises(ValueError, match="Native resource registration"):
+    with pytest.raises(ValueError, match="MaximumOwnedProcesses"):
         management.run(tmp_path)
 
 

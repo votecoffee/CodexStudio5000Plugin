@@ -11,7 +11,7 @@ var limits = McpClientLimits.Read(root);
 using var owners = ParentProcessOwners.Capture();
 using var lifetime = new CancellationTokenSource();
 var parent = owners.RequestShutdownOnExitAsync(lifetime.Cancel, lifetime.Token);
-using var resources = new ResourceSupervisor(root, Environment.GetEnvironmentVariable("ROCKWELL_RESOURCE_REGISTRY") ?? WindowsResourceProcessDriver.DefaultRegistry());
+using var resources = new ResourceSupervisor(root, Environment.GetEnvironmentVariable("ROCKWELL_RESOURCE_REGISTRY") ?? WindowsResourceProcessDriver.DefaultRegistry(), limits.MaximumOwnedProcesses, limits.MaximumOwnedResources);
 var start = new ProcessStartInfo(Path.Combine(AppContext.BaseDirectory, "Studio5000.Mcp.exe"))
 {
     UseShellExecute = false, CreateNoWindow = true, RedirectStandardInput = true,

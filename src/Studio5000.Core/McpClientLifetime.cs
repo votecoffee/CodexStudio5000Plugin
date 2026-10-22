@@ -3,12 +3,14 @@ using System.Text.Json;
 
 namespace Studio5000.Core;
 
-public sealed record McpClientLimits(int MaximumInstances = 4, int ShutdownTimeoutSeconds = 10)
+public sealed record McpClientLimits(int MaximumInstances = 4, int ShutdownTimeoutSeconds = 10, int MaximumOwnedProcesses = 32, int MaximumOwnedResources = 32)
 {
     public void Validate()
     {
         if (MaximumInstances is < 1 or > 16 || ShutdownTimeoutSeconds is < 1 or > 30)
             throw new ArgumentException("Use 1..16 MCP frontends and a shutdown timeout of 1..30 seconds.");
+        OwnedProcessContainment.ValidateLimit(MaximumOwnedProcesses);
+        if (MaximumOwnedResources is < 1 or > 256) throw new ArgumentException("MaximumOwnedResources must be between 1 and 256.");
     }
 
     public static McpClientLimits Read(string root)
@@ -31,7 +33,7 @@ public sealed record McpClientLimits(int MaximumInstances = 4, int ShutdownTimeo
             if (matches.Length != 1 || matches[0].Value.ValueKind != JsonValueKind.Number || !matches[0].Value.TryGetInt32(out var value)) throw new ArgumentException("Invalid or duplicate MCP lifetime setting.");
             return value;
         }
-        var result = new McpClientLimits(Number("MaximumMcpClients", 4), Number("McpShutdownTimeoutSeconds", 10));
+        var result = new McpClientLimits(Number("MaximumMcpClients", 4), Number("McpShutdownTimeoutSeconds", 10), Number("MaximumOwnedProcesses", 32), Number("MaximumOwnedResources", 32));
         result.Validate(); return result;
     }
 }

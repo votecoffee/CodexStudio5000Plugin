@@ -9,6 +9,13 @@ namespace Studio5000.Tests;
 // belongs to the isolated lifecycle profile; none is inferred from these tests.
 public sealed class McpClientLifetimeTests : IDisposable
 {
+    [Fact]
+    public void Resource_limits_are_read_without_lowering_existing_settings_or_eviction()
+    {
+        File.WriteAllText(Path.Combine(root, "service.local.json"), "{\"Studio5000\":{\"MaximumOwnedProcesses\":128,\"MaximumOwnedResources\":256}}");
+        Assert.Equal(new McpClientLimits(4, 10, 128, 256), McpClientLimits.Read(root));
+        Assert.Throws<ArgumentException>(() => new McpClientLimits(MaximumOwnedResources: 257).Validate());
+    }
     private readonly string root = Path.Combine(Path.GetTempPath(), "rockwell-mcp-limits-" + Guid.NewGuid().ToString("N"));
     public McpClientLifetimeTests() => Directory.CreateDirectory(root);
     public void Dispose() => Directory.Delete(root, true);

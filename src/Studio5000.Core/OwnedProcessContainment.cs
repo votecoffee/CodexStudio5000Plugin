@@ -63,7 +63,7 @@ public static class OwnedProcessContainment
             if (ownerJob is null) return new("not-entered", false, null, null, "unknown", "not-integrated");
             var known = QueryInformationJobObject(ownerJob, 1, out var accounting, (uint)Marshal.SizeOf<Accounting>(), IntPtr.Zero);
             return new(known ? "windows-job-runtime-unassessed" : "windows-job-count-unavailable", true, maximum,
-                known ? accounting.ActiveProcesses : null, "unknown-outside-inherited-tree", "not-integrated");
+                known ? accounting.ActiveProcesses : null, "native-session-journals-required-outside-tree", Resources.ResourceSupervisor.IsInitialized ? "resource-ledger-runtime-unassessed" : "not-initialized");
         }
     }
 

@@ -2,15 +2,13 @@ namespace Studio5000.Core;
 
 public static class ManagedResourcePolicy
 {
-    public const string OfflineProfile = "offline-contained-v1";
+    public const string OwnedProfile = Resources.ManagedServiceAdmission.Profile;
 
-    // The source Python supervisor currently covers only the inherited offline
-    // tree. Recheck effective options here to reject a settings/startup race.
+    // Native/controller authorization stays in the shared service. Managed
+    // startup additionally requires the owner's durable admission handshake.
     public static void Validate(string? profile, ServiceOptions options)
     {
-        if (profile != OfflineProfile) throw new ArgumentException("A reviewed managed resource profile is required.");
-        if (options.NativeBridgePath is not null || options.CipBridgePath is not null ||
-            options.EnableControllerOperations || options.ControllerTargets.Length != 0)
-            throw new ArgumentException("native_resource_binding_required: managed native processes require an app-owned durable registration/recovery adapter; this profile is offline only.");
+        if (profile != OwnedProfile) throw new ArgumentException("The managed native resource ownership profile is required; legacy offline-only generations cannot be adopted.");
+        OwnedProcessContainment.ValidateLimit(options.MaximumOwnedProcesses);
     }
 }

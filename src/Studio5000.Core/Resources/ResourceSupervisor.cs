@@ -18,6 +18,7 @@ public sealed class ResourceSupervisor : IDisposable
     public NativeSessionRegistry NativeSessions { get; }
     private readonly NativeGuiHandoff nativeGui;
     public int MaximumProcesses { get; }
+    public static bool IsInitialized => Volatile.Read(ref current) is not null;
     public static ResourceSupervisor RequireCurrent() => current ?? throw new OperationException("resource_owner_required", "Initialize the long-lived application resource owner before launching workers; no untracked fallback is allowed.");
     public ResourceSupervisor(string root, string registry, int maximumProcesses = 32, int maximumResources = 32)
     {
@@ -42,7 +43,7 @@ public sealed class ResourceSupervisor : IDisposable
         lock (sync)
         {
             ObjectDisposedException.ThrowIf(disposed, this);
-            if (closing) throw new OperationException("resource_owner_closing", "Native session admission is fenced for shutdown.");
+            if (closing || File.Exists(Path.Combine(Root, ".local", "maintenance-hold.json"))) throw new OperationException("resource_owner_closing", "Native admission is fenced or under operator maintenance hold.");
             var id = Guid.NewGuid().ToString("N");
             var receipt = Path.Combine(Root, ".local", "native-sessions", id + ".worker.json");
             var lease = NativeSessions.Attach(new("rockwell-logix-sdk", id, "sdk-session"));
@@ -61,7 +62,7 @@ public sealed class ResourceSupervisor : IDisposable
         lock (sync)
         {
             ObjectDisposedException.ThrowIf(disposed, this);
-            if (closing) throw new OperationException("resource_owner_closing", "Worker admission is fenced for shutdown.");
+            if (closing || File.Exists(Path.Combine(Root, ".local", "maintenance-hold.json"))) throw new OperationException("resource_owner_closing", "Worker admission is fenced or under operator maintenance hold.");
             children.RemoveAll(c => c.HandlesClosed);
             var child = WindowsChildProcess.Launch(Owner, start, label, kind, MaximumProcesses);
             children.Add(child); return child;

@@ -6,23 +6,22 @@ namespace Studio5000.Tests;
 public sealed class ManagedResourcePolicyTests
 {
     [Fact]
-    public void Offline_profile_is_valid_without_starting_any_resource() =>
-        ManagedResourcePolicy.Validate(ManagedResourcePolicy.OfflineProfile, new());
+    public void Native_owned_profile_is_valid_without_starting_any_resource() =>
+        ManagedResourcePolicy.Validate(ManagedResourcePolicy.OwnedProfile, new());
 
     [Theory]
-    [InlineData(null)] [InlineData("unknown")] [InlineData("native-owned-v1")]
+    [InlineData(null)] [InlineData("unknown")] [InlineData("offline-contained-v1")]
     public void Unreviewed_profile_cannot_skip_ownership_checks(string? profile) =>
         Assert.Throws<ArgumentException>(() => ManagedResourcePolicy.Validate(profile, new()));
 
     [Fact]
-    public void Effective_native_settings_are_rechecked_before_service_initialization()
+    public void Native_features_remain_available_in_the_owned_profile_without_changing_authorization()
     {
         foreach (var options in new ServiceOptions[] {
             new() { NativeBridgePath = "native.exe" }, new() { CipBridgePath = "cip.exe" },
             new() { EnableControllerOperations = true }, new() { ControllerTargets = [new("fixture", "explicit-route")] } })
         {
-            var error = Assert.Throws<ArgumentException>(() => ManagedResourcePolicy.Validate(ManagedResourcePolicy.OfflineProfile, options));
-            Assert.Contains("native_resource_binding_required", error.Message);
+            ManagedResourcePolicy.Validate(ManagedResourcePolicy.OwnedProfile, options);
         }
     }
 }

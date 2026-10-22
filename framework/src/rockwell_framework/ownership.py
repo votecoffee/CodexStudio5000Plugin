@@ -16,7 +16,8 @@ from universal_tools.resources import ProcessIdentity, ResourceLedger
 
 from .publication import APP_ID, ordinary
 
-OFFLINE_PROFILE = "offline-contained-v1"
+SERVICE_PROFILE = "owned-service-v2"
+SHUTDOWN_BARRIER = "Service shutdown requires generation-bound native close evidence."
 
 
 def stop_signature(key, owner_id, resource_id, request_id):
@@ -24,8 +25,8 @@ def stop_signature(key, owner_id, resource_id, request_id):
     return hmac.new(key.encode("utf-8"), body.encode("utf-8"), hashlib.sha256).hexdigest()
 
 
-def service_tree_limit(root):
-    """Refuse native-enabled profiles until the app's native resource adapter exists."""
+def service_tree_limits(root):
+    """Bound the managed native tree; domain authorization remains in Core."""
     path = ordinary(Path(root) / "service.local.json")
     with path.open("rb") as stream:
         raw = stream.read(1024 * 1024 + 1)
@@ -45,23 +46,17 @@ def service_tree_limit(root):
     options = document.get("studio5000") if isinstance(document, dict) else None
     if not isinstance(options, dict):
         raise TypeError("Studio5000 service settings are required")
-    for key in ("nativebridgepath", "cipbridgepath"):
-        value = options.get(key)
-        if value is not None and (not isinstance(value, str) or value.strip()):
-            raise ValueError(
-                "Native resource registration is not integrated; native paths block this managed profile"
-            )
-    if (
-        options.get("enablecontrolleroperations", False) is not False
-        or options.get("controllertargets", []) != []
-    ):
-        raise ValueError(
-            "Native resource registration is not integrated; controller settings block this managed profile"
-        )
     maximum = options.get("maximumownedprocesses", 32)
     if type(maximum) is not int or not 1 <= maximum <= 128:
         raise ValueError("MaximumOwnedProcesses must be an integer between 1 and 128")
-    return maximum
+    resources = options.get("maximumownedresources", 32)
+    if type(resources) is not int or not 1 <= resources <= 256:
+        raise ValueError("MaximumOwnedResources must be an integer between 1 and 256")
+    return maximum, resources
+
+
+def service_tree_limit(root):
+    return service_tree_limits(root)[0]
 
 
 def windows_exit_code(process):
@@ -95,6 +90,47 @@ class ServiceTree:
 
     def refresh(self):
         return self.launch.refresh()
+
+    def confirm_exit(self, root):
+        """Retire only after exact service-owned native close evidence and exit."""
+        if self.poll() is None:
+            return False
+        try:
+            root = ordinary(root)
+
+            def read(name):
+                with ordinary(root / ".local" / name).open("rb") as stream:
+                    data = stream.read(8193)
+                if len(data) > 8192:
+                    raise ValueError("Service owner evidence exceeds its bound")
+                return json.loads(data.decode("utf-8-sig"))
+
+            owner, exited = read("service-owner.json"), read("service-owner-exit.json")
+            record = self.ledger.get(self.launch.resource_id)
+            if (
+                type(exited.get("schemaVersion")) is not int
+                or exited["schemaVersion"] != 1
+                or exited.get("state") != "closed"
+                or owner.get("ownerId") != exited.get("ownerId")
+                or not isinstance(exited.get("ownerId"), str)
+                or not re.fullmatch("[0-9a-f]{32}", exited["ownerId"])
+                or type(owner.get("schemaVersion")) is not int
+                or owner["schemaVersion"] != 1
+                or ProcessIdentity.model_validate(owner.get("owner")) != record.process
+                or ProcessIdentity.model_validate(exited.get("owner")) != record.process
+                or self.stop_owner_id is not None
+                and exited.get("ownerId") != self.stop_owner_id
+                or record.recovery_barrier != SHUTDOWN_BARRIER
+            ):
+                return False
+            self.launch.owner.resolve_recovery_barrier(
+                record.resource_id,
+                record.revision,
+                "Exact service owner attested native/resource close before observed process exit; original operation journals remain authoritative",
+            )
+            return True
+        except (OSError, ValueError, TypeError, KeyError):
+            return False
 
     def stop_requested(self, root):
         path = ordinary(Path(root) / ".local/service-stop-request.json")
@@ -175,6 +211,9 @@ class ServiceTree:
         if not 32 <= len(key) <= 4096:
             raise ValueError("Private stop authentication is unavailable")
         service_owner = receipt["ownerId"]
+        self.stop_delivered.add(
+            intent_id
+        )  # Lost publication outcome is never redispatched automatically.
         atomic_json(
             root / ".local/service-owner-stop.json",
             {
@@ -186,7 +225,6 @@ class ServiceTree:
             },
         )
         self.stop_owner_id, self.stop_request_id = service_owner, intent_id
-        self.stop_delivered.add(intent_id)
 
     def forward_stop_result(self, root):
         if self.stop_owner_id is None:
@@ -230,7 +268,7 @@ class ServiceTree:
             "ownerId": record.owner_id,
             "resourceId": record.resource_id,
             "resourceRegistry": str(self.ledger.directory.parent),
-            "resourceProfile": OFFLINE_PROFILE,
+            "resourceProfile": SERVICE_PROFILE,
         }
 
 
@@ -239,9 +277,9 @@ def launch_service_tree(root, *, registry=None, ledger_factory=ResourceLedger):
     root = ordinary(root)
     if (root / ".local/maintenance-hold.json").exists():
         raise ValueError("Operator maintenance hold requires explicit human release before startup")
-    maximum = service_tree_limit(root)
+    maximum, resources = service_tree_limits(root)
     executable = ordinary(root / "artifacts/app/Service/Studio5000.Service.exe")
-    ledger = ledger_factory(registry)
+    ledger = ledger_factory(registry, max_active_per_app=resources)
     # This context stays in the actual long-lived supervisor. No registration
     # helper, inherited stdio or temporary owner generation is involved.
     with (
@@ -255,12 +293,15 @@ def launch_service_tree(root, *, registry=None, ledger_factory=ResourceLedger):
                 **os.environ,
                 "STUDIO5000_PLUGIN_ROOT": str(root),
                 "ROCKWELL_MANAGED_SERVICE": "1",
-                "ROCKWELL_RESOURCE_PROFILE": OFFLINE_PROFILE,
+                "ROCKWELL_RESOURCE_PROFILE": SERVICE_PROFILE,
                 "ROCKWELL_RESOURCE_REGISTRY": str(ledger.directory.parent),
             },
             max_processes=maximum,
         ) as launch,
     ):
+        # Core waits for matching supervisor metadata with this barrier before
+        # initializing business services, so native admission cannot race it.
+        owner.set_recovery_barrier(launch.resource_id, SHUTDOWN_BARRIER)
         record = launch.refresh()
         with ledger.driver.open(record.process.model_dump()) as handle:
             yield ServiceTree(ledger, launch, handle)

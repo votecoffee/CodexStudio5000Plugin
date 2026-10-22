@@ -52,6 +52,16 @@ public sealed class OwnerShutdownTests : IDisposable
         Assert.Equal("uncertain", reply.RootElement.GetProperty("state").GetString());
     }
     [Fact]
+    public async Task Console_stop_is_signed_once_and_does_not_retry_a_refused_close()
+    {
+        var mailbox = new OwnerShutdownMailbox(root, actor, key); var calls = 0;
+        mailbox.RequestOnce(); var before = File.ReadAllText(Path.Combine(root, ".local", "service-owner-stop.json"));
+        Task<OwnerShutdownDecision> Refuse() { calls++; return Task.FromResult(new OwnerShutdownDecision(false, "Synthetic dirty document")); }
+        Assert.False(await mailbox.PollAsync(Refuse, default));
+        mailbox.RequestOnce(); Assert.False(await mailbox.PollAsync(Refuse, default));
+        Assert.Equal(1, calls); Assert.Equal(before, File.ReadAllText(Path.Combine(root, ".local", "service-owner-stop.json")));
+    }
+    [Fact]
     public async Task Concurrent_mailbox_instances_cannot_dispatch_the_same_intent_twice()
     {
         Request(); var calls = 0;

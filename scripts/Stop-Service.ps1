@@ -16,7 +16,7 @@ if (Test-Path -LiteralPath $supervisorFile) {
             $resource.resource_id -ne $owned.resourceId -or $resource.owner_id -ne $owned.ownerId -or
             $resource.ownership -ne 'private' -or $resource.containment -ne 'windows_job' -or
             $resource.process.pid -ne $serviceProcessId -or $resource.state -ne 'active' -or
-            $resource.recovery_barrier -or $resource.receipt) { throw 'Managed resource is not an active unclaimed private tree; inspect its retained record.' }
+            ($resource.recovery_barrier -and $resource.recovery_barrier -cne 'Service shutdown requires generation-bound native close evidence.') -or $resource.receipt) { throw 'Managed resource is not an active unclaimed private tree; inspect its retained record.' }
         $ownedProcess = Get-Process -Id $serviceProcessId -ErrorAction SilentlyContinue
         if (!$ownedProcess) { throw 'Recorded service is gone; inspect the retained resource/cleanup outcome instead of replaying stop.' }
         try {

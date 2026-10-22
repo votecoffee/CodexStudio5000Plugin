@@ -1,6 +1,6 @@
 # Native resource ledger contract
 
-The shared Core now contains a .NET producer/reader for the reviewed framework 0.20 [resource record schema and ownership contract](https://github.com/votecoffee/CodexMCPBroker/blob/5b2cac50ca24d21a15b732e0424bb02fd794e1fb/docs/resource-ownership.md). It is a shared infrastructure component. Production service, worker and native-session integration is a separate step; this library alone does not make those paths migrated.
+The shared Core contains a .NET producer/reader for the reviewed framework 0.20 [resource record schema and ownership contract](https://github.com/votecoffee/CodexMCPBroker/blob/5b2cac50ca24d21a15b732e0424bb02fd794e1fb/docs/resource-ownership.md). Service, worker, native-session and stdio source integrations use it. Component/source validation remains separate from actual application, native and installed acceptance.
 
 ## Interoperability
 
@@ -14,7 +14,7 @@ The shared Core now contains a .NET producer/reader for the reviewed framework 0
 
 ## Owner and cleanup policy
 
-The actual surviving process creates its owner generation. Another generation or helper cannot impersonate it. A launch reservation must precede creation, and identity must be durable before execution. Atomic contained creation and stream preservation still need to be wired into production launchers; ordinary `Process.Start` followed by registration is not equivalent.
+The actual surviving process creates its owner generation. Another generation or helper cannot impersonate it. A launch reservation precedes creation, and identity is durable before execution. Worker and stdio source launchers use atomic contained creation with preserved streams; ordinary `Process.Start` followed by registration is not equivalent.
 
 `WindowsChildProcess` now provides the atomic creation component for that wiring. It creates the child suspended with both the job-list and explicit stdio-handle-list attributes, binds identity durably, then resumes. Only the child ends of stdin/stdout/stderr are inheritable; the job handle and parent pipe ends are not. Raw byte streams remain available for protocol transport. Failed pre-resume startup closes the owned job without executing child code. Membership capture checks the exact job through the same process handle, so a reused PID is not adopted from an old snapshot. See Microsoft's [process/thread attributes](https://learn.microsoft.com/en-us/windows/win32/api/processthreadsapi/nf-processthreadsapi-updateprocthreadattribute) and [redirected stream rules](https://learn.microsoft.com/en-us/windows/win32/procthread/creating-a-child-process-with-redirected-input-and-output).
 

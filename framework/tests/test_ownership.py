@@ -8,11 +8,37 @@ import pytest
 from universal_tools.resources import ProcessIdentity, ResourceLedger
 
 from rockwell_framework.ownership import (
-    OFFLINE_PROFILE,
-    launch_service_tree,
+    SERVICE_PROFILE,
+    SHUTDOWN_BARRIER,
     service_tree_limit,
     stop_signature,
 )
+from rockwell_framework.ownership import (
+    launch_service_tree as actual_launch_service_tree,
+)
+
+
+@contextmanager
+def launch_service_tree(root, **kwargs):
+    """Only synthetic driver fixtures attest a synthetic service close here."""
+    with actual_launch_service_tree(root, **kwargs) as child:
+        child.exit_code = lambda _: 7
+        try:
+            yield child
+        finally:
+            record = child.ledger.get(child.launch.resource_id)
+            local = root / ".local"
+            local.mkdir(exist_ok=True)
+            value = {
+                "schemaVersion": 1,
+                "ownerId": child.stop_owner_id or "b" * 32,
+                "owner": record.process.model_dump(),
+                "state": "closed",
+            }
+            for name in ("service-owner.json", "service-owner-exit.json"):
+                (local / name).write_text(json.dumps(value), encoding="utf-8")
+            child.ledger.driver.items.pop(child.pid, None)
+            assert child.confirm_exit(root)
 
 
 class Driver:
@@ -100,24 +126,21 @@ def app(tmp_path):
 @pytest.mark.parametrize(
     "options",
     [
-        {"NativeBridgePath": "native.exe"},
-        {"CipBridgePath": "cip.exe"},
-        {"EnableControllerOperations": True},
-        {"EnableControllerOperations": "false"},
-        {"ControllerTargets": [{"Id": "fixture"}]},
-        {"ControllerTargets": None},
         {"MaximumOwnedProcesses": 0},
         {"MaximumOwnedProcesses": 129},
         {"MaximumOwnedProcesses": True},
         {"MaximumOwnedProcesses": "4"},
+        {"MaximumOwnedResources": 0},
+        {"MaximumOwnedResources": 257},
+        {"MaximumOwnedResources": True},
     ],
 )
-def test_unassessed_native_or_invalid_policy_refuses_before_ledger_creation(app, options):
+def test_invalid_process_limit_refuses_before_ledger_creation(app, options):
     root, driver, ledger, registry = app
     (root / "service.local.json").write_text(json.dumps({"Studio5000": options}), encoding="utf-8")
     with (
         pytest.raises(ValueError),
-        launch_service_tree(root, registry=registry, ledger_factory=lambda _: ledger),
+        launch_service_tree(root, registry=registry, ledger_factory=lambda _, **kwargs: ledger),
     ):
         pytest.fail("Unassessed profile was launched")
     assert driver.created == []
@@ -139,7 +162,9 @@ def test_service_root_record_is_owned_by_surviving_supervisor_and_has_durable_cl
 ):
     root, driver, ledger, registry = app
     monkeypatch.setattr("rockwell_framework.ownership.windows_exit_code", lambda _: 7)
-    with launch_service_tree(root, registry=registry, ledger_factory=lambda _: ledger) as child:
+    with launch_service_tree(
+        root, registry=registry, ledger_factory=lambda _, **kwargs: ledger
+    ) as child:
         record = ledger.records()[0]
         assert record.owner.pid == os.getpid()
         assert record.ownership == "private" and record.containment == "windows_job"
@@ -151,13 +176,41 @@ def test_service_root_record_is_owned_by_surviving_supervisor_and_has_durable_cl
         assert saved["ownerId"] == record.owner_id and saved["schemaVersion"] == 2
         argv, options = driver.created[0]
         assert argv == [str(root / "artifacts/app/Service/Studio5000.Service.exe")]
-        assert options["env"]["ROCKWELL_RESOURCE_PROFILE"] == OFFLINE_PROFILE
+        assert options["env"]["ROCKWELL_RESOURCE_PROFILE"] == SERVICE_PROFILE
+        assert record.recovery_barrier == SHUTDOWN_BARRIER
         assert "stdout" not in options and "stdin" not in options
         driver.items.pop(child.pid)
         assert child.poll() == 7
     retained = ResourceLedger(registry, driver=driver).get(record.resource_id)
     assert retained.state == "terminated" and retained.receipt.outcome == "terminated"
     assert driver.groups[0].closed and driver.groups[0].stops == 1
+
+
+def test_native_settings_are_preserved_and_unverified_exit_keeps_owner_barrier(app):
+    root, driver, ledger, registry = app
+    configured = {
+        "Studio5000": {
+            "NativeBridgePath": "native.exe",
+            "CipBridgePath": "cip.exe",
+            "EnableControllerOperations": True,
+        }
+    }
+    path = root / "service.local.json"
+    path.write_text(json.dumps(configured), encoding="utf-8")
+    before = path.read_bytes()
+    with (
+        pytest.raises(ValueError, match="recovery blocks"),
+        actual_launch_service_tree(
+            root, registry=registry, ledger_factory=lambda _, **kwargs: ledger
+        ) as child,
+    ):
+        record = ledger.get(child.launch.resource_id)
+        driver.items.pop(child.pid)
+        child.exit_code = lambda _: 1
+        assert not child.confirm_exit(root)
+        assert ledger.get(record.resource_id).recovery_barrier == SHUTDOWN_BARRIER
+    assert path.read_bytes() == before
+    assert driver.groups[0].stops == 0 and not driver.groups[0].closed
 
 
 def test_identity_journal_failure_closes_suspended_child_without_execution(app, monkeypatch):
@@ -172,7 +225,7 @@ def test_identity_journal_failure_closes_suspended_child_without_execution(app, 
     monkeypatch.setattr(ledger, "_save", fail_active)
     with (
         pytest.raises(OSError, match="identity write failure"),
-        launch_service_tree(root, registry=registry, ledger_factory=lambda _: ledger),
+        launch_service_tree(root, registry=registry, ledger_factory=lambda _, **kwargs: ledger),
     ):
         pytest.fail("Worker executed before identity was durable")
     assert not driver.groups[0].resumed and driver.groups[0].closed
@@ -184,7 +237,7 @@ def test_uncertain_cleanup_is_retained_and_not_retried(app):
     driver.fail_stop = True
     with (
         pytest.raises(ValueError, match="recovery blocks"),
-        launch_service_tree(root, registry=registry, ledger_factory=lambda _: ledger),
+        launch_service_tree(root, registry=registry, ledger_factory=lambda _, **kwargs: ledger),
     ):
         pass
     retained = ResourceLedger(registry, driver=driver).records()[0]
@@ -209,7 +262,9 @@ def test_stop_intent_requires_exact_generation_and_signature_without_exposing_ke
     key = "k" * 64
     (local / "service.key").write_text(key, encoding="utf-8")
     path = local / "service-stop-request.json"
-    with launch_service_tree(root, registry=registry, ledger_factory=lambda _: ledger) as child:
+    with launch_service_tree(
+        root, registry=registry, ledger_factory=lambda _, **kwargs: ledger
+    ) as child:
         assert not child.stop_requested(root)
         record = ledger.get(child.launch.resource_id)
         valid = {
@@ -239,7 +294,9 @@ def test_parent_forwards_only_to_exact_service_owner_and_keeps_refusal_alive(app
     local = root / ".local"
     local.mkdir()
     (local / "service.key").write_text("k" * 64, encoding="utf-8")
-    with launch_service_tree(root, registry=registry, ledger_factory=lambda _: ledger) as child:
+    with launch_service_tree(
+        root, registry=registry, ledger_factory=lambda _, **kwargs: ledger
+    ) as child:
         record = ledger.get(child.launch.resource_id)
         (local / "service-owner.json").write_text(
             json.dumps(
