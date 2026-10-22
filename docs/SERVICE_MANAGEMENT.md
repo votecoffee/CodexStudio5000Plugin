@@ -4,6 +4,8 @@ Rockwell uses the shared `universal-codex-tools==0.18.0` management interface th
 
 The Windows MCP Service Manager is a separate shared application. This app does not install or start another manager. Follow the framework's [manager documentation](https://github.com/votecoffee/CodexMCPBroker/blob/7d8a0ccdc06598313061147ee8774837118a8861/docs/service-management.md) if a manager is needed.
 
+Each app keeps its own Codex plugin and native skills. The shared framework and independent manager do not aggregate plugins or create a universal Codex MCP connection. The Python package/import names remain `universal-codex-tools` / `universal_tools` for compatibility. This app's exact reviewed package pin remains authoritative until an app-owned migration is reviewed and validated; architecture announcements do not install a release or supply the pending durable resource-ledger API.
+
 ## Enable an app-owned runtime
 
 Prepare a new compatible environment using the exact reviewed wheel in `framework/src/rockwell_framework/baseline.json`:

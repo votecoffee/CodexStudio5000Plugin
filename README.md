@@ -97,6 +97,8 @@ You can also double-click **Install.cmd**, then **Run.cmd** in File Explorer. In
 
 Installation uses Rockwell's **standalone Codex plugin**, preserving its enabled/disabled choice on reinstall. Use `Install.cmd -CodexIntegration None` for the app alone. Broker routing and automatic route selection have been removed. See [standalone plugin installation](docs/CODEX_INTEGRATION.md).
 
+Each application owns its Codex plugin and native skills. Common infrastructure consists of the shared app framework and an independent Windows manager. The framework's `universal-codex-tools` package name remains a compatibility identifier; it does not select or install a universal plugin.
+
 If skills appear while tools are missing, follow the [MCP discovery and reconnect checks](docs/CODEX_INTEGRATION.md#skills-appear-but-tools-are-missing). Plugin installation and a working service do not establish that Codex loaded the tools.
 
 If you authorize continuing through the installed service while MCP is unavailable, the [documented REST fallback](workflows/rockwell-engineering/references/structural-edits.md#authorized-rest-fallback) keeps the same review and receipt guards. Requested named L5X copies are saved with hash readback after the edits and required scoped checks; native import/build remains a separate user-owned or separately requested step.
