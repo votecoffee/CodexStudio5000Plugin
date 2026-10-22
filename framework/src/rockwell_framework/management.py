@@ -23,6 +23,7 @@ from universal_tools.management import (
 )
 from universal_tools.models import atomic_json
 
+from . import __display_version__, __version__
 from .ownership import launch_service_tree, service_tree_limit
 from .publication import APP_ID, baseline, check_versions, ordinary
 
@@ -41,6 +42,15 @@ def read_metadata(path):
     return json.loads(raw.decode("utf-8-sig"))
 
 
+def version_key(value):
+    """Display timestamps and canonical numeric package releases compare equally."""
+    if isinstance(value, str) and len(parts := value.split(".")) == 3 and all(
+        part.isascii() and part.isdecimal() for part in parts
+    ):
+        return tuple(map(int, parts))
+    return value
+
+
 def component(installed, running=None, available=None):
     if any(
         value is not None and (not isinstance(value, str) or not 1 <= len(value) <= 128)
@@ -48,8 +58,8 @@ def component(installed, running=None, available=None):
     ):
         raise ValueError("Invalid component version metadata")
     installed = installed or "unknown"
-    pending = bool(running and installed != "unknown" and running != installed)
-    if available and installed != "unknown" and available != installed:
+    pending = bool(running and installed != "unknown" and version_key(running) != version_key(installed))
+    if available and installed != "unknown" and version_key(available) != version_key(installed):
         try:
             pending |= tuple(map(int, available.split("."))) > tuple(map(int, installed.split(".")))
         except ValueError:
@@ -69,16 +79,23 @@ def installation(root):
 
 def versions(root):
     stamp = installation(root)
-    source = read_metadata(root / "plugin.json").get("version")
+    try:
+        release = read_metadata(root / "release-version.json")
+    except FileNotFoundError:
+        release = {}  # Retained installations can predate timestamp metadata.
+    source = release.get("displayVersion") or read_metadata(root / "plugin.json").get("version")
     selected = read_metadata(root / ".local/management-runtime.json")
+    agent_package = selected.get("appPackageVersion") or importlib.metadata.version("rockwell-framework-host")
+    agent_display = selected.get("appDisplayVersion") or (
+        __display_version__ if version_key(agent_package) == version_key(__version__) else agent_package
+    )
     return {
         "app": component(stamp.get("appVersion"), available=source),
         # Loaded chat/plugin versions are not observable from this service.
-        "plugin": component(stamp.get("pluginVersion"), available=source),
+        "plugin": component(stamp.get("pluginDisplayVersion") or stamp.get("pluginVersion"), available=source),
         "management-agent": component(
-            selected.get("appPackageVersion")
-            or importlib.metadata.version("rockwell-framework-host"),
-            importlib.metadata.version("rockwell-framework-host"),
+            agent_display,
+            __display_version__,
             source,
         ),
         "framework": component(

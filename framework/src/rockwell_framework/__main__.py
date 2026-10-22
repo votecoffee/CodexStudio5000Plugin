@@ -9,6 +9,7 @@ from universal_tools.framework import serve_application
 from universal_tools.models import load_settings
 from universal_tools.surface import RemoteBackend, create_surface
 
+from . import __display_version__
 from .frontend import run_frontend
 from .guidance import AppGuidanceCatalog, GuidanceSource
 from .publication import INSTRUCTIONS, check_versions, profile, publish, verify
@@ -16,6 +17,7 @@ from .publication import INSTRUCTIONS, check_versions, profile, publish, verify
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--version", action="version", version=__display_version__)
     parser.add_argument("--state", type=Path, required=True)
     commands = parser.add_subparsers(dest="command", required=True)
     prepare = commands.add_parser(

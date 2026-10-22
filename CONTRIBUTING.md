@@ -52,3 +52,7 @@ For optional standalone plugin install/upgrade validation with the real Codex CL
 The isolated verifier has its own service/state, no native bridge and disabled controller execution. See [validation instructions](docs/VALIDATION.md) for expected outputs, conditional schema checks and optional native procedures. Report what was actually tested, including skipped checks and native boundaries. Ordinary development does not authorize controller connections or native project changes.
 
 Keep commits focused and include the relevant validation in the pull request. Changes should preserve original inputs, reject stale mutations and avoid automatic retries of indeterminate native work.
+
+## Release checkpoints
+
+Run `scripts/Stamp-Release.ps1` once for a new release/source checkpoint, then commit its fixed generated identity files together. `scripts/Stamp-Release.ps1 -Check` and `scripts/Verify-ReleaseVersion.ps1` verify them without reading a new version from the clock. Builds, installers and process startup reuse that identity. Never independently restamp each package or test, or modify already published artifacts under the same timestamp. Update the current README version when stamping. Follow [release versioning](docs/VERSIONING.md), preserve local old-to-new deployment receipts and retain independently reviewed SDK/framework pins. Installation and runtime/native authorization remain separate from source versioning.

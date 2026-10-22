@@ -1,5 +1,7 @@
-param([string]$PackageRoot = (Join-Path (Split-Path -Parent $PSScriptRoot) 'extensions'), [string]$Version = '0.36.5', [ValidateRange(1,4)][int]$ParallelWorkers = 4, [switch]$ContentVersion, [switch]$SelectOnStartup)
+param([string]$PackageRoot = (Join-Path (Split-Path -Parent $PSScriptRoot) 'extensions'), [string]$Version, [ValidateRange(1,4)][int]$ParallelWorkers = 4, [switch]$ContentVersion, [switch]$SelectOnStartup)
 $ErrorActionPreference = 'Stop'
+. (Join-Path $PSScriptRoot 'ReleaseVersion.ps1')
+if (!$Version) { $Version = (Get-RockwellRelease (Split-Path -Parent $PSScriptRoot)).packageVersion }
 $PackageRoot = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($PackageRoot)
 if ($Version -notmatch '^[A-Za-z0-9][A-Za-z0-9_.-]{0,95}$') { throw 'Invalid extension version.' }
 if ($SelectOnStartup) { & (Join-Path $PSScriptRoot 'Assert-ApplicationsStopped.ps1') }

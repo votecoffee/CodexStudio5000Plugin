@@ -15,7 +15,8 @@ if (!$PlanOnly -and $Route -eq 'Standalone') {
         if ($owned.Count -ne 1 -or !$owned[0].pluginId) { throw 'Canonical installed plugin identity is unavailable.' }
         Write-RockwellIntegrationJson (Join-Path $repo '.local/management-installation.json') @{
             schemaVersion = 1; appVersion = $build.version; pluginId = $owned[0].pluginId;
-            pluginVersion = $owned[0].version; mcpDotnetSdk = $build.mcpDotnetSdk
+            pluginVersion = $owned[0].version; appPackageVersion = $build.packageVersion;
+            pluginDisplayVersion = $build.version; assemblyFileVersion = $build.assemblyFileVersion; mcpDotnetSdk = $build.mcpDotnetSdk
         }
     }
 }

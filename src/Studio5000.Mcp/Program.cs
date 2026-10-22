@@ -6,6 +6,7 @@ using Studio5000.Mcp;
 using Studio5000.Client;
 using Studio5000.Core;
 
+if (args is ["--version"]) { Console.WriteLine(WorkspaceIdentity.Version); return; }
 var root = ServiceClient.FindRoot();
 if (File.Exists(Path.Combine(root, ".local", "maintenance-hold.json"))) throw new InvalidOperationException("RockwellMCPServer is on operator maintenance hold; explicit human release is required.");
 var limits = McpClientLimits.Read(root);

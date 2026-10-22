@@ -5,6 +5,7 @@ using Studio5000.Core;
 using Studio5000.Extensibility;
 using Studio5000.Core.Resources;
 
+if (args is ["--version"]) { Console.WriteLine(WorkspaceIdentity.Version); return; }
 var root = Path.GetFullPath(Environment.GetEnvironmentVariable("STUDIO5000_PLUGIN_ROOT") ?? Directory.GetCurrentDirectory());
 if (File.Exists(Path.Combine(root, ".local", "maintenance-hold.json"))) throw new InvalidOperationException("RockwellMCPServer is on operator maintenance hold; explicit human release is required.");
 using var supervisorOwner = Environment.GetEnvironmentVariable("ROCKWELL_MANAGED_SERVICE") == "1" ? ParentProcessOwners.Capture() : null;
@@ -86,7 +87,8 @@ app.Use(async (context, next) =>
     catch (Exception ex) when (ex is System.Xml.XmlException or System.Xml.Schema.XmlSchemaException or System.Xml.XPath.XPathException or ArgumentException or System.Text.Json.JsonException)
     { context.Response.StatusCode = 400; await context.Response.WriteAsJsonAsync(new { code = "invalid_request", message = ex.Message }); }
 });
-app.MapGet("/health", () => new { status = "ok", name = WorkspaceIdentity.Name, version = WorkspaceIdentity.Version });
+app.MapGet("/health", () => new { status = "ok", name = WorkspaceIdentity.Name, version = WorkspaceIdentity.Version,
+    packageVersion = WorkspaceIdentity.PackageVersion, assemblyFileVersion = WorkspaceIdentity.AssemblyFileVersion });
 app.MapGet("/api/management/activity", (ProjectService service, ExtensionHost extensions) =>
 {
     var activity = service.ManagementActivity();

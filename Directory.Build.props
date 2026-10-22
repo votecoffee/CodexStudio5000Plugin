@@ -1,4 +1,19 @@
 <Project>
+  <Import Project="$(MSBuildThisFileDirectory)ReleaseVersion.props" />
+  <PropertyGroup Condition="$([System.String]::Copy('$(MSBuildProjectName)').StartsWith('Studio5000.'))">
+    <Version>$(RockwellPackageVersion)</Version>
+    <PackageVersion>$(RockwellPackageVersion)</PackageVersion>
+    <AssemblyVersion>$(RockwellAssemblyVersion)</AssemblyVersion>
+    <FileVersion>$(RockwellAssemblyVersion)</FileVersion>
+    <InformationalVersion>$(RockwellDisplayVersion)</InformationalVersion>
+    <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
+    <Product>RockwellMCPServer</Product>
+  </PropertyGroup>
+  <ItemGroup Condition="$([System.String]::Copy('$(MSBuildProjectName)').StartsWith('Studio5000.'))">
+    <AssemblyAttribute Include="System.Reflection.AssemblyMetadataAttribute">
+      <_Parameter1>RockwellPackageVersion</_Parameter1><_Parameter2>$(RockwellPackageVersion)</_Parameter2>
+    </AssemblyAttribute>
+  </ItemGroup>
   <PropertyGroup>
     <TargetFramework>net8.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>

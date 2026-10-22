@@ -2,6 +2,7 @@ using System.Diagnostics;
 using Studio5000.Core;
 using Studio5000.Core.Resources;
 
+if (args is ["--version"]) { Console.WriteLine(WorkspaceIdentity.Version); return 0; }
 // This is a surviving transport owner, not a register-and-exit helper. The
 // SDK still creates/serves its ordinary stdio connection through raw byte pipes.
 if (args.Length != 0) throw new ArgumentException("The stdio owner accepts no executable or arbitrary command arguments.");

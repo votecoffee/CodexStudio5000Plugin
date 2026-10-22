@@ -5,7 +5,7 @@ $fixture = Join-Path $ResultsDirectory 'isolated checkout with spaces'
 $fixtureScripts = Join-Path $fixture 'scripts'
 $packages = Join-Path $fixture 'extensions'
 New-Item -ItemType Directory -Path $fixtureScripts -Force | Out-Null
-foreach ($name in @('Build-Extensions.ps1', 'Publish-Extension.ps1', 'Assert-ApplicationsStopped.ps1')) {
+foreach ($name in @('Build-Extensions.ps1', 'Publish-Extension.ps1', 'Assert-ApplicationsStopped.ps1', 'ReleaseVersion.ps1')) {
     Copy-Item -LiteralPath (Join-Path $PSScriptRoot $name) -Destination $fixtureScripts
 }
 $builder = Join-Path $fixtureScripts 'Build-Extensions.ps1'

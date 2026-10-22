@@ -26,7 +26,7 @@ function New-RockwellStandalonePackage([string]$Root) {
     $staging = Join-Path $marketplace ('staging/' + [guid]::NewGuid().ToString('N'))
     New-Item -ItemType Directory -Path (Join-Path $staging '.codex-plugin') -Force | Out-Null
     New-Item -ItemType Directory -Path (Join-Path $staging 'scripts') -Force | Out-Null
-    foreach ($name in @('plugin.json', '.codex-plugin/plugin.json', '.mcp.json', 'mcp.json', 'LICENSE')) {
+    foreach ($name in @('plugin.json', '.codex-plugin/plugin.json', '.mcp.json', 'mcp.json', 'LICENSE', 'release-version.json')) {
         Copy-Item -LiteralPath (Join-Path $Root $name) -Destination (Join-Path $staging $name)
     }
     # Explicit public-content allowlist. Never copy the checkout, .local, artifacts or projects.

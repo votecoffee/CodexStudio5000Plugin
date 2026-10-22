@@ -15,8 +15,10 @@ $installation = Get-Content -LiteralPath $stamp -Raw | ConvertFrom-Json
 if (!$installation.pluginId -or !$installation.appVersion) { throw 'Installed application/plugin identity is unavailable.' }
 $appPackageVersion = (& $runtime -c "import importlib.metadata; print(importlib.metadata.version('rockwell-framework-host'))").Trim()
 if ($LASTEXITCODE -ne 0 -or !$appPackageVersion) { throw 'App-owned management package is unavailable.' }
+$appDisplayVersion = (& $runtime -c "import rockwell_framework as app; print(getattr(app, '__display_version__', app.__version__))").Trim()
+if ($LASTEXITCODE -ne 0 -or !$appDisplayVersion) { throw 'App display version is unavailable.' }
 $pointer = [ordered]@{ schemaVersion = 1; python = $runtime; pythonSha256 = (Get-FileHash -LiteralPath $runtime).Hash;
-    frameworkVersion = $baseline.version; mcpPythonSdk = $baseline.mcp_python_sdk; wheelSha256 = $baseline.wheel_sha256; appPackageVersion = $appPackageVersion }
+    frameworkVersion = $baseline.version; mcpPythonSdk = $baseline.mcp_python_sdk; wheelSha256 = $baseline.wheel_sha256; appPackageVersion = $appPackageVersion; appDisplayVersion = $appDisplayVersion }
 if ($RegistryDirectory) {
     if (![IO.Path]::IsPathRooted($RegistryDirectory)) { throw 'An explicit management registry must be an absolute path.' }
     $pointer.registry = $RegistryDirectory

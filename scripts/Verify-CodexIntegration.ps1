@@ -24,7 +24,7 @@ function Case([string]$Name) {
     Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'Start-PackagedMcp.ps1') -Destination (Join-Path $caseRoot 'scripts')
     $repo = Split-Path -Parent $PSScriptRoot
     foreach ($name in @('.codex-plugin','skills')) { Copy-Item -LiteralPath (Join-Path $repo $name) -Destination $caseRoot -Recurse }
-    foreach ($name in @('plugin.json','.mcp.json','mcp.json','LICENSE')) { Copy-Item -LiteralPath (Join-Path $repo $name) -Destination $caseRoot }
+    foreach ($name in @('plugin.json','.mcp.json','mcp.json','LICENSE','release-version.json')) { Copy-Item -LiteralPath (Join-Path $repo $name) -Destination $caseRoot }
     $plugin = Get-Content -LiteralPath (Join-Path $caseRoot 'plugin.json') -Raw | ConvertFrom-Json
     $plugin.version = 'fixture-1'; Write-RockwellIntegrationJson (Join-Path $caseRoot 'plugin.json') $plugin
     $script:inventory = @(); $script:commands.Clear()
@@ -81,7 +81,7 @@ if (!$blocked) { throw 'Installer did not retain its update lock through plugin 
     Check (($commands | Where-Object { $_ -like 'codex plugin add rockwell*' }).Count -eq 1 -and (Receipt).route -eq 'Standalone') 'Fresh installation installs the standalone plugin with skills'
     $bundle = New-RockwellStandalonePackage $caseRoot
     $files = @(Get-ChildItem -LiteralPath $bundle.package -Recurse -File)
-    Check ($files.Count -eq 10 -and !($files | Where-Object { $_.FullName.Substring($bundle.package.Length) -match '[\\/](artifacts|\.local|workflows)[\\/]' })) 'Standalone package contains only manifests, MIT license, three bootstrap skills and a runtime launcher/pointer'
+    Check ($files.Count -eq 11 -and !($files | Where-Object { $_.FullName.Substring($bundle.package.Length) -match '[\\/](artifacts|\.local|workflows)[\\/]' })) 'Standalone package contains only manifests, MIT license, three bootstrap skills and a runtime launcher/pointer'
     $portableMcp = Get-Content -LiteralPath (Join-Path $bundle.package 'mcp.json') -Raw | ConvertFrom-Json
     Check ($portableMcp.'$schema' -ceq 'https://agent-plugins.org/schemas/1.0.0/mcp.schema.json' -and
         $portableMcp.mcpServers.'rockwell-mcp-server'.type -ceq 'stdio') 'Portable MCP configuration declares its required schema and standalone transport'
