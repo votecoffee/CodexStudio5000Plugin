@@ -1,12 +1,12 @@
 {
   "distribution": "universal-codex-tools",
-  "version": "0.17.0",
+  "version": "0.18.0",
   "mcp_python_sdk": "2.3.0",
   "mcp_dotnet_sdk": "2.2.0",
   "source": "https://github.com/votecoffee/CodexMCPBroker",
-  "source_commit": "87157f88de4a5320d2712224216b1e6f18a0ec8d",
-  "wheel": "universal_codex_tools-0.17.0-py3-none-any.whl",
-  "wheel_sha256": "6387265e9353f69f2dd767e4431ab2c7f6df40dd090118592a01daa3b5946c6b",
+  "source_commit": "7d8a0ccdc06598313061147ee8774837118a8861",
+  "wheel": "universal_codex_tools-0.18.0-py3-none-any.whl",
+  "wheel_sha256": "0c1084b424f079957ebd3bec763e609564aaef64cd1fedee78b61a45bfbc24ac",
   "publication_schema_version": 1,
   "negotiated_protocol": "2025-11-25"
 }

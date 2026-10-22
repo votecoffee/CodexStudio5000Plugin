@@ -70,6 +70,13 @@ app.Use(async (context, next) =>
     { context.Response.StatusCode = 400; await context.Response.WriteAsJsonAsync(new { code = "invalid_request", message = ex.Message }); }
 });
 app.MapGet("/health", () => new { status = "ok", name = WorkspaceIdentity.Name, version = WorkspaceIdentity.Version });
+app.MapGet("/api/management/activity", (ProjectService service, ExtensionHost extensions) =>
+{
+    var activity = service.ManagementActivity();
+    return new { schema_version = 1, name = WorkspaceIdentity.Name, version = activity.Version,
+        active_operations = Math.Clamp(activity.ActiveWorkspaces + activity.QueuedWorkspaces + activity.NativeJobs + activity.PollingWatches + extensions.ManagementActivity(), 0, 1000000),
+        restart_allowed = false, restart_reason = "No atomic restart fence for all chats, unsaved GUI documents, prepared reviews and unresolved native effects. Use the operator-managed update workflow." };
+});
 app.MapGet("/api/capabilities", (ProjectService service) => service.Capabilities());
 app.MapGet("/api/settings", (ServiceSettingsStore settings) => settings.Read());
 app.MapPost("/api/settings/broad-local-preview", (ServiceSettingsStore settings, System.Text.Json.JsonElement configuration) => settings.BroadLocalPreview(configuration));

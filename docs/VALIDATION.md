@@ -2,6 +2,8 @@
 
 Use generated fixtures and preserved source copies. Keep run reports, native exports, screenshots and controller observations local: `artifacts/` holds generated results, and `.local/private-docs/` holds private notes and deployment receipts. Neither belongs in public commits or issue attachments without review and redaction. Test results describe the environment and inputs used for that run.
 
+The 0.18 management profile uses dedicated registries and generated services to verify cached status/version reporting, authentication, duplicate/stale/busy denial, durable uncertain barriers and operator shutdown. Real Rockwell tray restart is disabled and has no native acceptance claim. See [service management validation](SERVICE_MANAGEMENT.md#verification).
+
 ## Automated checks without a controller
 
 From the repository root on Windows with the .NET 8 SDK:

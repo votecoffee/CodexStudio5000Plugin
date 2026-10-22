@@ -50,6 +50,10 @@ public sealed class ExtensionHost : IDisposable
         await InitializeAsync(ct);
         lock (sync) return new(ExtensionProtocol.Version, active.Values.Concat(retired).Select(Summary).OrderBy(x => x.Id).ToArray(), errors.ToArray());
     }
+    public int ManagementActivity()
+    {
+        lock (sync) return Math.Max(active.Values.Concat(retired).Sum(g => g.Leases), jobs.Values.Count(j => j.Job.Status is "queued" or "running"));
+    }
     public async Task<ExtensionOperation> DescribeAsync(string id, string operation, string generation, CancellationToken ct = default)
     { await InitializeAsync(ct); lock (sync) return Find(id, operation, generation).Operation; }
     public async Task<ExtensionSummary> ReloadAsync(ExtensionReloadRequest request, CancellationToken ct = default)

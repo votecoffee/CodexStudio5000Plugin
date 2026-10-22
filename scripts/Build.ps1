@@ -1,4 +1,4 @@
-param([switch]$WithSdk, [switch]$WithCip, [string]$ExtensionVersion = '0.35.4', [switch]$InstallExtensions)
+param([switch]$WithSdk, [switch]$WithCip, [string]$ExtensionVersion = '0.35.5', [switch]$InstallExtensions)
 $ErrorActionPreference = 'Stop'
 $repo = Split-Path -Parent $PSScriptRoot
 Push-Location -LiteralPath $repo
@@ -20,4 +20,10 @@ try {
         if ($LASTEXITCODE -ne 0) { throw 'Optional CIP bridge build failed.' }
     }
     & (Join-Path $PSScriptRoot 'Build-Extensions.ps1') -Version $ExtensionVersion -ContentVersion:$InstallExtensions -SelectOnStartup:$InstallExtensions
+    $manifest = Get-Content -LiteralPath (Join-Path $repo 'plugin.json') -Raw | ConvertFrom-Json
+    $lock = Get-Content -LiteralPath (Join-Path $repo 'src/Studio5000.Mcp/packages.lock.json') -Raw | ConvertFrom-Json
+    $sdk = @($lock.dependencies.PSObject.Properties.Value | ForEach-Object { $_.ModelContextProtocol.resolved } | Where-Object { $_ })[0]
+    [pscustomobject]@{ schemaVersion = 1; version = $manifest.version; mcpDotnetSdk = $sdk;
+        serviceCoreSha256 = (Get-FileHash -LiteralPath (Join-Path $repo 'artifacts/app/Service/Studio5000.Core.dll')).Hash } |
+        ConvertTo-Json | Set-Content -LiteralPath (Join-Path $repo 'artifacts/app/application.json') -Encoding utf8
 } finally { Pop-Location }

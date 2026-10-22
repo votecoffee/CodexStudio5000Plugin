@@ -22,5 +22,7 @@ if ($LASTEXITCODE -ne 0) { throw 'Locked framework dependencies failed.' }
 if ($LASTEXITCODE -ne 0) { throw 'Rockwell framework package installation failed.' }
 & $runtime -m pip check
 if ($LASTEXITCODE -ne 0) { throw 'Framework environment has dependency conflicts.' }
+& $runtime -m rockwell_framework.package --wheel $FrameworkWheel
+if ($LASTEXITCODE -ne 0) { throw 'Installed framework bytes differ from the reviewed wheel.' }
 Write-Output "Prepared isolated framework runtime: $RuntimeDirectory"
 Write-Output 'No host, plugin installation, registration or controller connection was started.'
