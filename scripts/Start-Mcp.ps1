@@ -9,7 +9,7 @@ if (Test-Path -LiteralPath $updateLockPath -PathType Leaf) {
     catch [IO.IOException] { throw 'RockwellMCPServer installation is in progress. Reconnect after the update finishes.' }
     finally { if ($probe) { $probe.Dispose() } }
 }
-$exe = Join-Path $repo 'artifacts/app/Mcp/Studio5000.Mcp.exe'
+$exe = Join-Path $repo 'artifacts/app/Mcp/Studio5000.StdioHost.exe'
 if (!(Test-Path -LiteralPath $exe)) { throw 'Run scripts/Build.ps1 first.' }
 # stdout belongs exclusively to MCP. Start the shared service separately.
 & $exe

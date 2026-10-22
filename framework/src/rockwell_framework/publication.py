@@ -109,7 +109,7 @@ def verify(state):
         raise ValueError("Backend deployment differs from its complete file inventory")
     transport = backend.service.transport
     if (
-        transport.command != str(deployment / "Studio5000.Mcp.exe")
+        transport.command != str(deployment / "Studio5000.StdioHost.exe")
         or transport.args
         or transport.cwd != marker["app_root"]
         or transport.env_vars != ["STUDIO5000_PLUGIN_ROOT"]
@@ -167,6 +167,10 @@ def _publish(app_root, state, *, backend_root, port, allowed_write_tools):
         "Studio5000.Mcp.dll",
         "Studio5000.Mcp.deps.json",
         "Studio5000.Mcp.runtimeconfig.json",
+        "Studio5000.StdioHost.exe",
+        "Studio5000.StdioHost.dll",
+        "Studio5000.StdioHost.deps.json",
+        "Studio5000.StdioHost.runtimeconfig.json",
     }
     if not required.issubset({p["path"] for p in members}):
         raise ValueError("Select a complete published .NET MCP adapter")
@@ -183,7 +187,7 @@ def _publish(app_root, state, *, backend_root, port, allowed_write_tools):
         "description": "Explicit project/review operations against the shared Rockwell service.",
         "transport": {
             "type": "stdio",
-            "command": str(destination / "Studio5000.Mcp.exe"),
+            "command": str(destination / "Studio5000.StdioHost.exe"),
             "args": [],
             "cwd": str(app_root),
             "env_vars": ["STUDIO5000_PLUGIN_ROOT"],
@@ -208,7 +212,7 @@ def _publish(app_root, state, *, backend_root, port, allowed_write_tools):
             "arguments": {},
         },
     }
-    entry = next(p for p in members if p["path"] == "Studio5000.Mcp.exe")
+    entry = next(p for p in members if p["path"] == "Studio5000.StdioHost.exe")
     document = {
         "schema_version": 1,
         "id": APP_ID,

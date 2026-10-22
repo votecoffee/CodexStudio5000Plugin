@@ -50,4 +50,10 @@ The SDK bridge journals an exact worker/session handshake before native entry an
 
 An inner service job can retire its own worker despite the retained outer supervisor snapshot only when that snapshot names the exact current service process as its private Windows-job root. Attachments, siblings, other apps, receipt-bearing or departed generations still block cleanup. The common manager remains conservative about these overlapping claims and cannot apply this service-only delegation.
 
-Native session/lease fixtures use synthetic providers and identities. The proprietary SDK bridge has been compiled with the new lifecycle protocol, but native operations have not been run for this increment. Native GUI lifecycle and optional framework stdio ownership remain separate source work.
+Native session/lease fixtures use synthetic providers and identities. The proprietary SDK bridge has been compiled with the new lifecycle protocol, but native operations have not been run for this increment. Native GUI lifecycle remains separate source work.
+
+## Stdio transport owner
+
+`Studio5000.StdioHost` is a surviving owner of the actual .NET MCP adapter. It reserves and atomically launches the adapter, relays bounded raw bytes, forwards real stdin EOF, and gives the SDK a bounded cooperative shutdown before closing its own private job. It pins its own launcher/parent handles. It never starts the shared HTTP service or registers another process's resources temporarily. The backend publication pins the complete adapter/stdio-owner file closure. Both the native plugin bootstrap and optional framework backend use this owner; framework SDK stdio semantics and parser remain unchanged.
+
+The optional Python remote frontend uses the same Windows share-none admission files as the .NET adapter and pins its parent/wrapper identities. Its public SDK stdio lifecycle is cancelled on parent loss; SDK EOF cancels the monitor and releases admission/observation handles. It owns no engineering children and never stops the app host. Pure SDK-lifecycle stubs, native file handles and harmless Python echo/timeout processes have been checked. Actual MCP SDK/host and installed plugin acceptance remain held.

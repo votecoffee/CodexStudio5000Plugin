@@ -32,8 +32,9 @@ if (args[0].StartsWith("launch-", StringComparison.Ordinal))
     var driver = new WindowsResourceProcessDriver(); var ledger = new ResourceLedger(Path.Combine(root, "native-launch-registry"), driver);
     var owner = ledger.Owner("rockwell-launch-fixture");
     var executed = Path.Combine(root, "executed");
-    var code = args[0] == "launch-echo"
+    var code = args[0] is "launch-echo" or "launch-relay"
         ? "import sys;from pathlib import Path;Path(sys.argv[1]).write_text('executed');data=sys.stdin.buffer.read();sys.stdout.buffer.write(data);sys.stderr.write('fixture-error')"
+        : args[0] == "launch-relay-timeout" ? "import sys,time;sys.stdin.buffer.read();time.sleep(60)"
         : "import subprocess,sys,time;from pathlib import Path;p=subprocess.Popen([sys.executable,'-c','import time;time.sleep(60)']);Path(sys.argv[1]).write_text(str(p.pid));print('ready',flush=True);time.sleep(60)";
     var start = new ProcessStartInfo(python) { UseShellExecute = false, RedirectStandardInput = true, RedirectStandardOutput = true, RedirectStandardError = true, CreateNoWindow = true };
     start.ArgumentList.Add("-c"); start.ArgumentList.Add(code); start.ArgumentList.Add(executed);
@@ -53,7 +54,16 @@ if (args[0].StartsWith("launch-", StringComparison.Ordinal))
     }
     using var child = WindowsChildProcess.Launch(owner, start, "Harmless redirected process fixture", maximumProcesses: 8,
         beforeResume: record => { if (File.Exists(executed) || ledger.Get(record.ResourceId).State != "active") throw new InvalidOperationException("Fixture executed before durable identity binding"); });
-    if (args[0] == "launch-echo")
+    if (args[0] is "launch-relay" or "launch-relay-timeout")
+    {
+        using var input = new MemoryStream(await File.ReadAllBytesAsync(Path.Combine(root, "input.bin")));
+        using var output = new MemoryStream(); using var error = new MemoryStream();
+        var exit = await OwnedStdioRelay.RunAsync(child, input, output, error, 1, default);
+        await File.WriteAllBytesAsync(Path.Combine(root, "output.bin"), output.ToArray());
+        await File.WriteAllBytesAsync(Path.Combine(root, "error.bin"), error.ToArray());
+        if (args[0] == "launch-relay" && exit != 0 || args[0] == "launch-relay-timeout" && exit == 0) throw new InvalidOperationException("Relay fixture exit mismatch");
+    }
+    else if (args[0] == "launch-echo")
     {
         using var output = new MemoryStream(); var stdout = child.StandardOutput.BaseStream.CopyToAsync(output);
         var stderr = child.StandardError.ReadToEndAsync();

@@ -11,6 +11,9 @@ try {
         dotnet publish "src/Studio5000.$name/Studio5000.$name.csproj" -c Release --no-restore -o "artifacts/app/$name" --nologo
         if ($LASTEXITCODE -ne 0) { throw "$name publish failed." }
     }
+    # Publish beside the SDK adapter so the immutable closure includes both.
+    dotnet publish src/Studio5000.StdioHost/Studio5000.StdioHost.csproj -c Release --no-restore -o artifacts/app/Mcp --nologo
+    if ($LASTEXITCODE -ne 0) { throw 'Stdio owner publish failed.' }
     if ($WithSdk) {
         dotnet publish src/Studio5000.NativeBridge/Studio5000.NativeBridge.csproj -c Release -o artifacts/app/NativeBridge --nologo
         if ($LASTEXITCODE -ne 0) { throw 'Native bridge build failed. Install the Logix Designer SDK local NuGet package.' }

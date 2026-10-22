@@ -41,6 +41,23 @@ def test_redirected_binary_bytes_and_eof_are_preserved(fixture):
     assert record.state == "terminated" and record.receipt.outcome == "terminated"
 
 
+def test_stdio_relay_preserves_raw_bytes_diagnostics_and_sdk_eof_semantics(fixture):
+    payload = bytes(range(256)) * 1024 + b'\n{"jsonrpc":"2.0"}\n'
+    (fixture / "input.bin").write_bytes(payload)
+    record = run("launch-relay", fixture)
+    assert (fixture / "output.bin").read_bytes() == payload
+    assert (fixture / "error.bin").read_bytes() == b"fixture-error"
+    assert record.state == "terminated" and record.receipt.outcome == "terminated"
+
+
+def test_stdio_relay_bounds_an_unresponsive_private_child_after_eof(fixture):
+    (fixture / "input.bin").write_bytes(b"explicit harmless fixture")
+    started = time.monotonic()
+    record = run("launch-relay-timeout", fixture)
+    assert time.monotonic() - started < 10
+    assert record.state == "terminated" and record.receipt.outcome == "terminated"
+
+
 def test_descendants_are_recorded_and_close_with_the_exact_owned_group(fixture):
     record = run("launch-descendants", fixture)
     observed = json.loads((fixture / "launch-active.json").read_text("utf-8"))
@@ -96,7 +113,9 @@ def test_crashed_native_owner_stops_nested_tree_and_preserves_unclaimed_record(f
         record = ledger.records()[0]
         assert record.state == "active" and record.receipt is None
         deadline = time.monotonic() + 5
-        while any(ledger.driver.state(p) == "alive" for p in observed["members"]):
+        while not all(
+            ledger.driver.state(p) in {"absent", "different"} for p in observed["members"]
+        ):
             if time.monotonic() >= deadline:
                 raise AssertionError("Crashed owner left a harmless contained child alive")
             time.sleep(0.01)

@@ -19,6 +19,10 @@ def app(tmp_path):
         "Studio5000.Mcp.dll",
         "Studio5000.Mcp.deps.json",
         "Studio5000.Mcp.runtimeconfig.json",
+        "Studio5000.StdioHost.exe",
+        "Studio5000.StdioHost.dll",
+        "Studio5000.StdioHost.deps.json",
+        "Studio5000.StdioHost.runtimeconfig.json",
         "dependency.dll",
     ):
         (backend / name).write_bytes(b"generated publication fixture; never executed")

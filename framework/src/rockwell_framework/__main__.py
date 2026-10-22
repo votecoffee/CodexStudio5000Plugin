@@ -9,6 +9,7 @@ from universal_tools.framework import serve_application
 from universal_tools.models import load_settings
 from universal_tools.surface import RemoteBackend, create_surface
 
+from .frontend import run_frontend
 from .guidance import AppGuidanceCatalog, GuidanceSource
 from .publication import INSTRUCTIONS, check_versions, profile, publish, verify
 
@@ -67,21 +68,26 @@ def main():
     elif args.command == "serve":
         marker = verify(args.state)
         if (Path(marker["app_root"]) / ".local/maintenance-hold.json").exists():
-            raise ValueError("Operator maintenance hold requires explicit human release before startup")
+            raise ValueError(
+                "Operator maintenance hold requires explicit human release before startup"
+            )
         os.environ["STUDIO5000_PLUGIN_ROOT"] = marker["app_root"]
         skills = AppGuidanceCatalog(GuidanceSource(marker["app_root"])) if args.skills else None
         serve_application(args.state, args.state / "application.json", skills=skills)
     else:
         marker = profile(args.state)
         if (Path(marker["app_root"]) / ".local/maintenance-hold.json").exists():
-            raise ValueError("Operator maintenance hold requires explicit human release before connecting")
+            raise ValueError(
+                "Operator maintenance hold requires explicit human release before connecting"
+            )
         skills = AppGuidanceCatalog(GuidanceSource(marker["app_root"])) if args.skills else None
-        create_surface(
+        surface = create_surface(
             RemoteBackend(load_settings(args.state)),
             name="RockwellMCPServer",
             instructions=INSTRUCTIONS,
             skills=skills,
-        ).run(transport="stdio")
+        )
+        run_frontend(surface, marker["app_root"])
 
 
 if __name__ == "__main__":
