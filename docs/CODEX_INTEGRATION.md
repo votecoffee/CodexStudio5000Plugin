@@ -31,6 +31,8 @@ Only an app-owned package with the exact plugin identity and matching marketplac
 
 Start the service with `Run.cmd` or `Start-Service.ps1`. A new Codex chat may be needed to load updated plugin tools/skills. Compatible extension operations continue to reload through the live app catalog without reinstalling the plugin. The REST service URL is not an HTTP MCP endpoint.
 
+The installer holds an application-update file lock through binary publication and plugin configuration. The launcher rejects reconnect attempts while that lock is held, preventing a client from relaunching the bridge during replacement. The lock releases on success, failure or process exit; an unlocked leftover file does not block startup. Existing active clients and engineering work must still be stopped before binary replacement. The update lock does not cancel jobs, stop polling or authorize controller actions.
+
 ## Skills appear but tools are missing
 
 Plugin installation, skill discovery and MCP tool exposure are separate checks. Portable packages use root `mcp.json`, which must declare `$schema: "https://agent-plugins.org/schemas/1.0.0/mcp.schema.json"`. Keep `.mcp.json` for compatibility; it does not establish that Codex accepted the portable file. A missing schema can leave the skills installed while the MCP server is absent.

@@ -39,6 +39,41 @@ try {
     $installerAst = [Management.Automation.Language.Parser]::ParseFile((Join-Path $PSScriptRoot 'Install.ps1'), [ref]$null, [ref]$null)
     $integrationParameter = $installerAst.ParamBlock.Parameters | Where-Object { $_.Name.VariablePath.UserPath -eq 'CodexIntegration' }
     Check ($integrationParameter.DefaultValue.Value -ceq 'Standalone') 'Normal installation defaults to the standalone plugin'
+    Case 'application-update-lock'
+    foreach ($name in @('Install.ps1', 'Start-Mcp.ps1')) { Copy-Item -LiteralPath (Join-Path $PSScriptRoot $name) -Destination (Join-Path $caseRoot 'scripts') }
+    New-Item -ItemType Directory -Path (Join-Path $caseRoot '.local') -Force | Out-Null
+    $lockPath = Join-Path $caseRoot '.local/application-update.lock'
+    $held = [IO.File]::Open($lockPath, [IO.FileMode]::OpenOrCreate, [IO.FileAccess]::ReadWrite, [IO.FileShare]::None)
+    $previousRoot = $env:STUDIO5000_PLUGIN_ROOT
+    try {
+        $blocked = $false; try { & (Join-Path $caseRoot 'scripts/Start-Mcp.ps1') } catch { $blocked = $_.Exception.Message -like '*installation is in progress*' }
+        Check $blocked 'An active update blocks MCP reconnect before launching a bridge'
+        $blocked = $false; try { & (Join-Path $caseRoot 'scripts/Install.ps1') -SkipBuild -NoShortcut } catch { $blocked = $_.Exception.Message -like '*Another RockwellMCPServer update*' }
+        Check $blocked 'A second installer cannot enter an active application update'
+    } finally { $held.Dispose(); $env:STUDIO5000_PLUGIN_ROOT = $previousRoot }
+    $missing = $false; try { & (Join-Path $caseRoot 'scripts/Start-Mcp.ps1') } catch { $missing = $_.Exception.Message -like '*Run scripts/Build.ps1 first*' } finally { $env:STUDIO5000_PLUGIN_ROOT = $previousRoot }
+    Check $missing 'An unlocked leftover update file does not block the normal launcher'
+    $failed = $false; try { & (Join-Path $caseRoot 'scripts/Install.ps1') -SkipBuild -NoShortcut } catch { $failed = $_.Exception.Message -like '*Missing Service application*' }
+    $probe = [IO.File]::Open($lockPath, [IO.FileMode]::Open, [IO.FileAccess]::ReadWrite, [IO.FileShare]::None); $probe.Dispose()
+    Check $failed 'A failed installation releases its update lock without starting an application'
+    foreach ($name in @('Service','Mcp','Desktop','ExtensionWorker')) {
+        $directory = Join-Path $caseRoot "artifacts/app/$name"; New-Item -ItemType Directory -Path $directory -Force | Out-Null
+        [IO.File]::WriteAllText((Join-Path $directory "Studio5000.$name.exe"), 'generated nonexecutable placeholder')
+    }
+    [IO.File]::WriteAllText((Join-Path $caseRoot 'service.local.json'), '{}')
+    [IO.File]::WriteAllText((Join-Path $caseRoot 'scripts/Configure-Codex.ps1'), @'
+param([string]$Route)
+$root = Split-Path -Parent $PSScriptRoot
+$blocked = $false
+try { $probe = [IO.File]::Open((Join-Path $root '.local/application-update.lock'), [IO.FileMode]::Open, [IO.FileAccess]::ReadWrite, [IO.FileShare]::None); $probe.Dispose() }
+catch [IO.IOException] { $blocked = $true }
+if (!$blocked) { throw 'Installer did not retain its update lock through plugin configuration.' }
+[IO.File]::WriteAllText((Join-Path $root '.local/guard-observed'), 'held')
+'@)
+    & (Join-Path $caseRoot 'scripts/Install.ps1') -SkipBuild -NoShortcut | Out-Null
+    Check (Test-Path -LiteralPath (Join-Path $caseRoot '.local/guard-observed')) 'The installer retains its update lock through plugin configuration'
+    $probe = [IO.File]::Open($lockPath, [IO.FileMode]::Open, [IO.FileAccess]::ReadWrite, [IO.FileShare]::None); $probe.Dispose()
+    Check $true 'A successful installation releases the lock so new MCP connections can start'
     Case 'absent'
     $plan = Set-RockwellCodexIntegration -Root $caseRoot -PlanOnly
     Check ($plan.route -eq 'Standalone' -and !(Test-Path -LiteralPath (Join-Path $caseRoot '.local'))) 'Planning standalone installation performs no installation or local-state writes'

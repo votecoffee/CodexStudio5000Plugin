@@ -4,6 +4,12 @@ param([switch]$WithSdk, [switch]$WithCip, [switch]$SkipBuild, [switch]$NoShortcu
 $ErrorActionPreference = 'Stop'
 $repo = Split-Path -Parent $PSScriptRoot
 $configPath = Join-Path $repo 'service.local.json'
+$localDirectory = Join-Path $repo '.local'
+New-Item -ItemType Directory -Path $localDirectory -Force | Out-Null
+$updateLock = $null
+try { $updateLock = [IO.File]::Open((Join-Path $localDirectory 'application-update.lock'), [IO.FileMode]::OpenOrCreate, [IO.FileAccess]::ReadWrite, [IO.FileShare]::None) }
+catch [IO.IOException] { throw 'Another RockwellMCPServer update is in progress. Wait for it to finish before installing.' }
+try {
 
 if (!$SkipBuild -or $WithSdk -or $WithCip) {
     & (Join-Path $PSScriptRoot 'Assert-ApplicationsStopped.ps1')
@@ -56,3 +62,4 @@ if (!$NoShortcut) {
 }
 & (Join-Path $PSScriptRoot 'Configure-Codex.ps1') -Route $CodexIntegration
 Write-Output 'Installation complete. Run Run.cmd or open RockwellMCPServer from the Start Menu.'
+} finally { if ($updateLock) { $updateLock.Dispose() } }
