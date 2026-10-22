@@ -14,6 +14,7 @@ public sealed partial class ProjectService : IDisposable
     public static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web) { WriteIndented = true, MaxDepth = 128 };
     private readonly ServiceOptions options;
     private readonly NativeConverter native;
+    private readonly SdkServiceControl sdkService;
     private readonly IWatchSessionFactory watchFactory;
     private readonly string state;
     private readonly string[] roots;
@@ -25,7 +26,7 @@ public sealed partial class ProjectService : IDisposable
     private static readonly ReaderWriterLockSlim[] stateFileGates = Enumerable.Range(0, 128).Select(_ => new ReaderWriterLockSlim()).ToArray();
     private static ReaderWriterLockSlim StateFileGate(string path) => stateFileGates[(int)((uint)StringComparer.OrdinalIgnoreCase.GetHashCode(Path.GetFullPath(path)) % (uint)stateFileGates.Length)];
 
-    public ProjectService(ServiceOptions options, IWatchSessionFactory? watchFactory = null)
+    public ProjectService(ServiceOptions options, IWatchSessionFactory? watchFactory = null, ISdkServiceDriver? sdkServiceDriver = null, Func<bool>? sdkServiceMaintenanceHeld = null)
     {
         this.options = options;
         if (options.MaximumConcurrentMutations is < 1 or > 32 || options.MaximumQueuedMutations is < 1 or > 4096) throw new ArgumentException("Set concurrency limits to active 1..32 and queued 1..4096.");
@@ -47,7 +48,9 @@ public sealed partial class ProjectService : IDisposable
         instanceLock = new FileStream(Path.Combine(state, "service.lock"), FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
         Directory.CreateDirectory(Path.Combine(state, "projects"));
         Directory.CreateDirectory(Path.Combine(state, "artifacts"));
-        native = new(options);
+        sdkService = new(options, Path.Combine(state, "sdk-service-control"), sdkServiceDriver ?? new WindowsSdkServiceDriver(),
+            sdkServiceMaintenanceHeld ?? (() => File.Exists(Path.Combine(Resources.ResourceSupervisor.IsInitialized ? Resources.ResourceSupervisor.RequireCurrent().Root : Directory.GetCurrentDirectory(), ".local", "maintenance-hold.json"))));
+        native = new(options, sdkService);
         this.watchFactory = watchFactory ?? new WatchBackendRouter(native, new CipWatchSessionFactory(options));
         gate.BeforeExclusive = RecoverTransactions;
         try { InitializeTransactions(); InitializeSdkJobs(); InitializeWatches(); InitializeTriggers(); }

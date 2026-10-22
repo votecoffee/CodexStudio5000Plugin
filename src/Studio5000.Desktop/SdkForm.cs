@@ -16,6 +16,7 @@ public sealed class SdkForm : WorkspaceForm
     private SdkMethodInfo[] catalog = [];
     private bool busy;
     private bool testLoaded;
+    private string? sdkServiceRequestId;
 
     public SdkForm(ServiceClient client, ProjectInfo? project)
     {
@@ -36,11 +37,15 @@ public sealed class SdkForm : WorkspaceForm
         Button(actions, "Cancel job", async () => Show(await client.PostAsync<SdkJob>("/api/sdk/jobs/" + jobId.Text.Trim() + "/cancel", new { })));
         Button(actions, "List jobs", async () => Show(await client.GetAsync<SdkJob[]>("/api/sdk/jobs")));
         Button(actions, "Save output…", SaveAsync);
+        var serviceActions = new FlowLayoutPanel { Dock = DockStyle.Top, Height = 44, Padding = new(8, 3, 8, 3) };
+        Button(serviceActions, "SDK service status", async () => Show(await client.GetAsync<SdkServiceStatus>("/api/sdk/service")));
+        Button(serviceActions, "Start SDK service", EnsureSdkServiceAsync);
+        serviceActions.Controls.Add(new Label { Text = "Starts when stopped; a running service stays running.", AutoSize = true, Padding = new(8) });
         var split = new SplitContainer { Dock = DockStyle.Fill };
         split.Panel1.Controls.Add(request); split.Panel1.Controls.Add(new Label { Text = "REQUEST  /  exact SDK methods and JSON arguments", Dock = DockStyle.Top, Height = 30 });
         split.Panel2.Controls.Add(result); split.Panel2.Controls.Add(new Label { Text = "JOB RESULT  /  steps, diagnostics and artifacts", Dock = DockStyle.Top, Height = 30 });
         var note = new Label { Text = "Calls run in order in one SDK session. Choose an ACD for native work, or use a managed L5X revision. Results create new files and a new project.", Dock = DockStyle.Top, Height = 43, Padding = new(8) };
-        Controls.Add(split); Controls.Add(status); Controls.Add(note); Controls.Add(actions); Controls.Add(toolbar);
+        Controls.Add(split); Controls.Add(status); Controls.Add(note); Controls.Add(actions); Controls.Add(serviceActions); Controls.Add(toolbar);
         request.Text = JsonSerializer.Serialize(new SdkRunRequest([]), ProjectService.Json);
         Shown += async (_, _) =>
         {
@@ -56,6 +61,13 @@ public sealed class SdkForm : WorkspaceForm
     private SdkRunRequest Request() => JsonSerializer.Deserialize<SdkRunRequest>(request.Text, ProjectService.Json) ?? throw new ArgumentException("Enter a request.");
     private void Request(SdkRunRequest value) => request.Text = JsonSerializer.Serialize(value, ProjectService.Json);
     private void Show<T>(T value) => result.Text = JsonSerializer.Serialize(value, ProjectService.Json);
+    private async Task EnsureSdkServiceAsync()
+    {
+        sdkServiceRequestId ??= Guid.NewGuid().ToString("N");
+        var receipt = await client.PostAsync<SdkServiceReceipt>("/api/sdk/service/ensure-running", new SdkServiceEnsureRequest(sdkServiceRequestId));
+        Show(receipt); status.Text = receipt.Message;
+        if (receipt.Outcome is not ("dispatching" or "uncertain")) sdkServiceRequestId = null;
+    }
     public async Task InitializeAsync()
     {
         var capabilities = await client.GetAsync<JsonElement>("/api/sdk/capabilities");

@@ -47,6 +47,7 @@ public sealed class ServiceSettingsStore
         var document = Parse(Encoding.UTF8.GetBytes(configuration.GetRawText())); _ = Normalize(document, root);
         var options = Options(document);
         options.EnableControllerOperations = true; options.AllowAnyControllerPath = true;
+        options.EnableSdkServiceRecovery = true; options.AutoStartSdkService = true;
         options.AllowAnySourcePath = true; options.AllowAnyOutputPath = true;
         options.ControllerTargets = options.ControllerTargets.Select(t => t with { Policy = null }).ToArray();
         document["Studio5000"] = JsonSerializer.SerializeToNode(options, Json);
@@ -141,6 +142,7 @@ public sealed class ServiceSettingsStore
     {
         new McpClientLimits(options.MaximumMcpClients, options.McpShutdownTimeoutSeconds, options.MaximumOwnedProcesses, options.MaximumOwnedResources).Validate();
         OwnedProcessContainment.ValidateLimit(options.MaximumOwnedProcesses);
+        if (options.SdkServiceStartTimeoutSeconds is < 1 or > 120) throw new ArgumentException("SDK service startup readback timeout must be 1..120 seconds.");
         string Full(string? value) => string.IsNullOrWhiteSpace(value) || value.Any(char.IsControl) ? throw new ArgumentException("Configured paths must be nonempty and contain no control characters.") : Path.GetFullPath(value, root);
         options.StateDirectory = Full(options.StateDirectory);
         if (options.AllowedRoots is null || options.OutputRoots is null || options.AllowedRoots.Length > 512 || options.OutputRoots.Length > 512 ||

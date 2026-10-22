@@ -10,6 +10,9 @@ public sealed class ServiceOptions
     public string? NativeBridgePath { get; set; }
     public string? CipBridgePath { get; set; }
     public int NativeTimeoutSeconds { get; set; } = 180;
+    public bool EnableSdkServiceRecovery { get; set; } = true;
+    public bool AutoStartSdkService { get; set; } = true;
+    public int SdkServiceStartTimeoutSeconds { get; set; } = 30;
     public bool EnableControllerOperations { get; set; }
     public bool AllowAnyControllerPath { get; set; }
     public ControllerTarget[] ControllerTargets { get; set; } = [];

@@ -4,7 +4,7 @@ using Studio5000.Core.Resources;
 
 namespace Studio5000.Core;
 
-public sealed partial class NativeConverter(ServiceOptions options)
+public sealed partial class NativeConverter(ServiceOptions options, SdkServiceControl sdkService)
 {
     private readonly SemaphoreSlim gate = new(1, 1);
     public bool Available => !string.IsNullOrWhiteSpace(options.NativeBridgePath) && File.Exists(options.NativeBridgePath);
@@ -32,6 +32,8 @@ public sealed partial class NativeConverter(ServiceOptions options)
         try
         {
             ct.ThrowIfCancellationRequested();
+            ResourceSupervisor.RequireCurrent().CheckWorkerAdmission();
+            await sdkService.EnsureForSdkAsync(ct);
             var resultPath = Path.Combine(request.WorkDirectory, "result.json");
             var start = Start(); start.ArgumentList.Add("--sdk"); start.ArgumentList.Add(resultPath);
             using var worker = ResourceSupervisor.RequireCurrent().LaunchNative(start, "Rockwell SDK operation session");
@@ -76,6 +78,8 @@ public sealed partial class NativeConverter(ServiceOptions options)
         await gate.WaitAsync(ct);
         try
         {
+            ResourceSupervisor.RequireCurrent().CheckWorkerAdmission();
+            await sdkService.EnsureForSdkAsync(ct);
             var start = Start();
             start.ArgumentList.Add(input);
             start.ArgumentList.Add(output);

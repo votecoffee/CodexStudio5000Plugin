@@ -9,7 +9,7 @@ public sealed partial class ProjectService
     {
         lock (watchLock)
         {
-            if (sdkJobs.Count != 0 || watches.Values.Any(w => w.Task is { IsCompleted: false }) || !gate.TryFenceShutdown()) return false;
+            if (sdkJobs.Count != 0 || explicitSdkServiceRequests != 0 || sdkService.ActiveRequests != 0 || watches.Values.Any(w => w.Task is { IsCompleted: false }) || !gate.TryFenceShutdown()) return false;
             shutdownRequested = true; return true;
         }
     }
@@ -18,8 +18,12 @@ public sealed partial class ProjectService
     // In-memory counts only: never enumerate projects, plans, job files or controller targets.
     public ServiceManagementActivity ManagementActivity()
     {
-        var workspace = gate.Status(); int polling;
-        lock (watchLock) polling = watches.Values.Count(w => w.Task is { IsCompleted: false });
-        return new(WorkspaceIdentity.Version, workspace.ActiveMutations, workspace.QueuedMutations, sdkJobs.Count, polling);
+        var workspace = gate.Status(); int polling, recovery;
+        lock (watchLock)
+        {
+            polling = watches.Values.Count(w => w.Task is { IsCompleted: false });
+            recovery = Math.Max(explicitSdkServiceRequests, sdkService.ActiveRequests);
+        }
+        return new(WorkspaceIdentity.Version, workspace.ActiveMutations, workspace.QueuedMutations, sdkJobs.Count + recovery, polling);
     }
 }

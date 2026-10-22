@@ -9,6 +9,8 @@ public sealed partial class NativeConverter : IWatchSessionFactory
     public async Task<IWatchSession> OpenAsync(WatchBridgeOpen request, CancellationToken ct)
     {
         if (!Available) throw new OperationException("native_unavailable", "Build and configure the native bridge.");
+        ResourceSupervisor.RequireCurrent().CheckWorkerAdmission();
+        await sdkService.EnsureForSdkAsync(ct);
         if (Path.GetExtension(request.SourcePath).Equals(".l5x", StringComparison.OrdinalIgnoreCase))
         {
             // Import XML once. Opening two L5X copies repeats a costly native import; readers use ACD copies thereafter.

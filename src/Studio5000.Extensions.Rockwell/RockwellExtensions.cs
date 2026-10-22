@@ -87,6 +87,8 @@ public sealed class LogixExtension : ProxyExtension
         Get("studio_audit", "Read local project audit events.", a => Query(a, "/api/audit", "projectId"), F<string>("projectId", true));
         Get("studio_sdk_catalog", "Exact SDK operations, enums, scope and native evidence boundaries.", _ => "/api/sdk/capabilities");
         Get("studio_sdk_coverage", "Check installed SDK signature/binding coverage; no controller request.", _ => "/api/sdk/coverage");
+        Get("studio_sdk_service_status", "Read local Logix Designer SDK Service (LdSdkService) status and retained uncertain start request IDs. No service control or controller connection.", _ => "/api/sdk/service");
+        Post<SdkServiceEnsureRequest>("studio_sdk_service_ensure_running", "control", "Ensure the local Logix Designer SDK Service is running: start only when Stopped, leave Running unchanged, observe an existing StartPending. Fixed Windows SCM target; no stop, startup-type change, elevation or controller operation. Retain requestId (32 lowercase hex) after a lost/uncertain response; never replay an interrupted SDK job.", _ => "/api/sdk/service/ensure-running");
         Post<RegisterRequest>("studio_sdk_inspect_source", "read", "Hash an allowed SDK source/import file.", _ => "/api/sdk/source");
         Post<OnlineEditPlanRequest>("studio_online_edit_plan", "preview", "Prepare a scoped hash-bound import plan; never connects. SDK Test mode is not Test Edits.", _ => "/api/sdk/online-edits/plan");
         Post<SdkRunRequest>("studio_sdk_start_job", "control", "Start ordered SDK calls. Controller actions require exact user authorization and enabled configured scope. Never retry indeterminate work automatically.", _ => "/api/sdk/jobs");

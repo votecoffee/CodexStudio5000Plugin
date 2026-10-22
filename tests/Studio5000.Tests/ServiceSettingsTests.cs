@@ -22,6 +22,20 @@ public sealed class ServiceSettingsTests : IDisposable
         File.WriteAllText(config, document.ToJsonString()); store = new(root, "http://127.0.0.1:5487", running);
     }
     [Fact]
+    public void Sdk_service_recovery_settings_roundtrip_without_mutating_the_running_service()
+    {
+        var snapshot = store.Read(); var document = JsonNode.Parse(snapshot.Saved.GetRawText())!.AsObject();
+        document["Studio5000"]!["EnableSdkServiceRecovery"] = false;
+        document["Studio5000"]!["AutoStartSdkService"] = false;
+        document["Studio5000"]!["SdkServiceStartTimeoutSeconds"] = 45;
+        var saved = store.Save(new(snapshot.Revision, Element(document))).Settings;
+        Assert.False(saved.Saved.GetProperty("Studio5000").GetProperty("AutoStartSdkService").GetBoolean());
+        Assert.Equal(45, saved.Saved.GetProperty("Studio5000").GetProperty("SdkServiceStartTimeoutSeconds").GetInt32());
+        Assert.True(running.EnableSdkServiceRecovery && running.AutoStartSdkService);
+        var broad = store.BroadLocalPreview(saved.Saved).GetProperty("Studio5000");
+        Assert.True(broad.GetProperty("EnableSdkServiceRecovery").GetBoolean()); Assert.True(broad.GetProperty("AutoStartSdkService").GetBoolean());
+    }
+    [Fact]
     public void DisabledOptionalBridgesNormalizeConfigurationBinderEmptyStringsToNull()
     {
         var options = new ServiceOptions { NativeBridgePath = "", CipBridgePath = " " };

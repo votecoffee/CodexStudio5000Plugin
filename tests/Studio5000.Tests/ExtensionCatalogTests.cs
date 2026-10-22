@@ -11,7 +11,9 @@ public sealed class ExtensionCatalogTests
     {
         IWorkspaceExtension[] modules = [new LogixExtension(), new FactoryTalkExtension(), new ViewDesignerExtension(), new WatchesExtension()];
         var operations = modules.SelectMany(x => x.Describe()).ToArray();
-        Assert.Equal(157, operations.Length); Assert.Equal(157, operations.Select(o => o.Name).Distinct().Count());
+        Assert.Equal(159, operations.Length); Assert.Equal(159, operations.Select(o => o.Name).Distinct().Count());
+        Assert.Equal("read", operations.Single(o => o.Name == "studio_sdk_service_status").Effect);
+        Assert.Equal("control", operations.Single(o => o.Name == "studio_sdk_service_ensure_running").Effect);
         Assert.Equal("read", operations.Single(o => o.Name == "studio_structural_edit_context").Effect);
         var contextSchema = operations.Single(o => o.Name == "studio_structural_edit_context").InputSchema.GetProperty("properties").GetProperty("request").GetProperty("properties");
         Assert.True(contextSchema.TryGetProperty("xPaths", out _)); Assert.True(contextSchema.TryGetProperty("xPath", out _));

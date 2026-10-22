@@ -205,6 +205,8 @@ app.MapPost("/api/artifacts/{id}/save", (ProjectService service, string id, Save
 app.MapGet("/api/audit", (ProjectService service, string? projectId) => service.History(projectId));
 app.MapGet("/api/sdk/capabilities", (ProjectService service) => service.SdkCapabilities());
 app.MapGet("/api/sdk/coverage", (ProjectService service, CancellationToken ct) => service.SdkCoverageAsync(ct));
+app.MapGet("/api/sdk/service", (ProjectService service) => service.SdkServiceStatus());
+app.MapPost("/api/sdk/service/ensure-running", (ProjectService service, SdkServiceEnsureRequest request, CancellationToken ct) => service.EnsureSdkServiceRunningAsync(request, ct));
 app.MapPost("/api/sdk/source", (ProjectService service, RegisterRequest request, CancellationToken ct) => service.InspectSdkSourceAsync(request.Path, ct));
 app.MapPost("/api/sdk/online-edits/plan", (ProjectService service, OnlineEditPlanRequest request, CancellationToken ct) => service.PrepareOnlineEditAsync(request, ct));
 app.MapGet("/api/sdk/jobs", (ProjectService service) => service.SdkJobList());

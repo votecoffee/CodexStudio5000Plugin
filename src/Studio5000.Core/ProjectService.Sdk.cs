@@ -31,6 +31,9 @@ public sealed partial class ProjectService
         managedMethods = SdkCatalog.ManagedMethods, controllerOperationsEnabled = options.EnableControllerOperations,
         controllerTargets = options.ControllerTargets,
         allowAnyControllerPath = options.AllowAnyControllerPath,
+        sdkServiceRecovery = new { serviceName = SdkServiceControl.ServiceName, displayName = SdkServiceControl.DisplayName,
+            status = "/api/sdk/service", ensureRunning = "/api/sdk/service/ensure-running", options.EnableSdkServiceRecovery,
+            options.AutoStartSdkService, options.SdkServiceStartTimeoutSeconds, runningServiceStopped = false, controllerConnection = false },
         persistence = "New artifacts and a new managed result project; source files and source revisions are preserved.",
         validation = "Compile-checked bindings for SDK 2.1.974. Native and live verification are operation/version-specific; see docs/VALIDATION.md."
     };

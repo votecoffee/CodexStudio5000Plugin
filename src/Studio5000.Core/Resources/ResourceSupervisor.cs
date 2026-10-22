@@ -20,6 +20,14 @@ public sealed class ResourceSupervisor : IDisposable
     public int MaximumProcesses { get; }
     public static bool IsInitialized => Volatile.Read(ref current) is not null;
     public static ResourceSupervisor RequireCurrent() => current ?? throw new OperationException("resource_owner_required", "Initialize the long-lived application resource owner before launching workers; no untracked fallback is allowed.");
+    public void CheckWorkerAdmission()
+    {
+        lock (sync)
+        {
+            ObjectDisposedException.ThrowIf(disposed, this);
+            if (closing || File.Exists(Path.Combine(Root, ".local", "maintenance-hold.json"))) throw new OperationException("resource_owner_closing", "Worker admission is fenced or under operator maintenance hold.");
+        }
+    }
     public ResourceSupervisor(string root, string registry, int maximumProcesses = 32, int maximumResources = 32)
     {
         Root = Path.GetFullPath(root); MaximumProcesses = maximumProcesses; OwnedProcessContainment.ValidateLimit(maximumProcesses);
