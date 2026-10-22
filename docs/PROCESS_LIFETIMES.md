@@ -38,7 +38,7 @@ The gate does not edit settings, disable a target or switch routes. A native-ena
 
 ## Remaining ownership work
 
-The inherited-tree foundation has harmless process-fixture acceptance only. The reviewed framework 0.20.0 package supplies the language-neutral resource ledger and contained background launcher; the app supervisor now integrates those for its offline-only service tree. Real service/native registration, direct .NET ownership records and installed acceptance remain outstanding. Native .NET bindings are not supplied by the framework.
+The inherited-tree foundation has harmless process-fixture acceptance only. The reviewed framework 0.20.0 package supplies the language-neutral resource ledger and contained background launcher; the app supervisor now integrates those for its offline-only service tree. Core also has an [interoperable native .NET ledger component](RESOURCE_LEDGER.md) tested against that package. Production native/direct-service launch-path wiring, native resource policy and installed acceptance remain outstanding. Native .NET bindings are app-owned rather than supplied by the framework.
 
 The application must separately track exclusive launches, user-owned attachments and shared leases; pin process creation identities; retain dirty/uncertain evidence; and keep shared resources alive until their last authorized owner closes. Native SDK/COM/server-owned processes may fall outside a normal child tree. User-owned engineering applications must never be inferred to be disposable from their names or current project.
 
