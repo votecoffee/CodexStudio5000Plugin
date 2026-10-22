@@ -1,5 +1,6 @@
 using System.Text;
 using System.Text.Json;
+using System.Diagnostics;
 using Studio5000.Core.Resources;
 
 // Harmless test executable only: JSON/files/locks, no engineering SDK or host.
@@ -24,6 +25,68 @@ if (args[0] == "fixtures")
     return;
 }
 if (!File.Exists(marker)) throw new ArgumentException("An explicit interop fixture marker is required; never use a live registry.");
+if (args[0].StartsWith("launch-", StringComparison.Ordinal))
+{
+    var python = File.ReadAllText(Path.Combine(root, "python-executable.txt")).Trim();
+    if (Path.GetFileName(python) is not ("python.exe" or "pythonw.exe")) throw new ArgumentException("Use only the harmless Python fixture executable.");
+    var driver = new WindowsResourceProcessDriver(); var ledger = new ResourceLedger(Path.Combine(root, "native-launch-registry"), driver);
+    var owner = ledger.Owner("rockwell-launch-fixture");
+    var executed = Path.Combine(root, "executed");
+    var code = args[0] == "launch-echo"
+        ? "import sys;from pathlib import Path;Path(sys.argv[1]).write_text('executed');data=sys.stdin.buffer.read();sys.stdout.buffer.write(data);sys.stderr.write('fixture-error')"
+        : "import subprocess,sys,time;from pathlib import Path;p=subprocess.Popen([sys.executable,'-c','import time;time.sleep(60)']);Path(sys.argv[1]).write_text(str(p.pid));print('ready',flush=True);time.sleep(60)";
+    var start = new ProcessStartInfo(python) { UseShellExecute = false, RedirectStandardInput = true, RedirectStandardOutput = true, RedirectStandardError = true, CreateNoWindow = true };
+    start.ArgumentList.Add("-c"); start.ArgumentList.Add(code); start.ArgumentList.Add(executed);
+    if (args[0] == "launch-fail")
+    {
+        try
+        {
+            using var unexpected = WindowsChildProcess.Launch(owner, start, "Harmless failed-start fixture", maximumProcesses: 8,
+                beforeResume: record => { if (File.Exists(executed) || ledger.Get(record.ResourceId).State != "active") throw new InvalidOperationException("Identity was not bound before execution"); throw new IOException("Synthetic pre-resume refusal"); });
+            throw new InvalidOperationException("Failure injection was ignored");
+        }
+        catch (IOException ex) when (ex.Message == "Synthetic pre-resume refusal") { }
+        var failed = ledger.Records().Single();
+        if (failed.State != "failed" || File.Exists(executed)) throw new InvalidOperationException("Failed startup executed fixture code");
+        File.WriteAllText(Path.Combine(root, "launch-result.json"), JsonSerializer.Serialize(new { failed = true, failed.ResourceId }));
+        return;
+    }
+    using var child = WindowsChildProcess.Launch(owner, start, "Harmless redirected process fixture", maximumProcesses: 8,
+        beforeResume: record => { if (File.Exists(executed) || ledger.Get(record.ResourceId).State != "active") throw new InvalidOperationException("Fixture executed before durable identity binding"); });
+    if (args[0] == "launch-echo")
+    {
+        using var output = new MemoryStream(); var stdout = child.StandardOutput.BaseStream.CopyToAsync(output);
+        var stderr = child.StandardError.ReadToEndAsync();
+        await child.StandardInput.BaseStream.WriteAsync(await File.ReadAllBytesAsync(Path.Combine(root, "input.bin"))); child.StandardInput.Close();
+        using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(10)); await child.WaitForExitAsync(deadline.Token); await stdout;
+        await File.WriteAllBytesAsync(Path.Combine(root, "output.bin"), output.ToArray());
+        if (await stderr != "fixture-error" || child.ExitCode != 0) throw new InvalidOperationException("Redirected fixture output/exit mismatch");
+    }
+    else
+    {
+        using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        if (await child.StandardOutput.ReadLineAsync(deadline.Token) != "ready") throw new InvalidOperationException("Harmless child did not become ready");
+        var observed = child.Refresh();
+        File.WriteAllBytes(Path.Combine(root, "launch-active.json"), ResourceJson.Write(observed));
+        if (args[0] == "launch-hold")
+        {
+            var timeout = Stopwatch.StartNew();
+            while (!File.Exists(Path.Combine(root, "hold-release"))) { if (timeout.Elapsed > TimeSpan.FromSeconds(20)) throw new TimeoutException(); Thread.Sleep(10); }
+        }
+        if (args[0] == "launch-refuse")
+        {
+            child.SetRecoveryBarrier("Synthetic dirty-state refusal");
+            try { child.Close(); throw new InvalidOperationException("Recovery barrier was ignored"); }
+            catch (InvalidOperationException ex) when (ex.Message.Contains("blocks cleanup", StringComparison.Ordinal)) { }
+            if (child.HasExited) throw new InvalidOperationException("Refusal killed the owned process");
+            var pending = child.Record;
+            child.ResolveRecoveryBarrier(pending.Revision, "Only the harmless fixture state was inspected; no native work exists");
+        }
+    }
+    var receipt = child.Close();
+    File.WriteAllText(Path.Combine(root, "launch-result.json"), JsonSerializer.Serialize(new { receipt.Outcome, child.ResourceId }));
+    return;
+}
 if (args[0] == "identity")
 {
     var driver = new WindowsResourceProcessDriver();

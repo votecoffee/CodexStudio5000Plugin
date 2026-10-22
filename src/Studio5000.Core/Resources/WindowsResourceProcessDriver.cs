@@ -78,6 +78,13 @@ public sealed class WindowsResourceProcessDriver : IResourceProcessDriver
         if (!QueryFullProcessImageName(handle, 0, image, ref length)) throw new Win32Exception(Marshal.GetLastWin32Error());
         return new ProcessIdentity(HostId, pid, created.ToString(CultureInfo.InvariantCulture), image.ToString()).Normalize();
     }
+    internal ProcessIdentity? CaptureJobMember(uint pid, SafeFileHandle job)
+    {
+        using var handle = OpenPid(pid, false);
+        if (!handle.Alive) return null;
+        if (!IsProcessInJob(handle.SafeHandle, job, out var member)) throw new Win32Exception(Marshal.GetLastWin32Error());
+        return member ? handle.Identity : null;
+    }
     private NativeHandle OpenPid(uint pid, bool terminate)
     {
         if (!OperatingSystem.IsWindows()) throw new PlatformNotSupportedException();
@@ -90,6 +97,7 @@ public sealed class WindowsResourceProcessDriver : IResourceProcessDriver
     }
     private sealed class NativeHandle(WindowsResourceProcessDriver driver, SafeProcessHandle handle, uint pid) : IResourceProcessHandle
     {
+        internal SafeProcessHandle SafeHandle => handle;
         private ProcessIdentity? identity;
         public ProcessIdentity Identity => identity ??= driver.CaptureHandle(handle, pid);
         public bool Alive => WaitResult(0) == 258;
@@ -109,6 +117,8 @@ public sealed class WindowsResourceProcessDriver : IResourceProcessDriver
     private static extern bool GetProcessTimes(SafeProcessHandle process, out ulong created, out ulong exited, out ulong kernel, out ulong user);
     [DllImport("kernel32.dll", EntryPoint = "QueryFullProcessImageNameW", CharSet = CharSet.Unicode, ExactSpelling = true, SetLastError = true)] [return: MarshalAs(UnmanagedType.Bool)]
     private static extern bool QueryFullProcessImageName(SafeProcessHandle process, uint flags, StringBuilder name, ref uint length);
+    [DllImport("kernel32.dll", SetLastError = true)] [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool IsProcessInJob(SafeProcessHandle process, SafeFileHandle job, [MarshalAs(UnmanagedType.Bool)] out bool member);
     [DllImport("kernel32.dll", SetLastError = true)] private static extern uint WaitForSingleObject(SafeProcessHandle process, uint milliseconds);
     [DllImport("kernel32.dll", SetLastError = true)] [return: MarshalAs(UnmanagedType.Bool)] private static extern bool TerminateProcess(SafeProcessHandle process, uint code);
 }

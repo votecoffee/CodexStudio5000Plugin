@@ -109,6 +109,7 @@ public sealed class ResourceLedger(string registry, IResourceProcessDriver drive
         public string AppId { get; }
         public string OwnerId { get; }
         public ProcessIdentity Identity { get; }
+        internal ResourceLedger Ledger => ledger;
         internal ResourceOwner(ResourceLedger ledger, string appId, string ownerId, ProcessIdentity identity)
         { this.ledger = ledger; AppId = appId; OwnerId = ownerId; Identity = identity; }
         private void Current(ResourceRecord record)
@@ -146,11 +147,20 @@ public sealed class ResourceLedger(string registry, IResourceProcessDriver drive
                 throw new InvalidOperationException("Only an unbound attached/shared software claim can be activated without a PID.");
             return ledger.Replace(record with { State = "active" });
         });
+        internal ResourceRecord FailBeforeExecution(string id) => ledger.Locked(() =>
+        {
+            var record = ledger.Get(id); Current(record);
+            if (record.Receipt is not null || record.State is not ("launching" or "active") ||
+                record.Process is not null && ledger.Driver.State(record.Process) is not ("absent" or "different"))
+                throw new InvalidOperationException("An executed/live launch cannot be declared unstarted.");
+            return ledger.Replace(record with { State = "failed" });
+        });
         public ResourceRecord PublishMembers(string id, ProcessIdentity[] members) => ledger.Locked(() =>
         {
             var record = ledger.Get(id); Current(record);
             if (record.State != "active") throw new InvalidOperationException("Only an active resource can publish membership.");
-            return ledger.Replace((record with { Members = members }).Normalize());
+            var candidate = (record with { Members = members }).Normalize();
+            return candidate.Members.SequenceEqual(record.Members) ? record : ledger.Replace(candidate);
         });
         public ResourceRecord SetRecoveryBarrier(string id, string reason) => ledger.Locked(() =>
         {
