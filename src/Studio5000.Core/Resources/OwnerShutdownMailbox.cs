@@ -9,7 +9,7 @@ public sealed record OwnerShutdownDecision(bool Allowed, string Message);
 
 // Private generation-bound operator IPC, not a public MCP or manager restart
 // route. Domain quiescence/save/refusal is supplied by the shared service.
-public sealed class OwnerShutdownMailbox(string root, string ownerId, string key)
+public sealed class OwnerShutdownMailbox(string root, string ownerId, string key, Action<string, string>? replaceFile = null)
 {
     private readonly SemaphoreSlim poll = new(1, 1);
     private readonly Dictionary<string, object> delivered = [];
@@ -105,11 +105,29 @@ public sealed class OwnerShutdownMailbox(string root, string ownerId, string key
             try
             {
                 using (var file = new FileStream(temp, FileMode.CreateNew, FileAccess.Write, FileShare.None)) { file.Write(bytes); file.Flush(true); }
-                if (File.Exists(target)) File.Replace(temp, target, null); else File.Move(temp, target);
+                if (File.Exists(target)) ReplaceReceipt(temp, target); else File.Move(temp, target);
             }
             finally { if (File.Exists(temp)) File.Delete(temp); }
         }
         return true;
+    }
+    private void ReplaceReceipt(string temporary, string target)
+    {
+        // Retry metadata publication only. The durable dispatch claim and
+        // resource-close callback never run again. Windows 1175 retains both
+        // original names; 1176/1177 can change them and must remain uncertain.
+        for (var attempt = 0; ; attempt++)
+        {
+            try
+            {
+                if (replaceFile is null) File.Replace(temporary, target, null);
+                else replaceFile(temporary, target);
+                return;
+            }
+            catch (IOException ex) when ((ex.HResult & 0xffff) is 32 or 33 or 1175 &&
+                attempt < 6 && File.Exists(temporary) && File.Exists(target))
+            { Thread.Sleep(25 << attempt); }
+        }
     }
     [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
     private sealed record StopIntent(

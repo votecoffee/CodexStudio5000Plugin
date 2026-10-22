@@ -16,6 +16,8 @@ Both direct and managed `Stop-Service.ps1` paths send signed private owner reque
 
 The service writes its exact exit receipt only after connections and owned resources close. The supervisor requires matching evidence plus observed service exit before resolving its barrier and retiring its job. An unverified exit or unavailable identity retains the supervisor and barrier. Reporting, IPC and ledger failures do not unwind a native owner. No restart, adoption, write replay or reconciliation is automatic. Prior job and recovery records remain authoritative.
 
+Shutdown-result publication retries only Windows sharing/lock errors 32/33 and replacement-removal error 1175, with both file names still present. Seven attempts are bounded to 1.575 seconds of backoff per receipt replacement. The durable dispatch claim and resource-close callback are never retried. Exhaustion or ambiguous replacement errors retain the claimed request for inspection. Microsoft's [ReplaceFile error contract](https://learn.microsoft.com/en-us/windows/win32/api/winbase/nf-winbase-replacefilew) distinguishes 1175 from replacement moves that can change file names.
+
 The common manager stays conservative about overlapping jobs. Only the app's current inner service owner may retire its worker despite the exact outer service-root snapshot. Attachments, siblings, foreign apps, receipt-bearing and departed generations still block it. This service-only delegation grants the manager no new cleanup rights.
 
 ## Native sessions and user-owned GUI

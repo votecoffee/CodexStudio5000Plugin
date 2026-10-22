@@ -82,4 +82,36 @@ public sealed class OwnerShutdownTests : IDisposable
         service.ReleaseShutdownFence();
         Assert.NotNull(await service.RegisterAsync(new(source)));
     }
+    private sealed class ReplacementFailure : IOException
+    { public ReplacementFailure(int code) : base("Synthetic Windows replacement failure") => HResult = unchecked((int)0x80070000) | code; }
+    private static IOException ReplaceError(int code) => new ReplacementFailure(code);
+    [Theory]
+    [InlineData(32)] [InlineData(33)] [InlineData(1175)]
+    public async Task Temporary_receipt_replacement_failures_do_not_repeat_resource_close(int code)
+    {
+        Request(); var attempts = 0; var closes = 0;
+        var mailbox = new OwnerShutdownMailbox(root, actor, key, (source, target) =>
+        {
+            if (++attempts <= 2) throw ReplaceError(code);
+            File.Replace(source, target, null);
+        });
+        Task<OwnerShutdownDecision> Close() { closes++; return Task.FromResult(new OwnerShutdownDecision(true, "Synthetic closed")); }
+        Assert.True(await mailbox.PollAsync(Close, default)); Assert.Equal(1, closes); Assert.Equal(4, attempts);
+        Assert.False(await mailbox.PollAsync(Close, default)); Assert.Equal(1, closes);
+        using var reply = JsonDocument.Parse(File.ReadAllBytes(Path.Combine(root, ".local", "service-owner-stop-result.json")));
+        Assert.Equal("completed", reply.RootElement.GetProperty("state").GetString());
+    }
+    [Theory]
+    [InlineData(1175, 7)] [InlineData(1176, 1)] [InlineData(1177, 1)]
+    public async Task Exhausted_or_ambiguous_receipt_failure_retains_claim_without_redispatch(int code, int expectedAttempts)
+    {
+        Request(); var attempts = 0; var closes = 0;
+        var mailbox = new OwnerShutdownMailbox(root, actor, key, (_, _) => { attempts++; throw ReplaceError(code); });
+        Task<OwnerShutdownDecision> Close() { closes++; return Task.FromResult(new OwnerShutdownDecision(true, "Synthetic closed")); }
+        await Assert.ThrowsAnyAsync<IOException>(() => mailbox.PollAsync(Close, default));
+        Assert.Equal(expectedAttempts, attempts); Assert.Equal(1, closes);
+        Assert.False(await new OwnerShutdownMailbox(root, actor, key).PollAsync(Close, default)); Assert.Equal(1, closes);
+        using var retained = JsonDocument.Parse(File.ReadAllBytes(Path.Combine(root, ".local", "owner-stop-history", new string('c', 32) + ".json")));
+        Assert.Equal("reviewing", retained.RootElement.GetProperty("state").GetString());
+    }
 }
