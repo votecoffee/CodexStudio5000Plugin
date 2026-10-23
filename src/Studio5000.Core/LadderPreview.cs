@@ -37,6 +37,7 @@ public static class LadderPreview
         }
         public List<Part> Parse()
         {
+            LadderBranchGrammar.Validate(text);
             if (text.Length > 65536) throw new OperationException("ladder_limit", "Rung text exceeds 64 KiB.");
             if (string.IsNullOrWhiteSpace(text)) throw Error("Rung text is empty");
             var result = Sequence(0, false, false); Space();

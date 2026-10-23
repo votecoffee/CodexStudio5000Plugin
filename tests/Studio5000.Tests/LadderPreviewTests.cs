@@ -38,9 +38,34 @@ public sealed class LadderPreviewTests
     [InlineData("AOI(A,,B);")]
     [InlineData("CPT(A,Values[1));")]
     [InlineData("NXB XIC(A);")]
+    [InlineData("[[XIC(A)XIC(B)],XIC(C)]OTE(D);")]
+    [InlineData("[XIC(A)XIC(B)]OTE(D);")]
+    [InlineData("[[XIC(A),XIC(B)]]OTE(D);")]
+    [InlineData("[ADD(Input,1,Result)]OTE(D);")]
+    [InlineData("[XIC(Flags[1,2])]OTE(D);")]
+    [InlineData("[CustomAOI(Instance,'[,]',Flags[1,2])]OTE(D);")]
+    [InlineData("[]OTE(D);")]
+    [InlineData("[,XIC(A)]OTE(D);")]
+    [InlineData("[XIC(A),]OTE(D);")]
+    [InlineData("[XIC(A),,XIC(B)]OTE(D);")]
+    [InlineData("BST XIC(A) BND OTE(D);")]
+    [InlineData("BST NXB XIC(A) BND OTE(D);")]
+    [InlineData("BST XIC(A) NXB BND OTE(D);")]
     public void MalformedRungsNeverProduceAPartialDiagram(string text)
     {
         Assert.Equal("invalid_ladder", Assert.Throws<OperationException>(() => LadderPreview.Render(text)).Code);
+    }
+
+    [Theory]
+    [InlineData("[XIC(A)XIC(B),XIC(C)]OTE(D);")]
+    [InlineData("[[XIC(A),XIC(B)]XIC(C),XIC(E)]OTE(D);")]
+    [InlineData("[ADD(Input[1,2],1,Result),XIC(Flags[0])]OTE(D);")]
+    [InlineData("[CustomAOI(Instance,'text[,],$'ok',Flags[1,2]),XIC(C)]OTE(D);")]
+    [InlineData("[BST(A,B),NXB(C,D)]OTE(D);")]
+    public void Every_branch_uses_its_own_separator_and_operand_punctuation_is_ignored(string text)
+    {
+        LadderBranchGrammar.Validate(text);
+        Assert.NotEmpty(LadderPreview.Render(text).Nodes);
     }
 
     [Fact]

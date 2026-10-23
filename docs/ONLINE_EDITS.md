@@ -33,6 +33,10 @@ Read hashes with `studio_sdk_inspect_source`. Use `sourceArtifactId` instead of 
 
 Preparation validates the target, ACD source, both hashes and Logix XML without opening a native project. It returns `planSha256`, `sdkRequest`, Studio handoff steps and false test/finalization observations. It works with controller execution disabled. It does not connect, enable execution, start a job or verify controller correlation. Inputs are checked again at actual job submission.
 
+Preparation also applies the shared bounded RLL branch-grammar check to readable rung text. Every bracket branch needs at least two nonempty legs and a comma at its own depth; operand commas and array brackets inside instruction parentheses do not count. The legacy BST/NXB/BND notation has the same nonempty two-leg requirement. For example, `[[XIC(A)XIC(B)],XIC(C)]OTE(D);` is rejected because its inner bracket group has one leg. `[XIC(A)XIC(B),XIC(C)]OTE(D);` passes this branch-shape check. The checker never rewrites the input.
+
+Schema-valid XML can still contain invalid ladder text. The `rll-branch-grammar` check is also included in named Logix validation profiles and the ladder browser/evaluator. Inherited malformed branches still fail; native expected-difference rules cannot waive them. These checks do not establish instruction validity, native compiler/import acceptance or controller behavior.
+
 The generated sequence is GoOnline → ReadConnectedState → ReadControllerMode → partial import → Save. It contains no download, mode change, force, safety unlock or signature change. A correlation failure is not repaired automatically by downloading. `PartialImportFromXmlFileAsync` is offline-only and is rejected after a requested GoOnline unless the sequence goes offline first.
 
 Submit `sdkRequest` through the existing SDK job endpoint/tool only within actual authorization for that target/action, with controller execution enabled and the target configured. The SDK session lasts one job, then disconnects/disposes. Inspect all attempted calls and outputs; plans do not execute themselves.

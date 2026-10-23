@@ -98,6 +98,30 @@ public sealed class OnlineEditTests : IDisposable
         Assert.Empty(service.SdkJobList());
     }
 
+    [Theory]
+    [InlineData("rungs", "[[XIC(A)XIC(B)],XIC(C)]OTE(D);")]
+    [InlineData("routine", "[[XIC(A)XIC(B)],XIC(C)]OTE(D);")]
+    [InlineData("rungs", "[ADD(A,1,B)]OTE(D);")]
+    [InlineData("routine", "[XIC(A),]OTE(D);")]
+    public async Task Import_preparation_rejects_bad_branch_grammar_before_a_native_request(string kind, string text)
+    {
+        File.WriteAllText(import, "<RSLogix5000Content><Controller><Programs><Program Name='Main'><Routines><Routine Name='Logic' Type='RLL'><RLLContent><Rung Number='0'><Text>NOP();</Text></Rung><Rung Number='1'><Text><![CDATA[" + text + "]]></Text></Rung></RLLContent></Routine></Routines></Program></Programs></Controller></RSLogix5000Content>");
+        var before = File.ReadAllBytes(import); var request = Request() with { ImportKind = kind, ReplaceCount = kind == "routine" ? 0u : 1u, ImportFile = new(import, ProjectService.Hash(before)) };
+        var error = await Assert.ThrowsAsync<OperationException>(() => service.PrepareOnlineEditAsync(request));
+        Assert.Equal("invalid_ladder", error.Code); Assert.Contains("rung 1", error.Message);
+        Assert.Equal(before, File.ReadAllBytes(import)); Assert.Equal(sourceHash, ProjectService.Hash(File.ReadAllBytes(source))); Assert.Empty(service.SdkJobList());
+    }
+
+    [Theory]
+    [InlineData("rungs")][InlineData("routine")]
+    public async Task Valid_import_branches_ignore_array_operand_and_comment_punctuation(string kind)
+    {
+        File.WriteAllText(import, "<RSLogix5000Content><Controller><Programs><Program Name='Main'><Routines><Routine Name='Logic' Type='RLL'><RLLContent><Rung Number='0'><Comment><![CDATA[[not code]]]></Comment><Text><![CDATA[[ADD(Input[1,2],1,Result),XIC(C)]OTE(D);]]></Text></Rung><Rung Number='1'><Text><![CDATA[[XIC(A)XIC(B),XIC(C)]OTE(D);]]></Text></Rung></RLLContent></Routine></Routines></Program></Programs></Controller></RSLogix5000Content>");
+        var before = File.ReadAllBytes(import); var plan = await service.PrepareOnlineEditAsync(Request() with { ImportKind = kind, ReplaceCount = kind == "routine" ? 0u : 1u, ImportFile = new(import, ProjectService.Hash(before)) });
+        Assert.Contains("branch grammar checked", plan.CompletionEvidence); Assert.False(plan.TestEditsObserved); Assert.False(plan.FinalizationObserved);
+        Assert.Equal(before, File.ReadAllBytes(import)); Assert.Empty(service.SdkJobList());
+    }
+
     [Fact]
     public async Task WildcardScopesInvalidWorkflowsAndForeignXmlCannotBeUsedAsAnOnlinePlan()
     {

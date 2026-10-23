@@ -18,7 +18,7 @@ Scoped structural reviews can inspect up to 128 exact element paths in one conte
 
 The plugin identifier is `rockwell-mcp-server`. Internal `Studio5000.*` assemblies, environment variables and existing tool names remain for compatibility.
 
-Application releases use a fixed `YY.MMDD.HHmmss` timestamp in `America/New_York`, currently **26.1023.132350**. Package identities remove leading numeric zeros when required; the padded display timestamp stays in release metadata. See [release versioning](docs/VERSIONING.md) for package and .NET mappings.
+Application releases use a fixed `YY.MMDD.HHmmss` timestamp in `America/New_York`, currently **26.1023.135453**. Package identities remove leading numeric zeros when required; the padded display timestamp stays in release metadata. See [release versioning](docs/VERSIONING.md) for package and .NET mappings.
 
 ## Table of Contents
 
@@ -64,7 +64,7 @@ RockwellMCPServer gives agents and engineers a shared workspace for project insp
 | Controller-tag rename | Review scoped references, ambiguous operands and safety handling; publish a separate byte-preserved project with all saved values and a reference receipt. |
 | [Module connection timing](workflows/rockwell-engineering/references/module-connections.md) | Browse exact RPI/delay/reaction-time fields, review source/hash/before-values and safety metadata, then publish a separate byte-preserved review copy and receipt. |
 | [Scoped structural review](workflows/rockwell-engineering/references/structural-edits.md) | Edit scoped routines/tags/UDTs with raw source preservation, exact reference AOI/UDT additions, saved-state decisions and retained preview/apply receipts identifying their producer and version. |
-| Named validation profiles | Offline integrity, whole-project merge preservation and existing native readback comparison, with new/inherited/expected findings and immutable machine-readable receipts. |
+| Named validation profiles | Offline integrity, strict RLL branch grammar, whole-project merge preservation and existing native readback comparison, with new/inherited/expected findings and immutable machine-readable receipts. |
 | Version workflows | Separate native upgrade/readback jobs and bounded v35-to-v32 review-only L5K preparation, with explicit compatibility boundaries. |
 | Reloadable extensions | Discover operation schemas and reload compatible modules through MCP or the GUI while the host and chat remain running. |
 | Codex plugin | Standalone plugin with live capability discovery and shared versioned workflow guides. |

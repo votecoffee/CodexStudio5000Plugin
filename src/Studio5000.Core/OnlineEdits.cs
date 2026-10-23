@@ -21,6 +21,7 @@ public static partial class OnlineEdits
         standaloneTestEdits = false, standaloneUntestEdits = false, standaloneAssembleEdits = false,
         testWorkflow = "Accept with SDK; Test/Untest and Assemble through Studio's observed native UI.",
         controllerTestModeIsTestEdits = false,
+        branchGrammar = new { check = LadderBranchGrammar.CheckName, rejectsSingleLeg = true, rejectsEmptyLeg = true, ignoresOperandPunctuation = true, nativeCompilerAcceptance = false },
         finalization = "Choose FinalizeEdits on the initial import for API-only finalization in Run mode, with no test interval. Existing accepted edits can block further imports and require native Studio completion; there is no standalone SDK finalize/assemble call.",
         skill = "logix-online-edits", liveValidation = "Operation/version-specific; see docs/VALIDATION.md."
     };
@@ -78,7 +79,7 @@ public sealed partial class ProjectService
         {
             reader.MoveToContent();
             if (reader.LocalName != "RSLogix5000Content") throw new OperationException("sdk_input_invalid", "Import must be a Logix L5X component export.");
-            while (reader.Read()) { }
+            LadderBranchGrammar.ValidateImport(reader);
         }
         Dictionary<string, JsonElement> Args(object value) => JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(JsonSerializer.Serialize(value))!;
         // A routine is imported into its program. Targeting the existing RLL routine appends content.
@@ -115,6 +116,6 @@ public sealed partial class ProjectService
         var digest = Hash(JsonSerializer.SerializeToUtf8Bytes(new { run, request.Workflow, request.ProgramName, request.RoutineName }, Json));
         return new(digest, target, request.ProgramName, request.RoutineName, request.Workflow, option,
             options.EnableControllerOperations, native.Available, false, false, false, run, steps.ToArray(),
-            "Plan prepared only. SDK submission and native Studio test/assemble observations are separate; no controller state was read or changed.");
+            "Plan prepared only; bounded RLL branch grammar checked. Native compiler acceptance, SDK submission and Studio test/assemble observations are separate; no controller state was read or changed.");
     }
 }
