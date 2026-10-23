@@ -24,13 +24,15 @@ Attached/shared claims are report-only. An opaque native connection can have an 
 
 Cleanup checks current ownership, reviewed revision, other retained claims and recovery barriers, then flushes a dispatch intent before touching its held process/group handle. A lost result remains uncertain. Identical request IDs return the retained receipt; replacement cleanup is rejected. Explicit reconciliation preserves the original receipt/barrier and records the actor/evidence; no native write journal is cleared or replayed.
 
+Before reserving a slot, the stdio owner reviews prior MCP transport claims from the same executable paths. It reconciles only active private contained transports whose full owner, adapter and recorded member generations are independently absent or replaced. The current real owner publishes the prior revision and its own identity in a reconciliation attestation; no process handle is opened and no process is stopped. Live or unknown identities, unbound launch reservations, foreign images, shared/attached resources, another retained process claim, receipts and native recovery evidence are excluded. Resource limits and original records remain intact. An abrupt transport-owner exit can therefore be recovered without accumulating identified dead frontend claims across connections; an unbound or uncertain launch still needs separate reviewed recovery.
+
 ## Validation
 
 `ResourceLedgerTests` uses synthetic process handles for policy, bounded admission, generation isolation, attachment/shared protection, durable idempotent cleanup and uncertain-result recovery. It never launches a native application.
 
 The opt-in `framework/tests/test_dotnet_resources.py` suite runs only the harmless `tests/Studio5000.ResourceInterop` JSON/lock executable. It checks native/Python model revisions, cross-runtime updates, mutual OS-lock exclusion and exact identity/default-registry agreement for that helper. Use `ROCKWELL_DOTNET_RESOURCE_INTEROP=1` after building the helper. All records and lock files use explicit disposable fixture directories. This is not MCP, service, SDK, native application or controller acceptance.
 
-With `ROCKWELL_DOTNET_RESOURCE_PROCESSES=1`, `test_dotnet_launch.py` exercises only disposable Python children through the compiled helper: binary stdio/EOF fidelity, descendant recording and cleanup, pre-resume failure, refusal until explicit harmless evidence, and nested-job owner crash. No app/MCP/native engineering host is started. `OwnedChildPolicyTests` checks command boundaries, bounds and native structure sizes without launching anything. Actual SDK stdio/native behavior still needs its own acceptance.
+With `ROCKWELL_DOTNET_RESOURCE_PROCESSES=1`, `test_dotnet_launch.py` exercises only disposable Python children through the compiled helper: binary stdio/EOF fidelity, descendant recording and cleanup, pre-resume failure, refusal until explicit harmless evidence, nested-job owner crash, and a later real owner reconciling an exited stateless frontend before admission at an unchanged one-resource limit. No app/MCP/native engineering host is started. `OwnedChildPolicyTests` checks command boundaries, bounds and native structure sizes without launching anything. Actual SDK stdio/native behavior still needs its own acceptance.
 
 ## Service workers and operator stop
 

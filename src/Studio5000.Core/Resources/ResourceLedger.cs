@@ -199,6 +199,36 @@ public sealed class ResourceLedger(string registry, IResourceProcessDriver drive
             var attestation = new ResourceReconciliation(OwnerId, Identity, revision, evidence, Now).Normalize();
             return ledger.Replace(record with { State = "released", Reconciliation = attestation });
         });
+        // Stateless MCP transports may outlive their supervisor's managed
+        // finally block. A later real owner can retire only fully identified,
+        // independently exited generations. Unbound launch reservations and
+        // any native/shared/uncertain claim remain operator recovery work.
+        internal ResourceRecord? ReconcileClosedMcpFrontend(string id, string revision, string adapterExecutable) => ledger.Locked(() =>
+        {
+            if (closing || ledger.Driver.CurrentIdentity().Normalize() != Identity)
+                throw new InvalidOperationException("Frontend reconciliation requires the exact current open owner.");
+            var record = ledger.Get(id);
+            if (AppId != "rockwell-mcp-server" || record.AppId != AppId || record.Revision != revision ||
+                record.Kind != "mcp-adapter" || record.State != "active" || record.Ownership != "private" ||
+                record.CleanupMode != "terminate" || record.Containment != "windows_job" ||
+                record.Process is null || record.Receipt is not null || record.RecoveryBarrier is not null ||
+                record.Reconciliation is not null || record.BarrierResolution is not null ||
+                record.Owner.Executable != Identity.Executable ||
+                !string.Equals(record.Process.Executable, Path.GetFullPath(adapterExecutable), StringComparison.OrdinalIgnoreCase)) return null;
+            var console = Path.Combine(Environment.SystemDirectory, "conhost.exe");
+            if (record.Members.Any(m => !string.Equals(m.Executable, adapterExecutable, StringComparison.OrdinalIgnoreCase) &&
+                !string.Equals(m.Executable, console, StringComparison.OrdinalIgnoreCase))) return null;
+            if (ledger.Driver.State(record.Owner) is not ("absent" or "different") ||
+                ledger.Driver.State(record.Process) is not ("absent" or "different") ||
+                record.Members.Any(m => ledger.Driver.State(m) is not ("absent" or "different"))) return null;
+            var identities = record.Members.Append(record.Process).ToHashSet();
+            // Recovery never borrows the nested-service cleanup exemption.
+            if (ledger.Records().Any(other => other.ResourceId != id && !other.Terminal &&
+                (other.Process is not null && identities.Contains(other.Process) || other.Members.Any(identities.Contains)))) return null;
+            var attestation = new ResourceReconciliation(OwnerId, Identity, revision,
+                "Exact prior MCP owner, adapter and recorded members are independently gone. Stateless transport only; no process action or native recovery performed.", Now).Normalize();
+            return ledger.Replace(record with { State = "released", Reconciliation = attestation });
+        });
         public CleanupReceipt Cleanup(string id, string revision, string requestId, IResourceProcessGroup? group = null) => ledger.Locked(() =>
         {
             ResourceRules.Token(requestId, 32); var record = ledger.Get(id); Current(record);

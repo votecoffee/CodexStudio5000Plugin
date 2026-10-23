@@ -31,6 +31,8 @@ Supply names from that chat's actual available-tool inventory. The report labels
 
 If resource admission is full, retain the journals. Exact private orphan generations can be reviewed through the existing resource ledger recovery workflow. Unknown launches, incomplete identities, native effects, shared/attached claims and dirty documents require their own reconciliation. The diagnostic performs no cleanup and never raises limits to bypass unresolved records.
 
+The stdio owner reconciles fully identified dead MCP transport claims from its own executable paths before reserving another slot. It rechecks full owner/child/member identities and the reviewed record revision under the resource lock, retains actor/evidence, and performs no process action. This does not clear unbound reservations or native uncertainty. See the [resource policy](RESOURCE_LEDGER.md).
+
 ## Cached-launcher compatibility fallback
 
 Some clients leave `${PLUGIN_ROOT}` literal in a bundled stdio command or `cwd`. Use an explicit host-local binding to the **same immutable installed cached launcher** in that case. Keep the Rockwell plugin and skills enabled; disable its unresolved bundled server while enabling one direct Rockwell route. This remains the app-owned standalone service and has no broker route.

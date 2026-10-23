@@ -120,3 +120,42 @@ def test_crashed_native_owner_stops_nested_tree_and_preserves_unclaimed_record(f
                 raise AssertionError("Crashed owner left a harmless contained child alive")
             time.sleep(0.01)
         assert all(ledger.driver.state(p) in {"absent", "different"} for p in observed["members"])
+
+
+def test_new_frontend_reconciles_exact_exited_generation_before_capacity_admission(fixture):
+    harness = ResourceLedger(fixture / "harness-registry")
+    with (
+        harness.owner("rockwell-frontend-harness") as owner,
+        owner.launch(
+            [str(Path(os.environ["ProgramFiles"]) / "dotnet/dotnet.exe"),
+             str(HELPER), "frontend-hold", str(fixture)],
+            "Harmless frontend owner fixture", allow_termination=True, max_processes=8,
+        ) as launch,
+    ):
+        marker = fixture / "frontend-active.json"
+        deadline = time.monotonic() + 8
+        while not marker.exists():
+            if time.monotonic() >= deadline:
+                raise AssertionError("Disposable frontend owner did not become ready")
+            time.sleep(0.01)
+        observed = json.loads(marker.read_text("utf-8"))
+        ledger = ResourceLedger(fixture / "frontend-registry")
+        old = ledger.records()[0]
+        with harness.driver.open(harness.get(launch.resource_id).process.model_dump()) as handle:
+            handle.terminate()
+            assert handle.wait(5000)
+        deadline = time.monotonic() + 5
+        while not all(ledger.driver.state(p) in {"absent", "different"}
+                      for p in [observed["owner"], observed["process"], *observed["members"]]):
+            if time.monotonic() >= deadline:
+                raise AssertionError("Exact disposable transport generation remained alive")
+            time.sleep(0.01)
+        assert ledger.get(old.resource_id).revision == old.revision
+        subprocess.run(["dotnet", str(HELPER), "frontend-recover", str(fixture)],
+                       check=True, capture_output=True, timeout=15)
+        retired = ledger.get(old.resource_id)
+        assert retired.state == "released" and retired.owner == old.owner
+        assert retired.reconciliation.previous_revision == old.revision
+        new = next(r for r in ledger.records() if r.resource_id != old.resource_id)
+        assert new.state == "terminated" and new.receipt.outcome == "terminated"
+        assert retired.reconciliation.actor == new.owner

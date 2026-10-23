@@ -18,6 +18,8 @@ var start = new ProcessStartInfo(Path.Combine(AppContext.BaseDirectory, "Studio5
     UseShellExecute = false, CreateNoWindow = true, RedirectStandardInput = true,
     RedirectStandardOutput = true, RedirectStandardError = true, WorkingDirectory = root
 };
+var recovered = McpFrontendRecovery.ReconcileClosed(resources.Owner, start.FileName);
+if (recovered.Length != 0) Console.Error.WriteLine($"Reconciled {recovered.Length} fully exited Rockwell MCP transport claims; unresolved reservations remain retained.");
 using var child = resources.Launch(start, "Rockwell MCP stdio adapter", "mcp-adapter");
 try
 {

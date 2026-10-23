@@ -75,6 +75,37 @@ if (args[0] is "native-owner" or "native-owner-uncertain")
     File.WriteAllText(Path.Combine(root, "native-adapter-result.json"), JsonSerializer.Serialize(new { status = result.Status, shutdownRefused = refused, worker, session, scmAccessed = false, vendorCodeExecuted = false }, ProjectService.Json));
     return;
 }
+if (args[0] is "frontend-hold" or "frontend-recover")
+{
+    var python = File.ReadAllText(Path.Combine(root, "python-executable.txt")).Trim();
+    if (Path.GetFileName(python) is not ("python.exe" or "pythonw.exe")) throw new ArgumentException("Only the harmless Python fixture is allowed.");
+    var driver = new WindowsResourceProcessDriver();
+    var ledger = new ResourceLedger(Path.Combine(root, "frontend-registry"), driver, maximumActivePerApp: 1);
+    var owner = ledger.Owner("rockwell-mcp-server");
+    ResourceRecord? recovered = null;
+    if (args[0] == "frontend-recover")
+    {
+        var prior = ledger.Records().Single();
+        if (prior.State != "active" || driver.State(prior.Owner) is not ("absent" or "different")) throw new InvalidOperationException("The exact fixture owner must have exited.");
+        recovered = McpFrontendRecovery.ReconcileClosed(owner, python).Single();
+        if (recovered.Reconciliation!.PreviousRevision != prior.Revision || recovered.Reconciliation.Actor != owner.Identity) throw new InvalidOperationException("Recovery attestation lost its actual actor or revision.");
+    }
+    var start = new ProcessStartInfo(python) { UseShellExecute = false, CreateNoWindow = true };
+    start.ArgumentList.Add("-c"); start.ArgumentList.Add("import sys;print('ready',flush=True);sys.stdin.buffer.read()");
+    using var child = WindowsChildProcess.Launch(owner, start, "Harmless MCP transport fixture", "mcp-adapter");
+    using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+    if (await child.StandardOutput.ReadLineAsync(deadline.Token) != "ready") throw new InvalidOperationException("Harmless transport did not become ready.");
+    if (args[0] == "frontend-hold")
+    {
+        File.WriteAllBytes(Path.Combine(root, "frontend-active.json"), ResourceJson.Write(child.Refresh()));
+        await Task.Delay(TimeSpan.FromSeconds(20), deadline.Token);
+        throw new InvalidOperationException("The harness did not end the exact disposable owner.");
+    }
+    child.StandardInput.Close(); await child.WaitForExitAsync(deadline.Token);
+    var receipt = child.Close();
+    File.WriteAllText(Path.Combine(root, "frontend-result.json"), JsonSerializer.Serialize(new { recovered, current = child.Record, receipt }, ProjectService.Json));
+    return;
+}
 if (args[0].StartsWith("launch-", StringComparison.Ordinal))
 {
     var python = File.ReadAllText(Path.Combine(root, "python-executable.txt")).Trim();
