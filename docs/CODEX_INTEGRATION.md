@@ -2,6 +2,8 @@
 
 RockwellMCPServer ships its own Codex plugin. It connects directly to the app-owned stdio MCP adapter, which calls the same authenticated service as the GUI and REST clients. Installation never selects or registers an external broker.
 
+The [stable app-owned launcher contract](STABLE_LAUNCHER.md) prepares a cache-independent immutable backend and an exact command/cwd proposal. It is a separate staged migration with expected manifest/pointer hashes and a designated configuration handoff. Existing routes, plugin/skill enablement and active owners are retained until that checkpoint; preparation does not invoke this installer's configuration writer or replace a full runtime.
+
 The optional [app-owned framework host](FRAMEWORK.md) remains a separate package for clients that need its fixed discovery interface. Rockwell owns its standalone plugin and native skills independently of other applications. Shared infrastructure is the app framework and independent Windows manager; there is no universal plugin deployment or universal Codex MCP connection.
 
 ## Install and configure

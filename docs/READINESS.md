@@ -35,6 +35,8 @@ The stdio owner reconciles fully identified dead MCP transport claims from its o
 
 ## Cached-launcher compatibility fallback
 
+The [app-owned stable launcher](STABLE_LAUNCHER.md) is the prepared cache-independent migration. Its reviewed command/cwd handoff is separate from the legacy cached-launcher fallback below. Do not replace an approved stable route with a cache-pinned command; use the stable inspector for its byte/pointer checks.
+
 Some clients leave `${PLUGIN_ROOT}` literal in a bundled stdio command or `cwd`. Use an explicit host-local binding to the **same immutable installed cached launcher** in that case. Keep the Rockwell plugin and skills enabled; disable its unresolved bundled server while enabling one direct Rockwell route. This remains the app-owned standalone service and has no broker route.
 
 First inspect the plan:
