@@ -48,6 +48,14 @@ def load(path: Path) -> dict:
     return json.loads(read(path))
 
 
+def parse_toml_bytes(value: bytes) -> dict:
+    # Text-mode Windows writes can turn an existing CRLF into CRCRLF. Refuse
+    # malformed bytes rather than normalizing a user's multiline TOML values.
+    if re.search(rb"\r(?!\n)", value):
+        raise ValueError("Malformed TOML newline: lone CR or CRCRLF. No configuration was written; preserve and review the original bytes.")
+    return tomllib.loads(value.decode("utf-8-sig"))
+
+
 def inventory(home: Path) -> dict:
     executable = shutil.which("codex")
     if not executable:
@@ -112,7 +120,7 @@ def header_path(line: str) -> tuple[str, ...] | None:
 def plan_binding(original: bytes, cache: Path, windows: Path) -> tuple[bytes, dict]:
     """Preserve unrelated TOML semantics and reject restrictive/ambiguous policies."""
     text = original.decode("utf-8-sig")
-    before = tomllib.loads(text)
+    before = parse_toml_bytes(original)
     plugin = before.get("plugins", {}).get(PLUGIN, {})
     if plugin.get("enabled") is not True:
         raise ValueError("Enable the installed Rockwell plugin explicitly before binding its server.")
@@ -162,6 +170,8 @@ def plan_binding(original: bytes, cache: Path, windows: Path) -> tuple[bytes, di
     if tomllib.loads(text) != expected:
         raise ValueError("Configuration semantic preservation failed; no configuration changed.")
     output = (b"\xef\xbb\xbf" if original.startswith(b"\xef\xbb\xbf") else b"") + text.encode("utf-8")
+    if parse_toml_bytes(output) != expected:
+        raise ValueError("Encoded TOML differs from the reviewed parsed settings; no configuration changed.")
     return output, {"enabledRoutes": 1, "bundledEnabled": False, "direct": target,
                     "unrelatedConfigurationPreserved": True, "chatActivation": "not_observed"}
 
@@ -169,6 +179,8 @@ def plan_binding(original: bytes, cache: Path, windows: Path) -> tuple[bytes, di
 def apply_binding(config: Path, original: bytes, updated: bytes, backup: Path, expected: str) -> dict:
     if sha(original) != expected:
         raise ValueError("Reviewed configuration SHA-256 does not match; generate a fresh plan.")
+    parse_toml_bytes(original)
+    parse_toml_bytes(updated)
     backup.mkdir(parents=True, exist_ok=False)
     (backup / "config.toml.before").write_bytes(original)
     temporary = None
@@ -279,7 +291,7 @@ def main():
     except Exception as error:
         installed = {"state": "unavailable", "errorType": type(error).__name__,
                      "reason": "Installed inventory/cache could not be verified; no connection change is permitted."}
-    current = tomllib.loads(original.decode("utf-8-sig"))
+    current = parse_toml_bytes(original)
     bundled = current.get("plugins", {}).get(PLUGIN, {}).get("mcp_servers", {}).get(SERVER, {})
     direct = current.get("mcp_servers", {}).get(SERVER)
     result = {"schemaVersion": 1, "configurationSha256": sha(original), "installed": installed,

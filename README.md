@@ -4,6 +4,8 @@
 
 Shared Rockwell engineering service with MCP, REST, a desktop GUI and reloadable extensions.
 
+[CodexMCPBroker](https://github.com/votecoffee/CodexMCPBroker) provides the separately maintained shared application framework and Windows MCP Service Manager. Rockwell remains a standalone MCP server with its own app-owned Codex plugin and skills. The optional framework host and separate management app require no universal plugin; Rockwell retains reviewed dependency pins and deployment-specific acceptance.
+
 The shared Windows MCP Service Manager can report this app's service activity and installed/running versions through an app-owned supervisor. Tray restart remains disabled until full engineering quiescence can be enforced; see [service management](docs/SERVICE_MANAGEMENT.md). Small packaged skills fetch current canonical guidance from the shared service; compatible clients can explicitly select [Skills-over-MCP publication](docs/FRAMEWORK.md#current-guidance-and-skills-over-mcp). The read-only [protocol feature report](docs/PROTOCOL_FEATURES.md) lists tested features and concrete gaps.
 
 Inspect and edit **Studio 5000 Logix Designer**, **FactoryTalk View Studio ME/SE** and **Studio 5000 View Designer** project exports from a Codex chat or the desktop workspace. Browse tags and UDTs, create watch lists, record values and export trends. Optional Logix Designer SDK jobs provide native project and configured controller operations.
@@ -16,7 +18,7 @@ Scoped structural reviews can inspect up to 128 exact element paths in one conte
 
 The plugin identifier is `rockwell-mcp-server`. Internal `Studio5000.*` assemblies, environment variables and existing tool names remain for compatibility.
 
-Application releases use a fixed `YY.MMDD.HHmmss` timestamp in `America/New_York`, currently **26.1023.080950**. Package identities remove leading numeric zeros when required; the padded display timestamp stays in release metadata. See [release versioning](docs/VERSIONING.md) for package and .NET mappings.
+Application releases use a fixed `YY.MMDD.HHmmss` timestamp in `America/New_York`, currently **26.1023.114024**. Package identities remove leading numeric zeros when required; the padded display timestamp stays in release metadata. See [release versioning](docs/VERSIONING.md) for package and .NET mappings.
 
 ## Table of Contents
 
@@ -101,6 +103,8 @@ cd RockwellMCPServer
 
 You can also double-click **Install.cmd**, then **Run.cmd** in File Explorer. Installation builds the shared service, MCP adapter, GUI and extensions, initializes local settings on first use and creates a **RockwellMCPServer** shortcut in the current user's Start Menu. The executable, application windows and shortcut use the bundled PLC/HMI artwork, with eight exact-size Windows icon frames for different display scales. No administrator access is needed. The shortcut starts the shared service and GUI with no console window; startup errors appear in a dialog.
 
+Both root commands accept `--help`, `-Help`, `-?` or `/?` without entering installation/startup. They preserve quoted arguments and propagate the PowerShell exit code. For example, `Run.cmd -ProjectPath "C:\Projects\project file.L5X"` accepts spaces. See the [installation and wrapper contract](docs/INSTALLATION.md).
+
 Installation uses Rockwell's **standalone Codex plugin**, preserving its enabled/disabled choice on reinstall. Use `Install.cmd -CodexIntegration None` for the app alone. Broker routing and automatic route selection have been removed. See [standalone plugin installation](docs/CODEX_INTEGRATION.md).
 
 Each application owns its Codex plugin and native skills. Common infrastructure consists of the shared app framework and an independent Windows manager. The framework's `universal-codex-tools` package name remains a compatibility identifier; it does not select or install a universal plugin.
@@ -159,7 +163,7 @@ The launcher starts the stdio MCP adapter and connects it to the shared service.
 
 The Windows adapter limits new frontend instances using OS-owned file leases and observes its launcher/parent handles. Configure the limit and shutdown timeout in **Settings…**. Closing a frontend leaves the shared service available to other clients. See [process ownership and outstanding lifecycle validation](docs/PROCESS_LIFETIMES.md); source implementation does not establish installed runtime cleanup acceptance.
 
-The service source contains a bounded Windows process job and shared durable resource ledger. Extension, CIP and SDK workers use atomic contained creation; SDK sessions retain separate save/close/effect evidence and shared-lease recovery barriers. Operator and console stop use identity-bound requests with refusal ahead of teardown. FactoryTalk GUI launch hands off to the user desktop shell; Studio and its documents remain user-owned. The optional framework 0.20 supervisor admits native features only after an exact ownership/barrier handshake and requires verified service close evidence before retiring its tree. GUI settings expose process, resource and frontend limits. See the [resource ledger and native-session policy](docs/RESOURCE_LEDGER.md). Harmless process and provider fixtures have passed; real service, native and installed acceptance remain outstanding.
+The service contains bounded Windows process jobs and a durable resource ledger. Extension, CIP and SDK workers use atomic contained creation; SDK sessions retain separate save/close/effect evidence and recovery barriers. Operator/console stop uses identity-bound requests with refusal ahead of teardown. Native GUI launch hands off to the user desktop shell; Studio and its documents remain user-owned. The optional framework supervisor additionally requires its ownership handshake and verified service close evidence. GUI settings expose process, resource and frontend limits. See [resource ownership](docs/RESOURCE_LEDGER.md) and the [separate native-local candidate/pilot](docs/NATIVE_LOCAL_PILOT.md). Offline protocol, harmless-worker, native operation and deployment/chat acceptance are distinct evidence; preparing a candidate does not activate it.
 
 Example chat request using the generated L5X fixture:
 

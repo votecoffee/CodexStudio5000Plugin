@@ -1,4 +1,6 @@
 # Retain the provided upstream source bytes exactly across Windows checkouts.
 * text=auto eol=lf
+/Install.cmd text eol=crlf
+/Run.cmd text eol=crlf
 third_party/L5xploderLib/** -text -whitespace
 third_party/ROCKWELL-LICENSE.txt -text -whitespace
