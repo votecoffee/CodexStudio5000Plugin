@@ -53,6 +53,8 @@ The repair verifies package/cache bytes and the runtime pointer before editing. 
 
 This command changes only the selected profile's connection binding. It does not install or refresh packages, edit immutable cache files, rebuild binaries, restart applications, change engineering settings or reconnect existing watches. The cached bootstrap still delegates to the installed checkout's launcher and binary publication. Keep those installed bytes stable while preparing candidates; a content-addressed bootstrap is not a self-contained binary deployment.
 
+TOML publication preserves UTF-8/BOM and existing LF or CRLF through a binary temporary file. Lone CR/CRCRLF is refused before publication; malformed user text is never silently normalized. Use disposable [configuration byte fixtures](CONFIG_PUBLICATION.md) for investigation. A repaired live profile must remain untouched unless a new binding change is explicitly authorized.
+
 ## Reconnect and verify
 
 1. Run the read-only diagnosis and resolve package/configuration or admission findings.

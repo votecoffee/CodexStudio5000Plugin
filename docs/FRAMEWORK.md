@@ -1,5 +1,7 @@
 # Optional app-owned framework host
 
+[CodexMCPBroker](https://github.com/votecoffee/CodexMCPBroker) is the upstream repository for the shared application framework and a **separate Windows MCP Service Manager application**. Rockwell remains an independently usable MCP server with its own Codex plugin and skills. The manager is not a universal plugin or an MCP front door. This guide describes Rockwell's reviewed pinned integration, not automatic adoption of the upstream repository's newest release.
+
 The `rockwell-framework-host` Python package adds an experimental, app-owned host around the existing C# MCP adapter. Its source pins **universal-codex-tools 0.20.0 / MCP Python SDK 2.3.0**, from [CodexMCPBroker commit 5b2cac5](https://github.com/votecoffee/CodexMCPBroker/tree/5b2cac50ca24d21a15b732e0424bb02fd794e1fb). The C# adapter keeps its separately locked **ModelContextProtocol 2.2.0** dependency. Python and .NET SDK versions are independent; no .NET framework binding is provided upstream.
 
 The existing standalone Codex plugin, 59-tool adapter, GUI and REST service remain available. The optional host exposes the framework's fourteen fixed discovery/invocation tools and discovers the C# adapter behind them. All project state, review hashes, target authorization, concurrent transactions and native jobs remain in the shared .NET service.

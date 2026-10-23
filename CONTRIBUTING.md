@@ -12,7 +12,8 @@ Questions, bug reports and focused pull requests are welcome through [GitHub iss
 | `scripts/` | Build, launch, extension packaging and verification commands |
 | `docs/` | Reusable architecture, API, feature and verification guides |
 | `examples/` | Small generated demonstration inputs with no customer data |
-| `skills/` | Reusable agent workflows and their references |
+| `skills/` | Small app-owned Codex bootstrap skills |
+| `workflows/` | Canonical guides/references embedded in Core and fetched through versioned workflow readers |
 | `third_party/` | Vendored source with its license and provenance |
 | `extensions/` | Public extension instructions; installed package directories are ignored |
 
@@ -40,6 +41,17 @@ Do not paste credentials, raw local configuration or private validation output i
 ## Development and validation
 
 Use Windows and the .NET 8 SDK. Keep domain operations in the shared service/Core so MCP, REST and the desktop retain the same behavior. Compatible feature additions can use the [extension contract](docs/EXTENSIONS.md); host/contract changes may require a restart. Follow the existing C# and PowerShell style.
+
+Implementation context is in [architecture](docs/ARCHITECTURE.md), [installation/wrappers](docs/INSTALLATION.md), [readiness](docs/READINESS.md) and [native-local preparation](docs/NATIVE_LOCAL_PILOT.md). [CodexMCPBroker](https://github.com/votecoffee/CodexMCPBroker) supplies the optional shared framework and separate Windows management app; retain Rockwell's standalone server, app-owned plugin/skills and independently reviewed pins. Do not introduce universal-plugin routing.
+
+Configuration-writer checks must use fresh disposable profiles. Never use a user's live Codex configuration as a test or rewrite it during documentation work. Read TOML as UTF-8 bytes, preserve explicit LF/CRLF and BOM, validate parsed settings/unrelated values, and publish bytes through the atomic binary path. Do not pass pre-existing CRLF text through Windows default text-mode translation. Refuse CRCRLF/lone CR; preserve malformed originals for explicit review. Audit private reusable helpers as well as public installers; historical deployment evidence is not a script to rerun. See [configuration publication](docs/CONFIG_PUBLICATION.md).
+
+```powershell
+python -m unittest discover -s tests/python -p "test_codex*.py"
+python -m unittest discover -s tests/python -p test_root_cmd.py
+```
+
+These fixtures test Unicode/multiline TOML, exact newline bytes, unchanged unrelated settings, CMD argument forwarding/quoted paths/help and nonzero exits. They use no real Codex CLI install, service start, native host or live profile. Runtime/native/Codex acceptance remains separate.
 
 ```powershell
 dotnet build RockwellMCPServer.sln -c Release

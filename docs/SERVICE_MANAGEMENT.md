@@ -1,6 +1,6 @@
 # Service manager reporting
 
-Rockwell uses the shared `universal-codex-tools==0.20.0` management interface through an app-owned Python supervisor for its existing .NET service. The standalone plugin still connects to the .NET MCP adapter. The optional framework MCP front door remains optional. No universal broker, additional manager instance, Tasks, Skills API, OAuth, Apps UI or Redis profile is activated.
+Rockwell can explicitly select the reviewed `universal-codex-tools==0.20.0` management interface through an app-owned Python supervisor for its .NET service. The normal standalone plugin connects to the .NET MCP adapter and does not require this optional supervisor or framework MCP front door. No universal plugin, additional manager instance, Tasks, Skills API, OAuth, Apps UI or Redis profile is activated by normal standalone installation.
 
 The Windows MCP Service Manager is a separate shared application. This app does not install or start another manager. Follow the framework's [manager documentation](https://github.com/votecoffee/CodexMCPBroker/blob/5b2cac50ca24d21a15b732e0424bb02fd794e1fb/docs/service-management.md) if a manager is needed.
 
