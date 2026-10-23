@@ -87,7 +87,7 @@ public sealed class ResourceLedger(string registry, IResourceProcessDriver drive
         try
         {
             using (var output = new FileStream(temp, FileMode.CreateNew, FileAccess.Write, FileShare.None)) { output.Write(bytes); output.Flush(true); }
-            if (File.Exists(path)) File.Replace(temp, path, null); else File.Move(temp, path);
+            if (File.Exists(path)) AtomicMetadataReplacement.Replace(temp, path); else File.Move(temp, path);
         }
         finally { if (File.Exists(temp)) File.Delete(temp); }
     }

@@ -85,7 +85,7 @@ public sealed class ResourceSupervisor : IDisposable
         try
         {
             using (var output = new FileStream(temporary, FileMode.CreateNew, FileAccess.Write, FileShare.None)) { output.Write(bytes); output.Flush(true); }
-            if (File.Exists(path)) File.Replace(temporary, path, null); else File.Move(temporary, path);
+            if (File.Exists(path)) AtomicMetadataReplacement.Replace(temporary, path); else File.Move(temporary, path);
         }
         finally { if (File.Exists(temporary)) File.Delete(temporary); }
         serviceReceiptPublished = true;
