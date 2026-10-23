@@ -154,6 +154,7 @@ public sealed class ServiceSettingsStore
         options.CipBridgePath = string.IsNullOrWhiteSpace(options.CipBridgePath) ? null : Full(options.CipBridgePath);
         options.FactoryTalkSchemaDirectory = Full(options.FactoryTalkSchemaDirectory); options.FactoryTalkStudioPath = Full(options.FactoryTalkStudioPath);
         options.ViewDesignerPath = Full(options.ViewDesignerPath); options.ExtensionsDirectory = Full(options.ExtensionsDirectory); options.ExtensionWorkerPath = Full(options.ExtensionWorkerPath);
+        NativeExecutionPolicy.ValidateWorkspace(options, root);
         if (options.NativeTimeoutSeconds is < 1 or > 86400 || options.ExtensionTimeoutSeconds is < 1 or > 1800 ||
             options.MaximumConcurrentMutations is < 1 or > 32 || options.MaximumQueuedMutations is < 1 or > 4096)
             throw new ArgumentException("Use native timeout 1..86400 s, extension timeout 1..1800 s, active mutations 1..32 and queue 1..4096.");

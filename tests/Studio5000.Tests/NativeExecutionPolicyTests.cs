@@ -38,6 +38,15 @@ public sealed class NativeExecutionPolicyTests
         options.ControllerTargets = []; options.CipBridgePath = "synthetic.exe";
         Assert.Throws<ArgumentException>(() => NativeExecutionPolicy.ValidateOptions(options));
     }
+    [Fact]
+    public void Extra_inherited_roots_and_mixed_installed_workers_cannot_widen_the_candidate()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "rockwell-local-policy-fixture");
+        var options = Options(); options.AllowedRoots = [.. options.AllowedRoots, Path.GetTempPath()];
+        Assert.Throws<ArgumentException>(() => ServiceSettingsStore.ResolveAndValidate(options, root));
+        options = Options(); options.NativeBridgePath = Path.Combine(Path.GetTempPath(), "other-worker.exe");
+        Assert.Throws<ArgumentException>(() => ServiceSettingsStore.ResolveAndValidate(options, root));
+    }
     [Theory]
     [InlineData("GoOnlineAsync")] [InlineData("UploadAsync")] [InlineData("DownloadAsync")]
     [InlineData("SetCommunicationsPathAsync")] [InlineData("ChangeControllerModeAsync")]

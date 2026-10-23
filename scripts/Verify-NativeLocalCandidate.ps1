@@ -10,7 +10,7 @@ function New-Fixture([string]$Name) {
     $root=Join-Path $ResultsDirectory $Name
     New-Item -ItemType Directory -Path (Join-Path $root 'scripts') -Force | Out-Null
     Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'Start-NativeLocalCandidate.ps1') -Destination (Join-Path $root 'scripts')
-    [IO.File]::WriteAllText((Join-Path $root 'scripts/Start-Service.ps1'), 'param([switch]$Background) [IO.File]::WriteAllText((Join-Path (Split-Path -Parent $PSScriptRoot) ''.local/started''), $env:ROCKWELL_RESOURCE_REGISTRY)')
+    [IO.File]::WriteAllText((Join-Path $root 'scripts/Start-Service.ps1'), 'param([switch]$Background) if ($env:Studio5000__EnableControllerOperations -or $env:ASPNETCORE_URLS) { throw ''Inherited override reached candidate'' }; [IO.File]::WriteAllText((Join-Path (Split-Path -Parent $PSScriptRoot) ''.local/started''), $env:ROCKWELL_RESOURCE_REGISTRY)')
     New-Item -ItemType Directory -Path (Join-Path $root '.local') | Out-Null
     $options=@{ NativeExecutionProfile='local-project'; EnableNativeGuiLaunch=$false; EnableControllerOperations=$false; EnableSdkServiceRecovery=$false; AutoStartSdkService=$false;
         AllowAnyControllerPath=$false; AllowAnySourcePath=$false; AllowAnyOutputPath=$false; ControllerTargets=@(); CipBridgePath=$null }
@@ -30,10 +30,13 @@ function Invoke-Fixture([string]$Root, [bool]$Refused) {
     $script:checks++
 }
 $previous=[Environment]::GetEnvironmentVariable('ROCKWELL_RESOURCE_REGISTRY')
+$previousController=[Environment]::GetEnvironmentVariable('Studio5000__EnableControllerOperations')
+$previousUrls=[Environment]::GetEnvironmentVariable('ASPNETCORE_URLS')
 try {
     $env:ROCKWELL_RESOURCE_REGISTRY='unrelated-registry-fixture'
+    $env:Studio5000__EnableControllerOperations='true'; $env:ASPNETCORE_URLS='http://invalid-fixture'
     $root=New-Fixture 'valid'; Invoke-Fixture $root $false
-    if ((Get-Content -LiteralPath (Join-Path $root '.local/started') -Raw) -cne (Join-Path $root '.local/resource-registry') -or $env:ROCKWELL_RESOURCE_REGISTRY -cne 'unrelated-registry-fixture') { throw 'Dedicated registry or caller environment preservation failed.' }; $checks++
+    if ((Get-Content -LiteralPath (Join-Path $root '.local/started') -Raw) -cne (Join-Path $root '.local/resource-registry') -or $env:ROCKWELL_RESOURCE_REGISTRY -cne 'unrelated-registry-fixture' -or $env:Studio5000__EnableControllerOperations -cne 'true' -or $env:ASPNETCORE_URLS -cne 'http://invalid-fixture') { throw 'Dedicated registry or caller environment preservation failed.' }; $checks++
     $root=New-Fixture 'changed'; Add-Content -LiteralPath (Join-Path $root 'scripts/Start-Service.ps1') '# changed'; Invoke-Fixture $root $true
     $root=New-Fixture 'extra'; [IO.File]::WriteAllText((Join-Path $root 'scripts/unreviewed.dll'), 'not executed'); Invoke-Fixture $root $true
     $root=New-Fixture 'shared-host'; [IO.File]::WriteAllText((Join-Path $root '.local/management-runtime.json'), '{}'); Invoke-Fixture $root $true
@@ -43,4 +46,8 @@ try {
     $manifest=Get-Content -LiteralPath (Join-Path $root 'candidate.json') -Raw | ConvertFrom-Json; $manifest.files.'service.local.json'=(Get-FileHash -LiteralPath (Join-Path $root 'service.local.json')).Hash
     [IO.File]::WriteAllText((Join-Path $root 'candidate.json'), ($manifest | ConvertTo-Json -Depth 5)); Invoke-Fixture $root $true
     Write-Output "$checks harmless candidate launch guards passed; no service/vendor executable was launched: $ResultsDirectory"
-} finally { [Environment]::SetEnvironmentVariable('ROCKWELL_RESOURCE_REGISTRY',$previous) }
+} finally {
+    [Environment]::SetEnvironmentVariable('ROCKWELL_RESOURCE_REGISTRY',$previous)
+    [Environment]::SetEnvironmentVariable('Studio5000__EnableControllerOperations',$previousController)
+    [Environment]::SetEnvironmentVariable('ASPNETCORE_URLS',$previousUrls)
+}

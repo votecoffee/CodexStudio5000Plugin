@@ -6,9 +6,11 @@ The `local-project` execution profile enables a bounded existing SDK path for di
 
 The profile requires restricted file roots, no controller targets or communications paths, controller access disabled, no CIP bridge, SDK service recovery/automatic preflight disabled, and native GUI launch disabled. Settings validation refuses conflicting flags; a broad-local preset cannot silently widen this profile. GUI Settings exposes the profile and GUI handoff switch. Saved settings remain staged until restart.
 
+Core requires the generated candidate's exact fixture/export/state/worker paths, so inherited array entries and mixed installed workers cannot widen it. Candidate startup removes inherited engineering/Kestrel/ASP.NET transport overrides for the child launch, then restores the caller's environment. It never changes the installed service's settings or process environment.
+
 The SDK catalog publishes exact `localProjectMethods`: project open/create/conversion/save, processor metadata, partial XML export, **offline `PartialImportFromXmlFileAsync`**, builds and explicit `Offline` tag reads. Controller/communications, live watches, target/rung imports, tag writes and safety methods are refused before launch. The worker independently checks its profile against the owner's launch environment and applies the same call policy. Unexpected connected state refuses local work without a forced GoOffline action. Disposing its own SDK connection does not resolve incomplete save/effect evidence.
 
-The SDK Windows service remains SCM-owned. This profile does not start, stop, restart, reconfigure, adopt or terminate it. It must already be running for the native pilot. SCM recovery, native GUI/HMI work and real controllers need separate configuration, authorization and acceptance. Export-file HMI operations retain their existing independent capabilities.
+The SDK Windows service remains SCM-owned. This profile sends no app SCM start/stop/reconfiguration request and never adopts or terminates it. It must already be running for the native pilot; vendor behavior still needs actual native acceptance. SCM recovery, native GUI/HMI work and real controllers need separate configuration, authorization and acceptance. Export-file HMI operations retain their existing independent capabilities.
 
 ## Prepare without activation
 
@@ -49,7 +51,7 @@ Two real bounded private Windows workers use a Core-based stand-in, without vend
    ]}
    ```
 
-   Retain its job ID, diagnostics and terminal result. Core remaps filenames into a private job, publishes final ACD/L5X artifacts and a managed result project. There is no controller download or runtime scan.
+   Retain its job ID, diagnostics and terminal result. Review logged build errors and expected output content; a returned API/job status alone is insufficient acceptance. Core remaps filenames into a private job, publishes final ACD/L5X artifacts and a managed result project. There is no controller download or runtime scan.
 5. Review `fixtures/NativeLocalProgram.L5X` and its manifest hash. Submit a new offline job against the created `projectId` and exact `expectedSha256`, with `inputFiles.probe={path:<absolute-fixture-path>,sha256:<exact-hash>}` and these calls:
 
    ```json

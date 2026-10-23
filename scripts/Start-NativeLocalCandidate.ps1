@@ -29,6 +29,8 @@ if ($options.NativeExecutionProfile -cne 'local-project' -or $options.EnableNati
     $options.EnableSdkServiceRecovery -or $options.AutoStartSdkService -or $options.AllowAnyControllerPath -or $options.AllowAnySourcePath -or $options.AllowAnyOutputPath -or
     @($options.ControllerTargets).Count -ne 0 -or $options.CipBridgePath) { throw 'Candidate native-local boundaries changed.' }
 $keys = @('ROCKWELL_RESOURCE_REGISTRY','ROCKWELL_MANAGED_SERVICE','ROCKWELL_RESOURCE_PROFILE','ROCKWELL_NATIVE_EXECUTION_PROFILE','ROCKWELL_NATIVE_LIFECYCLE','ROCKWELL_NATIVE_SESSION','STUDIO5000_PLUGIN_ROOT')
+$keys += @(Get-ChildItem Env: | Where-Object { $_.Name -match '^(Studio5000[:_]|Kestrel[:_]|ASPNETCORE_|DOTNET_(URLS|HTTP_PORTS|HTTPS_PORTS)$|ServiceUrl$|Urls$)' } | ForEach-Object Name)
+$keys = @($keys | Select-Object -Unique)
 $prior = @{}
 try {
     foreach ($key in $keys) { $prior[$key] = [Environment]::GetEnvironmentVariable($key); [Environment]::SetEnvironmentVariable($key, $null) }

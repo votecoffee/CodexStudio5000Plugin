@@ -44,6 +44,17 @@ public static class NativeExecutionPolicy
     {
         if (profile is not (Standard or LocalProject)) throw new ArgumentException("NativeExecutionProfile must be standard or local-project.");
     }
+    public static void ValidateWorkspace(ServiceOptions options, string root)
+    {
+        if (options.NativeExecutionProfile != LocalProject) return;
+        bool Equal(string? path, params string[] pieces) => path is not null &&
+            string.Equals(Path.GetFullPath(path), Path.Combine([Path.GetFullPath(root), .. pieces]), StringComparison.OrdinalIgnoreCase);
+        if (options.AllowedRoots.Length != 1 || !Equal(options.AllowedRoots[0], "fixtures") ||
+            options.OutputRoots.Length != 1 || !Equal(options.OutputRoots[0], "exports") || !Equal(options.StateDirectory, ".local", "state") ||
+            !Equal(options.NativeBridgePath, "artifacts", "app", "NativeBridge", "Studio5000.NativeBridge.exe") ||
+            !Equal(options.ExtensionsDirectory, "extensions") || !Equal(options.ExtensionWorkerPath, "artifacts", "app", "ExtensionWorker", "Studio5000.ExtensionWorker.exe"))
+            throw new ArgumentException("local-project requires its generated dedicated candidate fixture/export/state/worker paths; additional inherited roots or mixed installed workers are refused.");
+    }
     public static void ValidateCalls(string profile, SdkCall[] calls, string? communicationsPath = null, string? controllerTargetId = null)
     {
         ValidateName(profile);
