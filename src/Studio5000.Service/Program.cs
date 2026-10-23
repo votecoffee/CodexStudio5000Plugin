@@ -6,6 +6,11 @@ using Studio5000.Extensibility;
 using Studio5000.Core.Resources;
 
 if (args is ["--version"]) { Console.WriteLine(WorkspaceIdentity.Version); return; }
+if (args is ["--native-local-settings", var candidateRoot])
+{
+    Console.WriteLine(System.Text.Json.JsonSerializer.Serialize(NativeExecutionPolicy.CreateLocalOptions(candidateRoot), ServiceSettingsStore.Json));
+    return; // Pure configuration generation: no service/native/resource initialization.
+}
 var root = Path.GetFullPath(Environment.GetEnvironmentVariable("STUDIO5000_PLUGIN_ROOT") ?? Directory.GetCurrentDirectory());
 if (File.Exists(Path.Combine(root, ".local", "maintenance-hold.json"))) throw new InvalidOperationException("RockwellMCPServer is on operator maintenance hold; explicit human release is required.");
 using var supervisorOwner = Environment.GetEnvironmentVariable("ROCKWELL_MANAGED_SERVICE") == "1" ? ParentProcessOwners.Capture() : null;

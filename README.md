@@ -16,7 +16,7 @@ Scoped structural reviews can inspect up to 128 exact element paths in one conte
 
 The plugin identifier is `rockwell-mcp-server`. Internal `Studio5000.*` assemblies, environment variables and existing tool names remain for compatibility.
 
-Application releases use a fixed `YY.MMDD.HHmmss` timestamp in `America/New_York`, currently **26.1023.073339**. Package identities remove leading numeric zeros when required; the padded display timestamp stays in release metadata. See [release versioning](docs/VERSIONING.md) for package and .NET mappings.
+Application releases use a fixed `YY.MMDD.HHmmss` timestamp in `America/New_York`, currently **26.1023.075547**. Package identities remove leading numeric zeros when required; the padded display timestamp stays in release metadata. See [release versioning](docs/VERSIONING.md) for package and .NET mappings.
 
 ## Table of Contents
 
@@ -39,6 +39,7 @@ RockwellMCPServer gives agents and engineers a shared workspace for project insp
 | Logix project editing | Inspect and preview/apply L5X component changes; export L5X or exploded ZIP. Optional SDK conversion supports ACD files. |
 | Project review | Compare hash-bound Logix snapshots, find PLC tag where-used candidates in saved RLL/ST and direct aliases, and preview ladder branches as drawing geometry and passive SVG. |
 | Logix SDK jobs | Ordered native calls for projects, builds, imports, typed/raw tags and other operations in the bound SDK version. Availability depends on the installed Logix version and project. |
+| [Native-local candidate](docs/NATIVE_LOCAL_PILOT.md) | Separately prepare a hash-bound `local-project` SDK read/export/offline-import/build profile with dedicated state/registry and controller, SCM-start and GUI boundaries. Native acceptance remains a separate pilot. |
 | [SDK service recovery](docs/SDK_SERVICE_RECOVERY.md) | Start a stopped Logix Designer SDK Service from chat or the GUI, or before new SDK work. Retain request receipts and leave a running service running. |
 | FactoryTalk View ME/SE | Edit existing graphics XML properties using matching installed schemas; resolve tag references against saved PLC metadata using explicit shortcut/parameter context, prepare import packages and compare re-exports. |
 | View Designer | Edit existing properties in exported `.hmi` folders, preserve assets, prepare import ZIPs and compare re-exports. |

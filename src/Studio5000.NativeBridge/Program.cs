@@ -2,6 +2,12 @@ using RockwellAutomation.LogixDesigner;
 using RockwellAutomation.LogixDesigner.Logging;
 using Studio5000.NativeBridge;
 using Studio5000.Core.Resources;
+using Studio5000.Core;
+
+var profile = Environment.GetEnvironmentVariable(NativeExecutionPolicy.EnvironmentKey) ?? NativeExecutionPolicy.Standard;
+NativeExecutionPolicy.ValidateName(profile);
+if (profile == NativeExecutionPolicy.LocalProject && args.Length != 0 && args[0] is "--watch" or "--create-fixture")
+    throw new OperationException("native_local_operation_denied", "Use bounded discrete SDK jobs in local-project; direct fixture/watch entry points are disabled.");
 
 if (args.Length == 1 && args[0] == "--sdk-coverage")
 {
@@ -36,7 +42,11 @@ try
         !new[] { ".acd", ".l5x" }.Contains(Path.GetExtension(output).ToLowerInvariant()))
         throw new ArgumentException("Input must exist; output must be a new ACD/L5X path.");
     using (LogixProject project = await LogixProject.OpenLogixProjectAsync(input, new StdOutEventLogger()))
+    {
+        if (profile == NativeExecutionPolicy.LocalProject)
+            NativeExecutionPolicy.ValidateProjectConnection(profile, (await project.ReadConnectedStateAsync()).ToString());
         await project.SaveAsAsync(output, false);
+    }
     if (!File.Exists(output) || new FileInfo(output).Length == 0) throw new IOException("Native SDK returned an empty result.");
     lifecycle?.Complete(true, true, true);
     return 0;

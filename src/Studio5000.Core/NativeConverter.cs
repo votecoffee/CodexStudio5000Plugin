@@ -22,11 +22,20 @@ public sealed partial class NativeConverter(ServiceOptions options, SdkServiceCo
         using var doc = JsonDocument.Parse(await output); return doc.RootElement.Clone();
     }
 
-    private ProcessStartInfo Start() => new(Path.GetFullPath(options.NativeBridgePath!))
-    { UseShellExecute = false, CreateNoWindow = true, RedirectStandardInput = true, RedirectStandardOutput = true, RedirectStandardError = true };
+    private ProcessStartInfo Start()
+    {
+        NativeExecutionPolicy.ValidateOptions(options);
+        var start = new ProcessStartInfo(Path.GetFullPath(options.NativeBridgePath!))
+        { UseShellExecute = false, CreateNoWindow = true, RedirectStandardInput = true, RedirectStandardOutput = true, RedirectStandardError = true };
+        start.Environment[NativeExecutionPolicy.EnvironmentKey] = options.NativeExecutionProfile;
+        return start;
+    }
 
     public async Task<SdkBridgeResult> ExecuteSdkAsync(SdkBridgeRequest request, CancellationToken ct)
     {
+        NativeExecutionPolicy.ValidateOptions(options);
+        NativeExecutionPolicy.ValidateCalls(options.NativeExecutionProfile, request.Calls, request.CommunicationsPath);
+        request = request with { ExecutionProfile = options.NativeExecutionProfile };
         if (!Available) throw new OperationException("native_unavailable", "Build and configure the installed SDK native bridge.");
         await gate.WaitAsync(ct);
         try

@@ -8,6 +8,8 @@ public sealed partial class NativeConverter : IWatchSessionFactory
 {
     public async Task<IWatchSession> OpenAsync(WatchBridgeOpen request, CancellationToken ct)
     {
+        if (options.NativeExecutionProfile == NativeExecutionPolicy.LocalProject)
+            throw new OperationException("native_local_watch_denied", "The bounded local-project profile does not start SDK watch sessions. Use discrete offline reads or separately authorize a monitoring profile.");
         if (!Available) throw new OperationException("native_unavailable", "Build and configure the native bridge.");
         ResourceSupervisor.RequireCurrent().CheckWorkerAdmission();
         await sdkService.EnsureForSdkAsync(ct);

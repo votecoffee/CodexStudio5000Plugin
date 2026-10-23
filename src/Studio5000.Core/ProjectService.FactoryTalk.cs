@@ -34,7 +34,11 @@ public sealed partial class ProjectService
         };
     }
 
-    public object LaunchFactoryTalkStudio() => ResourceSupervisor.RequireCurrent().LaunchUserGui(options.FactoryTalkStudioPath);
+    public object LaunchFactoryTalkStudio()
+    {
+        NativeExecutionPolicy.RequireGui(options);
+        return ResourceSupervisor.RequireCurrent().LaunchUserGui(options.FactoryTalkStudioPath);
+    }
 
     public GraphicsValidation ValidateGraphics(string id)
     {

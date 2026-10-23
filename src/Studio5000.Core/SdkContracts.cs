@@ -22,7 +22,8 @@ public sealed record SdkSurface(string Assembly, SdkMethod[] Methods, SdkEnum[] 
 public sealed record SdkMethodInfo(string Name, string Scope, string Effect, SdkParameter[] Parameters);
 public sealed record SdkStepResult(int Index, string Method, string Status, JsonElement? Value);
 public sealed record SdkEvent(string Kind, string Message, int? Progress = null);
-public sealed record SdkBridgeRequest(string WorkDirectory, string? SourcePath, string? CommunicationsPath, SdkCall[] Calls);
+public sealed record SdkBridgeRequest(string WorkDirectory, string? SourcePath, string? CommunicationsPath, SdkCall[] Calls,
+    string ExecutionProfile = NativeExecutionPolicy.Standard);
 public sealed record SdkBridgeResult(string Status, SdkStepResult[] Steps, SdkEvent[] Events, string? Error = null);
 public sealed record SdkJob(string Id, string Status, DateTimeOffset CreatedAt, string[] Methods,
     string? SourceSha256, string? ControllerTargetId, bool ControllerEffectsPossible,

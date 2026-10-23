@@ -29,6 +29,8 @@ public sealed partial class ProjectService
         methods = SdkCatalog.Describe(), enums = SdkCatalog.Surface.Enums,
         onlineEdits = OnlineEdits.Capabilities(),
         managedMethods = SdkCatalog.ManagedMethods, controllerOperationsEnabled = options.EnableControllerOperations,
+        nativeExecution = new { profile = options.NativeExecutionProfile, localProjectMethods = NativeExecutionPolicy.LocalMethods,
+            options.EnableNativeGuiLaunch, ownership = "Existing exact owned worker plus separate native session/close evidence", nativeAcceptance = "Operation/version-specific; configuration is not acceptance" },
         controllerTargets = options.ControllerTargets,
         allowAnyControllerPath = options.AllowAnyControllerPath,
         sdkServiceRecovery = new { serviceName = SdkServiceControl.ServiceName, displayName = SdkServiceControl.DisplayName,
@@ -59,6 +61,8 @@ public sealed partial class ProjectService
     public async Task<SdkJob> StartSdkJobAsync(SdkRunRequest request, CancellationToken ct = default)
     {
         SdkCatalog.ValidateCalls(request.Calls);
+        NativeExecutionPolicy.ValidateOptions(options);
+        NativeExecutionPolicy.ValidateCalls(options.NativeExecutionProfile, request.Calls, controllerTargetId: request.ControllerTargetId);
         if (!native.Available) throw new OperationException("native_unavailable", "Build and configure NativeBridgePath before submitting SDK jobs.");
         var calls = request.Calls.Select(c => new SdkCall(c.Method, new(c.Arguments))).ToArray();
         var controller = SdkCatalog.NeedsController(calls);

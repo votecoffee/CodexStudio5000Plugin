@@ -2,10 +2,26 @@ using System.Text;
 using System.Text.Json;
 using System.Diagnostics;
 using Studio5000.Core.Resources;
+using Studio5000.Core;
 
 // Harmless test executable only: JSON/files/locks, no engineering SDK or host.
 if (args.Length != 2) throw new ArgumentException("Use fixtures, roundtrip, admit or lock with an explicit disposable fixture directory.");
 var root = Path.GetFullPath(args[1]); var marker = Path.Combine(root, ".resource-interop-fixture");
+if (args[0] == "--sdk")
+{
+    // Harmless stand-in for the SDK worker wire/lifecycle contract. No vendor
+    // assembly, service, controller, GUI or caller-supplied executable is used.
+    var request = JsonSerializer.Deserialize<SdkBridgeRequest>(await Console.In.ReadToEndAsync(), ProjectService.Json)!;
+    if (!File.Exists(Path.Combine(Path.GetDirectoryName(request.WorkDirectory)!, ".resource-interop-fixture"))) throw new ArgumentException("A disposable native adapter fixture marker is required.");
+    NativeExecutionPolicy.ValidateWorkerProfile(request.ExecutionProfile, Environment.GetEnvironmentVariable(NativeExecutionPolicy.EnvironmentKey));
+    NativeExecutionPolicy.ValidateCalls(request.ExecutionProfile, request.Calls, request.CommunicationsPath);
+    using var journal = NativeLifecycleJournal.FromEnvironment() ?? throw new InvalidOperationException("Exact owned lifecycle handshake is required.");
+    journal.BeforeStep(0, request.Calls[0].Method);
+    if (Environment.GetEnvironmentVariable("ROCKWELL_NATIVE_STUB_UNCERTAIN") != "1") { journal.AfterStep(); journal.Complete(true, true, true); }
+    var result = new SdkBridgeResult("succeeded", [new(0, request.Calls[0].Method, "succeeded", null)], []);
+    await File.WriteAllTextAsync(root, JsonSerializer.Serialize(result, ProjectService.Json));
+    return;
+}
 if (args[0] == "fixtures")
 {
     if (Directory.Exists(root) && Directory.EnumerateFileSystemEntries(root).Any()) throw new ArgumentException("Use a new empty fixture directory.");
@@ -25,6 +41,40 @@ if (args[0] == "fixtures")
     return;
 }
 if (!File.Exists(marker)) throw new ArgumentException("An explicit interop fixture marker is required; never use a live registry.");
+if (args[0] is "native-owner" or "native-owner-uncertain")
+{
+    if (Directory.Exists(Path.Combine(root, "registry"))) throw new ArgumentException("Use a fresh disposable native fixture.");
+    OwnedProcessContainment.EnterCurrentProcess(8);
+    var resources = new ResourceSupervisor(root, Path.Combine(root, "registry"), 8, 16);
+    resources.WriteOwnerReceipt();
+    var options = NativeExecutionPolicy.CreateLocalOptions(root); options.NativeBridgePath = Environment.ProcessPath!;
+    if (Path.GetFileName(options.NativeBridgePath) != "Studio5000.ResourceInterop.exe") throw new ArgumentException("Run the published fixture apphost directly.");
+    Environment.SetEnvironmentVariable("ROCKWELL_NATIVE_STUB_UNCERTAIN", args[0] == "native-owner-uncertain" ? "1" : null);
+    var converter = new NativeConverter(options, new SdkServiceControl(options, Path.Combine(root, "scm-receipts"), new NoServiceDriver(), () => false));
+    var work = Path.Combine(root, "work"); Directory.CreateDirectory(work);
+    var calls = new[] { new SdkCall("GetProcessorTypesAsync", new() { ["majorRev"] = JsonSerializer.SerializeToElement(35u) }) };
+    var result = await converter.ExecuteSdkAsync(new(work, null, null, calls), default);
+    var records = resources.Ledger.Records(); var worker = records.Single(r => r.Kind == "sdk-worker"); var session = records.Single(r => r.Kind == "native-session");
+    if (!worker.Terminal || new WindowsResourceProcessDriver().State(worker.Process!) != "absent") throw new InvalidOperationException("The exact fixture worker was not retired.");
+    bool refused = false;
+    if (args[0] == "native-owner")
+    {
+        if (result.Status != "succeeded" || session.State != "released" || session.RecoveryBarrier is not null || session.BarrierResolution is null) throw new InvalidOperationException("Exact local close evidence did not release the native lease.");
+        resources.Dispose();
+        if (!File.Exists(Path.Combine(root, ".local/service-owner-exit.json"))) throw new InvalidOperationException("Owner close receipt is missing.");
+    }
+    else
+    {
+        if (result.Status != "indeterminate" || session.Terminal || session.RecoveryBarrier is null) throw new InvalidOperationException("Lost native evidence was incorrectly accepted.");
+        try { resources.CloseOwnedResources(); }
+        catch (OperationException error) when (error.Code == "native_recovery_required") { refused = true; }
+        if (!refused || File.Exists(Path.Combine(root, ".local/service-owner-exit.json"))) throw new InvalidOperationException("An uncertain native owner published a false closed receipt.");
+        // Preserve the uncertain fixture journal/claim. Exiting this harmless
+        // stand-in does not attest native recovery or delete its evidence.
+    }
+    File.WriteAllText(Path.Combine(root, "native-adapter-result.json"), JsonSerializer.Serialize(new { status = result.Status, shutdownRefused = refused, worker, session, scmAccessed = false, vendorCodeExecuted = false }, ProjectService.Json));
+    return;
+}
 if (args[0].StartsWith("launch-", StringComparison.Ordinal))
 {
     var python = File.ReadAllText(Path.Combine(root, "python-executable.txt")).Trim();
@@ -159,4 +209,9 @@ sealed class FakeDriver : IResourceProcessDriver
     public ProcessIdentity Capture(uint pid) => throw new InvalidOperationException("The JSON fixture never captures an actual process.");
     public string State(ProcessIdentity identity) => identity == CurrentIdentity() ? "alive" : "unknown";
     public IResourceProcessHandle Open(ProcessIdentity identity) => throw new InvalidOperationException("The JSON fixture never controls processes.");
+}
+sealed class NoServiceDriver : ISdkServiceDriver
+{
+    public SdkServiceSnapshot Read() => throw new InvalidOperationException("SCM must not be queried by the local-project fixture.");
+    public void Start() => throw new InvalidOperationException("SCM must not be started by the local-project fixture.");
 }

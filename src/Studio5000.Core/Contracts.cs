@@ -8,6 +8,8 @@ public sealed class ServiceOptions
     public bool AllowAnySourcePath { get; set; }
     public bool AllowAnyOutputPath { get; set; }
     public string? NativeBridgePath { get; set; }
+    public string NativeExecutionProfile { get; set; } = NativeExecutionPolicy.Standard;
+    public bool EnableNativeGuiLaunch { get; set; } = true;
     public string? CipBridgePath { get; set; }
     public int NativeTimeoutSeconds { get; set; } = 180;
     public bool EnableSdkServiceRecovery { get; set; } = true;

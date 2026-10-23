@@ -29,6 +29,7 @@ public sealed partial class ProjectService : IDisposable
     public ProjectService(ServiceOptions options, IWatchSessionFactory? watchFactory = null, ISdkServiceDriver? sdkServiceDriver = null, Func<bool>? sdkServiceMaintenanceHeld = null)
     {
         this.options = options;
+        NativeExecutionPolicy.ValidateOptions(options);
         if (options.MaximumConcurrentMutations is < 1 or > 32 || options.MaximumQueuedMutations is < 1 or > 4096) throw new ArgumentException("Set concurrency limits to active 1..32 and queued 1..4096.");
         gate = new(options.MaximumConcurrentMutations, options.MaximumQueuedMutations);
         if (options.ControllerTargets.Any(t => string.IsNullOrWhiteSpace(t.Id) || string.IsNullOrWhiteSpace(t.CommunicationsPath)) ||

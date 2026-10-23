@@ -5,6 +5,7 @@ These inputs are small generated development fixtures. They contain no customer 
 | Input | Purpose |
 |---|---|
 | [Demo.L5X](Demo.L5X) | Logix component inspection, preview/apply and export |
+| [NativeLocalProgram.L5X](NativeLocalProgram.L5X) | Unscheduled program with two local tags for the separate local SDK import/build/readback pilot; generated XML without native acceptance |
 | [ReviewDemo.L5X](ReviewDemo.L5X) | Structural comparison and bracket/keyword ladder previews; generated syntax fixture without native acceptance |
 | [ReferencesDemo.L5X](ReferencesDemo.L5X) | PLC where-used candidates, local/controller shadowing, RLL/ST comments, indirect indices and direct aliases; generated syntax without native acceptance |
 | [WatchDemo.L5X](WatchDemo.L5X) | v38 tags, UDTs, arrays, offline watch-value decoding and revision-preservation regression checks |

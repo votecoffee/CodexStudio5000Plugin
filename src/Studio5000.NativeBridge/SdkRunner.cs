@@ -69,6 +69,8 @@ internal static partial class SdkRunner
         var request = JsonSerializer.Deserialize<SdkBridgeRequest>(await Console.In.ReadToEndAsync(), Json)
             ?? throw new ArgumentException("Missing request.");
         SdkCatalog.ValidateCalls(request.Calls);
+        NativeExecutionPolicy.ValidateWorkerProfile(request.ExecutionProfile, Environment.GetEnvironmentVariable(NativeExecutionPolicy.EnvironmentKey));
+        NativeExecutionPolicy.ValidateCalls(request.ExecutionProfile, request.Calls, request.CommunicationsPath);
         using var lifecycle = NativeLifecycleJournal.FromEnvironment();
         var secrets = request.Calls.SelectMany(c => c.Arguments).Where(p => SdkCatalog.IsSecret(p.Key))
             .Select(p => p.Value.GetString()).Where(s => !string.IsNullOrEmpty(s)).Cast<string>().Distinct().OrderByDescending(s => s.Length).ToArray();
@@ -83,6 +85,7 @@ internal static partial class SdkRunner
         {
             if (request.SourcePath is not null && !SdkCatalog.Factories.Contains(request.Calls[0].Method))
                 project = await LogixProject.OpenLogixProjectAsync(request.SourcePath, logger);
+            if (project is not null) await RequireLocalOfflineAsync(project, request.ExecutionProfile);
             if (project is not null && request.CommunicationsPath is not null)
                 await project.SetCommunicationsPathAsync(request.CommunicationsPath);
             for (var i = 0; i < request.Calls.Length; i++)
@@ -95,6 +98,7 @@ internal static partial class SdkRunner
                     {
                         lifecycle?.BeforeStep(i, call.Method);
                         project = await CreateAsync(call.Method, call.Arguments, logger, CancellationToken.None);
+                        await RequireLocalOfflineAsync(project, request.ExecutionProfile);
                         if (request.CommunicationsPath is not null) await project.SetCommunicationsPathAsync(request.CommunicationsPath);
                         value = new { opened = true };
                     }
@@ -119,6 +123,7 @@ internal static partial class SdkRunner
             if (project is not null)
             {
                 lifecycle?.BeforeStep(request.Calls.Length, "PreserveWorkingCopyAndDisconnect");
+                await RequireLocalOfflineAsync(project, request.ExecutionProfile);
                 if (await project.ReadConnectedStateAsync() is LogixProject.ConnectedState.Online or LogixProject.ConnectedState.Connected)
                     await project.GoOfflineAsync();
                 await project.SaveAsAsync(Path.Combine(request.WorkDirectory, "final.acd"));
@@ -136,6 +141,7 @@ internal static partial class SdkRunner
             {
                 try
                 {
+                    await RequireLocalOfflineAsync(project, request.ExecutionProfile);
                     if (await project.ReadConnectedStateAsync() is LogixProject.ConnectedState.Online or LogixProject.ConnectedState.Connected) await project.GoOfflineAsync();
                     await project.SaveAsAsync(Path.Combine(request.WorkDirectory, "recovery.acd"), false);
                 }
@@ -156,6 +162,11 @@ internal static partial class SdkRunner
         return 0; // Domain failures are represented by the result, not a lost process response.
     }
 
+    private static async Task RequireLocalOfflineAsync(LogixProject project, string profile)
+    {
+        if (profile == NativeExecutionPolicy.LocalProject)
+            NativeExecutionPolicy.ValidateProjectConnection(profile, (await project.ReadConnectedStateAsync()).ToString());
+    }
     private sealed class CollectEvents(List<SdkEvent> events, Func<string, string> redact) : IOperationEvent
     {
         private bool progress = true, status = true, error = true;

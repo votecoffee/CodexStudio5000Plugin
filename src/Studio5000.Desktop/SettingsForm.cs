@@ -14,6 +14,7 @@ public sealed class SettingsForm : WorkspaceForm
     private readonly CheckBox controller = Check("Enable controller operations"), anyController = Check("Allow any explicit SDK communications path (path:...)");
     private readonly CheckBox anySource = Check("Allow source files anywhere this Windows user can read"), anyOutput = Check("Allow new exports anywhere this Windows user can write");
     private readonly CheckBox sdkRecovery = Check("Allow start when stopped"), sdkAutoStart = Check("Before new SDK operations");
+    private readonly CheckBox nativeGui = Check("Allow user-owned native GUI handoff");
     private readonly TextBox sources = Lines(), outputs = Lines();
     private readonly ListBox targets = new() { Dock = DockStyle.Fill, DisplayMember = "Id" };
     private readonly Dictionary<string, TextBox> paths = new();
@@ -45,7 +46,7 @@ public sealed class SettingsForm : WorkspaceForm
         targetPage.Controls.Add(targets); targetPage.Controls.Add(targetActions);
         var runtimePage = new TabPage("Runtime and limits"); var runtime = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, AutoScroll = true, Padding = new(12) };
         runtime.ColumnStyles.Add(new(SizeType.Absolute, 265)); runtime.ColumnStyles.Add(new(SizeType.Percent, 100));
-        foreach (var (key, label) in new[] { ("ServiceUrl", "Service HTTP loopback URL"), ("StateDirectory", "Managed state directory"), ("NativeBridgePath", "SDK bridge executable (optional)"),
+        foreach (var (key, label) in new[] { ("ServiceUrl", "Service HTTP loopback URL"), ("StateDirectory", "Managed state directory"), ("NativeExecutionProfile", "Native profile: standard / local-project"), ("NativeBridgePath", "SDK bridge executable (optional)"),
             ("CipBridgePath", "CIP reader executable (optional)"), ("FactoryTalkSchemaDirectory", "FactoryTalk schema directory"), ("FactoryTalkStudioPath", "FactoryTalk Studio executable"),
             ("ViewDesignerPath", "View Designer executable"), ("ExtensionsDirectory", "Extension packages directory"), ("ExtensionWorkerPath", "Extension worker executable") })
         { var field = new TextBox { Dock = DockStyle.Fill }; paths.Add(key, field); Row(runtime, label, field); }
@@ -55,6 +56,7 @@ public sealed class SettingsForm : WorkspaceForm
             ("MaximumOwnedProcesses", "Service and owned child processes", 128), ("MaximumOwnedResources", "Active app resource records", 256), ("SdkServiceStartTimeoutSeconds", "SDK service readback timeout (seconds)", 120) })
         { var field = new NumericUpDown { Minimum = 1, Maximum = maximum, Dock = DockStyle.Fill }; numbers.Add(key, field); Row(runtime, label, field); }
         Row(runtime, "SDK service recovery", sdkRecovery); Row(runtime, "Automatic SDK service preflight", sdkAutoStart);
+        Row(runtime, "Native application launch", nativeGui);
         runtimePage.Controls.Add(runtime); jsonPage.Controls.Add(json);
         var effectivePage = new TabPage("Running service"); effective.ReadOnly = true; effectivePage.Controls.Add(effective);
         var checksPage = new TabPage("Always enforced"); checksPage.Controls.Add(checks);
@@ -81,6 +83,7 @@ public sealed class SettingsForm : WorkspaceForm
             document = next; controller.Checked = options.EnableControllerOperations; anyController.Checked = options.AllowAnyControllerPath;
             anySource.Checked = options.AllowAnySourcePath; anyOutput.Checked = options.AllowAnyOutputPath;
             sdkRecovery.Checked = options.EnableSdkServiceRecovery; sdkAutoStart.Checked = options.AutoStartSdkService;
+            nativeGui.Checked = options.EnableNativeGuiLaunch;
             sources.Lines = options.AllowedRoots; outputs.Lines = options.OutputRoots; targets.Items.Clear(); targets.Items.AddRange(options.ControllerTargets);
             foreach (var p in paths) p.Value.Text = p.Key == "ServiceUrl" ? next["ServiceUrl"]?.GetValue<string>() : (string?)typeof(ServiceOptions).GetProperty(p.Key)!.GetValue(options);
             foreach (var p in numbers)
@@ -99,6 +102,7 @@ public sealed class SettingsForm : WorkspaceForm
         options.EnableControllerOperations = controller.Checked; options.AllowAnyControllerPath = anyController.Checked;
         options.AllowAnySourcePath = anySource.Checked; options.AllowAnyOutputPath = anyOutput.Checked;
         options.EnableSdkServiceRecovery = sdkRecovery.Checked; options.AutoStartSdkService = sdkAutoStart.Checked;
+        options.EnableNativeGuiLaunch = nativeGui.Checked;
         options.AllowedRoots = sources.Lines.Where(x => !string.IsNullOrWhiteSpace(x)).Select(x => x.Trim()).ToArray(); options.OutputRoots = outputs.Lines.Where(x => !string.IsNullOrWhiteSpace(x)).Select(x => x.Trim()).ToArray();
         options.ControllerTargets = targets.Items.Cast<ControllerTarget>().ToArray(); next["ServiceUrl"] = paths["ServiceUrl"].Text.Trim();
         foreach (var p in paths.Where(p => p.Key != "ServiceUrl")) typeof(ServiceOptions).GetProperty(p.Key)!.SetValue(options,

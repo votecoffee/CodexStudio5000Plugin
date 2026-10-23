@@ -140,6 +140,7 @@ public sealed class ServiceSettingsStore
     }
     public static void ResolveAndValidate(ServiceOptions options, string root)
     {
+        NativeExecutionPolicy.ValidateOptions(options);
         new McpClientLimits(options.MaximumMcpClients, options.McpShutdownTimeoutSeconds, options.MaximumOwnedProcesses, options.MaximumOwnedResources).Validate();
         OwnedProcessContainment.ValidateLimit(options.MaximumOwnedProcesses);
         if (options.SdkServiceStartTimeoutSeconds is < 1 or > 120) throw new ArgumentException("SDK service startup readback timeout must be 1..120 seconds.");

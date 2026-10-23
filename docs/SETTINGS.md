@@ -6,6 +6,8 @@ Open **Settings…** in the main desktop workspace. The GUI edits the shared ser
 
 | Control | Meaning |
 | --- | --- |
+| Native execution profile | `standard` retains normal SDK policy; `local-project` requires restricted roots, no controller targets/access or CIP, SDK-service recovery/preflight disabled and native GUI launch disabled. Its method allowlist is enforced in Core and the worker. See [native-local pilot](NATIVE_LOCAL_PILOT.md). |
+| Native application launch | `EnableNativeGuiLaunch` controls user-owned shell handoff. It defaults to true in the standard profile and must be false for local-project. Export-file operations remain independent. |
 | Enable controller operations | Allows controller-capable jobs and online polling when an explicit target/action is selected. Defaults to off. |
 | Allow any explicit SDK communications path | Accepts `controllerTargetId: "path:<communications path>"` in addition to named targets. Defaults to off; no target discovery is performed. |
 | Allow any source path | Accepts explicit absolute input paths outside `AllowedRoots`, subject to Windows access and normal input validation. Defaults to off. |
