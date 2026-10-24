@@ -108,6 +108,20 @@ def test_python_and_native_writers_use_the_same_os_byte_lock(fixture):
     assert process.returncode == 0
 
 
+def test_native_admission_waits_for_a_transient_foreign_writer_and_dispatches_once(fixture):
+    root, _ = fixture
+    ledger = ResourceLedger(root / "registry")
+    before = {r.resource_id for r in ledger.records()}
+    with ledger._locked():
+        child = subprocess.Popen(["dotnet", str(HELPER), "admit", str(root)], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        time.sleep(.35)
+        assert child.poll() is None
+    stdout, stderr = child.communicate(timeout=15)
+    assert child.returncode == 0, stderr.decode(errors="replace")
+    added = [r for r in ledger.records() if r.resource_id not in before]
+    assert len(added) == 1 and stdout.decode().strip() == added[0].resource_id
+
+
 def test_actual_harmless_identity_and_default_registry_match_python(fixture):
     from universal_tools.management import default_registry
     from universal_tools.windows_resources import ProcessDriver

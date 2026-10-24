@@ -11,7 +11,27 @@ The proposed Codex command and working directory are stable app-owned paths:
 
 The launcher reads `launcher/current.json`, verifies its selection checksum and complete backend inventory, then starts the immutable `Studio5000.StdioHost.exe`. That existing owner creates the MCP adapter suspended in its private Windows job, publishes creation identity before execution, and retains normal EOF/parent-lifetime cleanup. No alternative transport, broker or framework is introduced.
 
-The snapshot contains the complete published MCP/stdio/Core dependency closure. It does not depend on a Codex cache or checkout launcher. It still uses the explicit selected application root for existing settings, credentials, state and the independently running shared service. Those files are referenced, never copied into a plugin/backend package or rewritten by publication. The launcher starts no shared, native or Windows SDK service.
+The snapshot contains the complete published MCP/stdio/Core dependency closure and a reviewed offline-service pin. It does not depend on a Codex cache or checkout launcher. It uses the explicit selected application root for existing settings, credentials, state and the ordinary shared service. Those files are referenced, never copied into a plugin/backend package or rewritten by publication. The static launcher starts the frontend; shared Core safely ensures the pinned offline service from the real long-lived stdio supervisor outside the MCP child's private kill job.
+
+## Offline shared-service startup
+
+Generate the required hash-bound payload before creating the candidate inventory:
+
+```powershell
+.\scripts\New-OfflineServicePin.ps1 -AppRoot C:\Apps\RockwellMCPServer -Destination C:\Prepared\Candidate\Mcp\offline-service.json -ExpectedServiceVersion <reviewed-serving-version> -PredecessorStateRoot C:\Users\Example\AppData\Local\RockwellMCPServer
+```
+
+The pin binds the existing ordinary service and extension-worker file inventories, starter script, expected serving version, and up to eight reviewed predecessor frontend closures. Product-version disagreement, links, duplicate/traversal members and file drift refuse. Full application builds generate a pin for their just-published service. A frontend-only update can pin the existing accepted service without replacing its binaries or changing engineering settings.
+
+MCP metadata initialization and tool listing respond while readiness runs in the background. Before any engineering HTTP request is dispatched, the client waits for a genuine matching service owner, loopback health and authenticated effective-policy readback. This does not replay HTTP writes, native jobs or customer operations. A verified departed service generation can be ensured again on demand during the same chat.
+
+Automatic startup requires explicit controller operations, SDK recovery and SDK autostart flags to be false, native SDK/CIP paths to be null, disabled native HMI launchers and the pinned extension-worker path. A selected optional management host, maintenance hold, active update, unmatched listener, unknown owner or changed runtime refuses automatic startup. Native-profile startup has no fallback through this offline contract.
+
+An exclusive startup lock and the existing settings lock coordinate competing callers. The pinned ordinary starter runs once with file-backed standard handles; a departed wrapper cannot hold MCP protocol pipes open. The actual service publishes its own surviving owner before serving work. Frontend EOF never owns or terminates that service. An unresolved startup dispatch retains immutable intent/dispatch/readiness receipts and blocks another dispatch; observing a genuine matching healthy service can resolve availability without replay.
+
+Only positively exited, fully identified pinned service-worker or reviewed predecessor-frontend claims can be reconciled. Live/unknown generations, unbound reservations, shared/user software, native barriers and operation journals stay retained. Lock acquisition waits at most five seconds for Windows sharing/byte-lock contention; the guarded metadata operation is dispatched once after acquisition. The configured resource limit is unchanged. If retained uncertain claims and legitimate owners consume it, admission still refuses.
+
+The OS may redirect logical Local AppData paths for Store applications. Preserve full captured process-image identities; use the resolved physical stable entrypoint/cwd when preparing the client handoff. New stdio owners derive the adapter from their actual image directory. Metadata-only path inspection and an actual protocol/cleanup proof remain separate evidence.
 
 ## Candidate and plan
 
@@ -45,7 +65,7 @@ The publisher deliberately has no Codex configuration writer. Existing installer
 
 A pointer change affects subsequent frontend starts. A running backend keeps its immutable files and ordinary lifecycle; no process is stopped or restarted. Current connections do not acquire new loaded MCP tool definitions merely because a pointer changed. Shared service/extension updating remains independent.
 
-The [exited-frontend recovery policy](RESOURCE_LEDGER.md) retains exact executable-path/full-generation guards. It recovers identified dead transports within one immutable backend path. A different legacy/backend path requires separately reviewed reconciliation; publication does not adopt it or clear unbound/native uncertainty. Old snapshots are not automatically garbage-collected.
+The [exited-frontend recovery policy](RESOURCE_LEDGER.md) retains exact executable-path/full-generation guards. Different predecessor paths require explicit reviewed closure pins before reconciliation; publication alone never adopts them or clears unbound/native uncertainty. Old snapshots are not automatically garbage-collected.
 
 ## Evidence boundary
 

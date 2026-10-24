@@ -3,6 +3,10 @@ using System.Text.Json;
 using System.Diagnostics;
 using Studio5000.Core.Resources;
 using Studio5000.Core;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 
 // Harmless test executable only: JSON/files/locks, no engineering SDK or host.
 if (args.Length != 2) throw new ArgumentException("Use fixtures, roundtrip, admit or lock with an explicit disposable fixture directory.");
@@ -41,6 +45,46 @@ if (args[0] == "fixtures")
     return;
 }
 if (!File.Exists(marker)) throw new ArgumentException("An explicit interop fixture marker is required; never use a live registry.");
+if (args[0] == "bootstrap-service")
+{
+    if (Path.GetFileName(Environment.ProcessPath) != "Studio5000.Service.exe") throw new ArgumentException("Use only the renamed harmless fixture apphost.");
+    OwnedProcessContainment.EnterCurrentProcess(8);
+    using var resources = new ResourceSupervisor(root, Path.Combine(root, "registry"), 8, 16);
+    using var settings = JsonDocument.Parse(File.ReadAllBytes(Path.Combine(root, "service.local.json")));
+    var url = settings.RootElement.GetProperty("ServiceUrl").GetString()!;
+    var builder = WebApplication.CreateBuilder(new WebApplicationOptions { Args = [], ContentRootPath = root });
+    builder.Logging.ClearProviders(); builder.WebHost.UseUrls(url);
+    var app = builder.Build(); resources.WriteOwnerReceipt();
+    File.WriteAllText(Path.Combine(root, ".local/service.key"), new string('f', 64));
+    File.WriteAllText(Path.Combine(root, ".local/connection.json"), JsonSerializer.Serialize(new { url, tokenFile = Path.Combine(root, ".local/service.key") }));
+    File.AppendAllText(Path.Combine(root, "fixture-service-starts.jsonl"), JsonSerializer.Serialize(resources.Owner.Identity) + "\n");
+    app.MapGet("/health", () => new { status = "ok", version = WorkspaceIdentity.Version });
+    app.MapGet("/api/settings", () => new { revision = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(File.ReadAllBytes(Path.Combine(root, "service.local.json")))).ToLowerInvariant(),
+        effective = settings.RootElement.Clone() });
+    app.MapGet("/api/capabilities", () =>
+    {
+        using var journal = JsonDocument.Parse(File.ReadAllBytes(Path.Combine(root, ".local/offline-service-start.json")));
+        if (journal.RootElement.GetProperty("phase").GetString() != "observed") throw new InvalidOperationException("API dispatched before actual service readiness");
+        File.AppendAllText(Path.Combine(root, "fixture-api-dispatches.txt"), "capabilities\n");
+        return new { name = "RockwellMCPServer harmless fixture", offlineFixture = true, version = WorkspaceIdentity.Version };
+    });
+    using var ending = new CancellationTokenSource();
+    var monitor = Task.Run(async () =>
+    {
+        while (!File.Exists(Path.Combine(root, "fixture-stop"))) await Task.Delay(25, ending.Token);
+        app.Lifetime.StopApplication();
+    });
+    try { await app.RunAsync(); } finally { ending.Cancel(); try { await monitor; } catch (OperationCanceledException) { } await app.DisposeAsync(); }
+    return;
+}
+if (args[0] == "bootstrap-ensure")
+{
+    var ledger = new ResourceLedger(Path.Combine(root, "registry"), new WindowsResourceProcessDriver(), 16);
+    var owner = ledger.Owner("rockwell-mcp-server");
+    var result = await OfflineServiceBootstrap.EnsureAsync(root, Path.Combine(root, "backend"), owner);
+    File.WriteAllText(Path.Combine(root, "bootstrap-result-" + owner.OwnerId + ".json"), JsonSerializer.Serialize(new { result, actor = owner.Identity }, ProjectService.Json));
+    return;
+}
 if (args[0] is "native-owner" or "native-owner-uncertain")
 {
     if (Directory.Exists(Path.Combine(root, "registry"))) throw new ArgumentException("Use a fresh disposable native fixture.");

@@ -5,6 +5,7 @@ using ModelContextProtocol.Server;
 using Studio5000.Mcp;
 using Studio5000.Client;
 using Studio5000.Core;
+using Studio5000.Core.Resources;
 
 if (args is ["--version"]) { Console.WriteLine(WorkspaceIdentity.Version); return; }
 var root = ServiceClient.FindRoot();
@@ -13,11 +14,14 @@ var limits = McpClientLimits.Read(root);
 using var slot = McpClientLease.Acquire(root, limits);
 using var owners = ParentProcessOwners.Capture();
 var builder = Host.CreateApplicationBuilder(args);
+var bootstrap = new OfflineBootstrapGate(root, new ResourceLedger(Environment.GetEnvironmentVariable("ROCKWELL_RESOURCE_REGISTRY") ?? WindowsResourceProcessDriver.DefaultRegistry(),
+    new WindowsResourceProcessDriver(), limits.MaximumOwnedResources).Owner("rockwell-mcp-server"));
 builder.Services.Configure<HostOptions>(o => o.ShutdownTimeout = TimeSpan.FromSeconds(limits.ShutdownTimeoutSeconds));
 builder.Services.AddHostedService(provider => new OwnerExitService(owners, provider.GetRequiredService<IHostApplicationLifetime>()));
+builder.Services.AddHostedService(_ => bootstrap);
 builder.Logging.ClearProviders();
 builder.Logging.AddConsole(o => o.LogToStandardErrorThreshold = LogLevel.Trace);
-builder.Services.AddSingleton(new ServiceClient(root, error => new McpServiceErrorException(error.Error)));
+builder.Services.AddSingleton(new ServiceClient(root, error => new McpServiceErrorException(error.Error), bootstrap.Ready));
 builder.Services.AddMcpServer(o =>
     {
         o.ServerInfo = new() { Name = WorkspaceIdentity.Name, Title = WorkspaceIdentity.Name, Version = WorkspaceIdentity.Version };
@@ -30,4 +34,16 @@ await builder.Build().RunAsync();
 sealed class OwnerExitService(ParentProcessOwners owners, IHostApplicationLifetime lifetime) : BackgroundService
 {
     protected override Task ExecuteAsync(CancellationToken stoppingToken) => owners.RequestShutdownOnExitAsync(lifetime.StopApplication, stoppingToken);
+}
+
+sealed class OfflineBootstrapGate(string root, ResourceLedger.ResourceOwner owner) : BackgroundService
+{
+    private readonly OfflineServiceGate gate = OfflineServiceGate.Observer(root, AppContext.BaseDirectory, owner);
+    public async Task Ready(CancellationToken ct) => await gate.Ready(ct);
+    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+    {
+        try { await gate.Ready(stoppingToken); }
+        catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested) { }
+        catch (Exception error) { Console.Error.WriteLine("Offline shared-service readiness failed: " + error.Message); }
+    }
 }

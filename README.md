@@ -14,13 +14,13 @@ All clients use one authenticated local service and the same operations. Source 
 
 If skills appear but chat tools are missing, use the optional [connection readiness diagnostic](docs/READINESS.md). It separates installed/cache metadata, loader configuration, the serving version/policy, resource admission and the requesting chat's actual tools, with an explicit cached-launcher compatibility fallback.
 
-For the prepared cache-independent deployment, see the [app-owned stable launcher contract](docs/STABLE_LAUNCHER.md). It stages a reviewed immutable MCP backend and guarded pointer outside Codex caches, with an explicit command/cwd handoff; preparation leaves the active route and owners in place.
+Use the [app-owned stable launcher](docs/STABLE_LAUNCHER.md) for reviewed immutable MCP backends and guarded selection outside Codex caches. Its [offline service bootstrap](docs/STABLE_LAUNCHER.md#offline-shared-service-startup) coordinates on-demand startup of the pinned ordinary service from the stdio supervisor, verifies its real owner and effective policy, and preserves active peers. Native SDK, CIP, controller and Windows SDK-service autostart remain disabled in this profile.
 
 Scoped structural reviews can inspect up to 128 exact element paths in one context request, retaining source/value fingerprints and protected flags while reducing repeated client calls. The GUI exposes this under **Diagnostics & workflows → Scoped structural batch**; see the [structural workflow](workflows/rockwell-engineering/references/structural-edits.md).
 
 The plugin identifier is `rockwell-mcp-server`. Internal `Studio5000.*` assemblies, environment variables and existing tool names remain for compatibility.
 
-Application releases use a fixed `YY.MMDD.HHmmss` timestamp in `America/New_York`, currently **26.1023.143357**. Package identities remove leading numeric zeros when required; the padded display timestamp stays in release metadata. See [release versioning](docs/VERSIONING.md) for package and .NET mappings.
+Application releases use a fixed `YY.MMDD.HHmmss` timestamp in `America/New_York`, currently **26.1024.102845**. Package identities remove leading numeric zeros when required; the padded display timestamp stays in release metadata. See [release versioning](docs/VERSIONING.md) for package and .NET mappings.
 
 ## Table of Contents
 

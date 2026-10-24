@@ -5,7 +5,7 @@ An installed skill does not establish a working MCP connection. Check each layer
 | Layer | Evidence | What it cannot establish |
 | --- | --- | --- |
 | Installed package | Exact plugin identity, release metadata and eleven matching immutable/cache payload hashes | A running adapter or service |
-| Configured loader | Plugin flag, bundled-server flag, resolved cached launcher and exactly one enabled route | Tools loaded in an existing chat |
+| Configured loader | Plugin flag, bundled-server flag, resolved stable launcher or explicit legacy cache binding, and exactly one enabled route | Tools loaded in an existing chat |
 | Serving application | Authenticated loopback health/settings, serving version and effective policy | Native SDK/controller acceptance |
 | Resource admission | Retained nonterminal claim count against the configured limit | How many processes are alive or permission to erase records |
 | Chat visibility | That chat's actual tool inventory, followed by a successful discovery call | Controller authorization or native validation |
@@ -62,7 +62,7 @@ TOML publication preserves UTF-8/BOM and existing LF or CRLF through a binary te
 ## Reconnect and verify
 
 1. Run the read-only diagnosis and resolve package/configuration or admission findings.
-2. If the accepted local service is stopped, start it with `scripts/Start-Service.ps1 -Background` within its authorized profile. Do not use service startup to widen native/controller policy.
+2. The reviewed [offline stable profile](STABLE_LAUNCHER.md#offline-shared-service-startup) ensures its pinned ordinary service on demand. Retain its actual owner/effective-policy and startup receipts. Legacy/manual profiles use `scripts/Start-Service.ps1 -Background` within their authorized scope. Neither path widens native/controller policy.
 3. Refresh the client connection if supported. For changed local plugin files or a chat retaining an old tool inventory, restart the desktop app and open a new chat. Preserve active work first. OpenAI documents separate [plugin and bundled-server enablement](https://developers.openai.com/plugins/build/plugins) and local-plugin reload requirements on that page.
 4. In the requesting chat, verify a callable `rockwell_broker_capabilities`, then read `workflow.rockwell-engineering` using its exact discovery arguments. Discover extension operations through `studio_extensions_catalog`. Retain the actual call results, serving version and chat identity.
 

@@ -20,7 +20,16 @@ var start = new ProcessStartInfo(Path.Combine(Path.GetDirectoryName(resources.Ow
 };
 var recovered = McpFrontendRecovery.ReconcileClosed(resources.Owner, start.FileName);
 if (recovered.Length != 0) Console.Error.WriteLine($"Reconciled {recovered.Length} fully exited Rockwell MCP transport claims; unresolved reservations remain retained.");
+if (resources.Ledger.Records().Count(r => r.AppId == "rockwell-mcp-server" && !r.Terminal) >= limits.MaximumOwnedResources)
+    OfflineServiceBootstrap.PrepareAdmission(root, AppContext.BaseDirectory, resources.Owner);
 using var child = resources.LaunchStatelessFrontend(start);
+var service = new OfflineServiceGate(root, AppContext.BaseDirectory, resources.Owner, lifetime.Token);
+var readiness = Task.Run(async () =>
+{
+    try { await service.Maintain(lifetime.Token); }
+    catch (OperationCanceledException) when (lifetime.IsCancellationRequested) { }
+    catch (Exception error) { Console.Error.WriteLine("Offline shared-service startup refused: " + error.Message); }
+});
 try
 {
     return await OwnedStdioRelay.RunAsync(child, Console.OpenStandardInput(), Console.OpenStandardOutput(), Console.OpenStandardError(), limits.ShutdownTimeoutSeconds, lifetime.Token);
@@ -29,4 +38,5 @@ finally
 {
     lifetime.Cancel();
     try { await parent; } catch (OperationCanceledException) { }
+    await readiness;
 }

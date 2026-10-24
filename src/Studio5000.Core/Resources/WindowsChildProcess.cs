@@ -217,7 +217,7 @@ public sealed class WindowsChildProcess : IResourceProcessGroup, IDisposable
         var command = string.Join(' ', items.Select(Quote));
         if (command.Length > 32766) throw new ArgumentException("Windows command line exceeds its bound."); return command;
     }
-    private static string EnvironmentBlock(IDictionary<string, string?> values)
+    internal static string EnvironmentBlock(IDictionary<string, string?> values)
     {
         if (values.Any(p => p.Key.Length == 0 || p.Key.Contains('=') || p.Key.Contains('\0') || p.Value?.Contains('\0') == true)) throw new ArgumentException("Invalid child environment.");
         var text = string.Join('\0', values.Where(p => p.Value is not null).OrderBy(p => p.Key, StringComparer.OrdinalIgnoreCase).Select(p => p.Key + "=" + p.Value)) + "\0\0";
