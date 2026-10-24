@@ -2,7 +2,7 @@
 [CmdletBinding()]
 param([Parameter(Mandatory)][string]$AppRoot, [Parameter(Mandatory)][string]$Destination,
     [Parameter(Mandatory)][ValidatePattern('^\d+\.\d+\.\d+$')][string]$ExpectedServiceVersion,
-    [string]$PredecessorStateRoot)
+    [string]$PredecessorStateRoot, [switch]$ReviewedLegacyUnboundContract)
 $ErrorActionPreference = 'Stop'
 Import-Module (Join-Path $PSScriptRoot 'StableMcp.psm1') -Force -DisableNameChecking
 $AppRoot = Assert-RockwellLauncherPath $AppRoot; $Destination = Assert-RockwellLauncherPath $Destination
@@ -24,18 +24,30 @@ $entries += [ordered]@{ path='scripts/Start-Service.ps1'; size=([IO.FileInfo]::n
 $previous = @()
 if ($PredecessorStateRoot) {
     $selected = Get-RockwellStableSelection $PredecessorStateRoot
-    $previous += [ordered]@{ directory=$selected.snapshot; files=@($selected.manifest.files) }
+    $current = [ordered]@{ directory=$selected.snapshot; files=@($selected.manifest.files) }
+    if ($ReviewedLegacyUnboundContract) {
+        if ($selected.manifest.source_commit -cne '31a57922bde082f82567ebcc035b29ab0a35d9da') { throw 'Only the explicitly reviewed legacy source has this compatibility contract.' }
+        $current['unboundLaunchContract']='windows-private-job-bind-before-resume-v1'
+        $current['sourceCommit']=$selected.manifest.source_commit
+        $current['backendManifestSha256']=Get-RockwellLauncherHash (Join-Path $selected.snapshot 'backend.json')
+    }
+    $previous += $current
     $inherited = Join-Path $selected.snapshot 'offline-service.json'
     if (Test-Path -LiteralPath $inherited) {
         $old = Read-RockwellLauncherJson $inherited
         foreach ($entry in @($old.previousFrontends)) {
             if ($previous.Count -ge 8) { break }
             if (@($previous | Where-Object { $_.directory -ieq $entry.directory }).Count -eq 0) {
-                $previous += [ordered]@{ directory=(Assert-RockwellLauncherPath $entry.directory); files=@($entry.files) }
+                $copy=[ordered]@{ directory=(Assert-RockwellLauncherPath $entry.directory); files=@($entry.files) }
+                if ($entry.unboundLaunchContract) {
+                    $copy['unboundLaunchContract']=$entry.unboundLaunchContract; $copy['sourceCommit']=$entry.sourceCommit; $copy['backendManifestSha256']=$entry.backendManifestSha256
+                }
+                $previous += $copy
             }
         }
     }
 }
+elseif ($ReviewedLegacyUnboundContract) { throw 'An explicit reviewed predecessor selection is required.' }
 $totalBytes = [long]0
 foreach ($entry in $entries) { $totalBytes += [long]$entry['size'] }
 if ($entries.Count -gt 256 -or $totalBytes -gt 268435456) { throw 'Offline pin inventory exceeds its bound.' }

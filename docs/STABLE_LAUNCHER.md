@@ -65,7 +65,17 @@ The publisher deliberately has no Codex configuration writer. Existing installer
 
 A pointer change affects subsequent frontend starts. A running backend keeps its immutable files and ordinary lifecycle; no process is stopped or restarted. Current connections do not acquire new loaded MCP tool definitions merely because a pointer changed. Shared service/extension updating remains independent.
 
-The [exited-frontend recovery policy](RESOURCE_LEDGER.md) retains exact executable-path/full-generation guards. Different predecessor paths require explicit reviewed closure pins before reconciliation; publication alone never adopts them or clears unbound/native uncertainty. Old snapshots are not automatically garbage-collected.
+The [exited-frontend recovery policy](RESOURCE_LEDGER.md) retains exact executable-path/full-generation guards. Different predecessor paths require explicit reviewed closure pins before reconciliation. Unbound records remain protected unless the separately reviewed legacy stateless contract below applies. Old snapshots are not automatically garbage-collected.
+
+## Reviewed legacy stateless reservations
+
+`New-OfflineServicePin.ps1 -ReviewedLegacyUnboundContract -PredecessorStateRoot <reviewed-root>` explicitly opts the pinned predecessor into `windows-private-job-bind-before-resume-v1`. It is off by default and accepts only source revision `31a57922bde082f82567ebcc035b29ab0a35d9da`. Review the original publication inventory and the launch implementation before enabling it. The pin binds the exact predecessor directory, complete file inventory, original manifest hash and source revision. These trusted local inventories detect drift; a source-commit string alone is not independent build provenance or a signature.
+
+That implementation creates a suspended adapter in a private, non-inherited kill-on-close Windows job and durably binds its identity before resuming it. A compatible unbound claim can be retired only after the full original owner generation is positively absent or replaced. The record must have the exact transport kind/label and launching/private/terminate/app-owned shape, no process or members, no receipt or recovery barrier, and no conflicting retained identity claim. Unknown or live owners, other binaries, native resources and operation journals remain protected. Retirement performs no process action, invents no child PID, and atomically retains the original owner plus the previous record revision, actual current actor and proof hash.
+
+Run the candidate's `Studio5000.StdioHost.exe --offline-bootstrap-preview` with the intended app root and registry environment to inspect eligibility and capacity without admitting a frontend, starting a service or changing ledger files. Review the exact current records and pin; a read-only preview is not an actual transport acceptance test. On admission, each record revision and owner state are checked again under the shared lock. Resource/client limits stay unchanged.
+
+The opt-in original-image process fixture copies a verified predecessor closure into disposable state. It gates the unbound bind window, crashes only the retained original creation handle, and checks the unpublished adapter's retained handle signals when the private job closes. This proves an owner-crash case; it does not mislabel a fixture-held lock timeout as a bind failure or establish acceptance of historical native work.
 
 ## Evidence boundary
 

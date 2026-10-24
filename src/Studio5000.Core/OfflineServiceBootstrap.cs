@@ -25,6 +25,43 @@ internal interface IOfflineServiceStarter
 /// <summary>Offline lifecycle only. No engineering request or native service action is dispatched here.</summary>
 public static class OfflineServiceBootstrap
 {
+    public static object PreviewRecovery(string root, string backend, ResourceLedger.ResourceOwner actor)
+    {
+        root = Path.GetFullPath(root); Guard(root); _ = OfflineServicePin.Settings(root);
+        var pin = OfflineServicePin.Load(root, backend); var limits = McpClientLimits.Read(root);
+        var records = actor.Ledger.Records().Where(r => r.AppId == "rockwell-mcp-server" && !r.Terminal).ToArray();
+        var plans = records.Select(record =>
+        {
+            var ownerState = actor.Ledger.Driver.State(record.Owner);
+            var processState = record.Process is null ? "unpublished" : actor.Ledger.Driver.State(record.Process);
+            var rule = "retain"; string? proof = null;
+            if (record.Kind == "extension-worker" && actor.CanReconcileClosedOfflineWorker(record,
+                Path.GetFullPath(Path.Combine(root, OfflineServicePin.Service)), Path.GetFullPath(Path.Combine(root, OfflineServicePin.Worker)))) rule = "closed-offline-worker";
+            if (record.Kind == "mcp-adapter")
+                foreach (var previous in pin.PreviousFrontends)
+                {
+                    var host = Path.Combine(previous.Directory, "Studio5000.StdioHost.exe");
+                    if (!string.Equals(record.Owner.Executable, host, StringComparison.OrdinalIgnoreCase)) continue;
+                    if (record.Process is null && previous.UnboundLaunchContract == OfflineServicePin.LegacyUnboundContract && actor.CanRetireUnboundStatelessFrontend(record, host))
+                    { rule = "reviewed-unbound-mcp"; proof = OfflineServicePin.ProofHash(previous); }
+                    else if (actor.CanReconcileClosedMcpFrontend(record, Path.Combine(previous.Directory, "Studio5000.Mcp.exe"), host)) rule = "closed-mcp";
+                    break;
+                }
+            var liveFrontend = record.Kind == "mcp-adapter" && record.Process is not null && ownerState == "alive" && processState == "alive";
+            return new { resourceId = record.ResourceId, revision = record.Revision, record.Kind, record.State, owner = record.Owner,
+                process = record.Process, ownerState, processState, rule, proofSha256 = proof, liveFrontend };
+        }).ToArray();
+        var eligible = plans.Count(p => p.rule != "retain");
+        var protectedNonFrontends = plans.Count(p => p.rule == "retain" && !p.liveFrontend);
+        var maximum = Math.Max(0, Math.Min(limits.MaximumInstances, limits.MaximumOwnedResources - protectedNonFrontends));
+        return new { readOnly = true, sharedStateChanged = false, nonterminalClaims = records.Length, resourceLimit = limits.MaximumOwnedResources,
+            configuredMaximumMcpClients = limits.MaximumInstances, currentUnbound = records.Count(r => r.Process is null),
+            eligibleUnbound = plans.Count(p => p.rule == "reviewed-unbound-mcp"), eligibleBound = eligible - plans.Count(p => p.rule == "reviewed-unbound-mcp"),
+            protectedNonFrontendClaimsAfterRecovery = protectedNonFrontends, supportedTotalLiveFrontendsByResourceBound = maximum,
+            liveFrontends = plans.Count(p => p.liveFrontend), freeResourceClaimsAfterRecovery = limits.MaximumOwnedResources - records.Length + eligible,
+            freshFrontendFitsResourceAndClientBounds = limits.MaximumOwnedResources - records.Length + eligible > 0 && plans.Count(p => p.liveFrontend) < limits.MaximumInstances,
+            actualTransportAcceptanceVerified = false, plans };
+    }
     public static void PrepareAdmission(string root, string backend, ResourceLedger.ResourceOwner actor)
     {
         root = Path.GetFullPath(root); Guard(root);
@@ -42,7 +79,12 @@ public static class OfflineServiceBootstrap
                 {
                     var host = Path.Combine(previous.Directory, "Studio5000.StdioHost.exe");
                     if (string.Equals(record.Owner.Executable, host, StringComparison.OrdinalIgnoreCase))
-                    { actor.ReconcileClosedMcpFrontend(record.ResourceId, record.Revision, Path.Combine(previous.Directory, "Studio5000.Mcp.exe"), host); break; }
+                    {
+                        if (record.Process is null && previous.UnboundLaunchContract == OfflineServicePin.LegacyUnboundContract)
+                            actor.RetireUnboundStatelessFrontend(record.ResourceId, record.Revision, host, OfflineServicePin.ProofHash(previous));
+                        else actor.ReconcileClosedMcpFrontend(record.ResourceId, record.Revision, Path.Combine(previous.Directory, "Studio5000.Mcp.exe"), host);
+                        break;
+                    }
                 }
         }
     }

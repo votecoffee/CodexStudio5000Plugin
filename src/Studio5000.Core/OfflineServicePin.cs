@@ -8,7 +8,8 @@ namespace Studio5000.Core;
 [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
 public sealed record OfflinePinnedFile(string Path, long Size, string Sha256);
 [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
-public sealed record OfflineFrontendPin(string Directory, OfflinePinnedFile[] Files);
+public sealed record OfflineFrontendPin(string Directory, OfflinePinnedFile[] Files, string? UnboundLaunchContract = null,
+    string? SourceCommit = null, string? BackendManifestSha256 = null);
 [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
 public sealed record OfflineServicePin(int SchemaVersion, string ServiceVersion, OfflinePinnedFile[] Files, OfflineFrontendPin[] PreviousFrontends)
 {
@@ -17,6 +18,8 @@ public sealed record OfflineServicePin(int SchemaVersion, string ServiceVersion,
     internal const string Service = "artifacts/app/Service/Studio5000.Service.exe";
     internal const string Worker = "artifacts/app/ExtensionWorker/Studio5000.ExtensionWorker.exe";
     internal const string Script = "scripts/Start-Service.ps1";
+    internal const string LegacyUnboundContract = "windows-private-job-bind-before-resume-v1";
+    internal const string LegacyUnboundSource = "31a57922bde082f82567ebcc035b29ab0a35d9da";
     internal static string Hash(string path)
     { using var file = File.OpenRead(path); return Convert.ToHexString(SHA256.HashData(file)).ToLowerInvariant(); }
     internal static JsonDocument Read(string path, int maximum)
@@ -49,7 +52,7 @@ public sealed record OfflineServicePin(int SchemaVersion, string ServiceVersion,
         if (pin.SchemaVersion != 1 || !System.Text.RegularExpressions.Regex.IsMatch(pin.ServiceVersion ?? "", @"^\d+\.\d+\.\d+$") || pin.PreviousFrontends is null || pin.PreviousFrontends.Length > 8)
             throw new InvalidOperationException("Unsupported offline service pin.");
         VerifyFiles(root, pin.Files, [Service, "artifacts/app/Service/Studio5000.Service.dll", "artifacts/app/Service/Studio5000.Core.dll", Worker,
-            "artifacts/app/ExtensionWorker/Studio5000.ExtensionWorker.dll", "artifacts/app/ExtensionWorker/Studio5000.Core.dll", Script]);
+            "artifacts/app/ExtensionWorker/Studio5000.ExtensionWorker.dll", Script]);
         if (pin.Files.Any(f => f.Path != Script && !f.Path.StartsWith("artifacts/app/Service/", StringComparison.Ordinal) && !f.Path.StartsWith("artifacts/app/ExtensionWorker/", StringComparison.Ordinal)))
             throw new InvalidOperationException("Pin contains files outside the selected service/worker closure.");
         var expected = pin.Files.Select(f => f.Path).ToHashSet(StringComparer.Ordinal);
@@ -60,9 +63,28 @@ public sealed record OfflineServicePin(int SchemaVersion, string ServiceVersion,
         {
             if (!System.IO.Path.IsPathFullyQualified(previous.Directory)) throw new InvalidOperationException("Predecessor closure must be explicit.");
             VerifyFiles(previous.Directory, previous.Files, ["Studio5000.StdioHost.exe", "Studio5000.Mcp.exe", "Studio5000.Core.dll"]);
+            if (previous.UnboundLaunchContract is not null)
+            {
+                if (previous.UnboundLaunchContract != LegacyUnboundContract || previous.SourceCommit != LegacyUnboundSource ||
+                    !System.Text.RegularExpressions.Regex.IsMatch(previous.BackendManifestSha256 ?? "", "^[a-f0-9]{64}$"))
+                    throw new InvalidOperationException("Unbound retirement requires the explicitly reviewed legacy stateless launch contract.");
+                var manifestPath = System.IO.Path.Combine(previous.Directory, "backend.json"); ProjectService.RejectLinks(manifestPath);
+                if (Hash(manifestPath) != previous.BackendManifestSha256) throw new InvalidOperationException("Legacy provenance changed after review.");
+                using var manifest = Read(manifestPath, 262144);
+                if (manifest.RootElement.GetProperty("source_commit").GetString() != previous.SourceCommit ||
+                    manifest.RootElement.GetProperty("contract").GetString() != "rockwell-owned-stdio-v1")
+                    throw new InvalidOperationException("Legacy source provenance does not match the reviewed stateless contract.");
+                var original = manifest.RootElement.GetProperty("files").Deserialize<OfflinePinnedFile[]>(Json)!;
+                if (original.Length != previous.Files.Length || original.Any(f => !previous.Files.Contains(f)))
+                    throw new InvalidOperationException("Legacy closure differs from its immutable publication inventory.");
+                VerifyFiles(previous.Directory, previous.Files, ["Studio5000.StdioHost.exe", "Studio5000.StdioHost.dll", "Studio5000.StdioHost.deps.json", "Studio5000.StdioHost.runtimeconfig.json",
+                    "Studio5000.Mcp.exe", "Studio5000.Mcp.dll", "Studio5000.Mcp.deps.json", "Studio5000.Mcp.runtimeconfig.json", "Studio5000.Core.dll"]);
+            }
         }
         return pin;
     }
+    internal static string ProofHash(OfflineFrontendPin previous) =>
+        Convert.ToHexString(SHA256.HashData(JsonSerializer.SerializeToUtf8Bytes(previous, Json))).ToLowerInvariant();
     internal static void VerifyFiles(string root, OfflinePinnedFile[] files, string[] required)
     {
         if (files is null || files.Length is < 1 or > 256 || files.Sum(f => f.Size) > 268435456) throw new InvalidOperationException("Offline pin inventory exceeds its bound.");

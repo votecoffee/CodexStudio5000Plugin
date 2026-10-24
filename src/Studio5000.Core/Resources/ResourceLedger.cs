@@ -237,49 +237,75 @@ public sealed class ResourceLedger(string registry, IResourceProcessDriver drive
         // finally block. A later real owner can retire only fully identified,
         // independently exited generations. Unbound launch reservations and
         // any native/shared/uncertain claim remain operator recovery work.
-        internal ResourceRecord? ReconcileClosedMcpFrontend(string id, string revision, string adapterExecutable, string? reviewedPreviousOwner = null) => ledger.Locked(() =>
+        internal bool CanReconcileClosedMcpFrontend(ResourceRecord record, string adapterExecutable, string? reviewedPreviousOwner = null)
         {
             if (closing || ledger.Driver.CurrentIdentity().Normalize() != Identity)
                 throw new InvalidOperationException("Frontend reconciliation requires the exact current open owner.");
-            var record = ledger.Get(id);
-            if (AppId != "rockwell-mcp-server" || record.AppId != AppId || record.Revision != revision ||
+            if (AppId != "rockwell-mcp-server" || record.AppId != AppId ||
                 record.Kind != "mcp-adapter" || record.State != "active" || record.Ownership != "private" ||
                 record.CleanupMode != "terminate" || record.Containment != "windows_job" ||
                 record.Process is null || record.Receipt is not null || record.RecoveryBarrier is not null ||
                 record.Reconciliation is not null || record.BarrierResolution is not null ||
                 !string.Equals(record.Owner.Executable, reviewedPreviousOwner ?? Identity.Executable, StringComparison.OrdinalIgnoreCase) ||
-                !string.Equals(record.Process.Executable, Path.GetFullPath(adapterExecutable), StringComparison.OrdinalIgnoreCase)) return null;
+                !string.Equals(record.Process.Executable, Path.GetFullPath(adapterExecutable), StringComparison.OrdinalIgnoreCase)) return false;
             var console = Path.Combine(Environment.SystemDirectory, "conhost.exe");
             if (record.Members.Any(m => !string.Equals(m.Executable, adapterExecutable, StringComparison.OrdinalIgnoreCase) &&
-                !string.Equals(m.Executable, console, StringComparison.OrdinalIgnoreCase))) return null;
+                !string.Equals(m.Executable, console, StringComparison.OrdinalIgnoreCase))) return false;
             if (ledger.Driver.State(record.Owner) is not ("absent" or "different") ||
                 ledger.Driver.State(record.Process) is not ("absent" or "different") ||
-                record.Members.Any(m => ledger.Driver.State(m) is not ("absent" or "different"))) return null;
+                record.Members.Any(m => ledger.Driver.State(m) is not ("absent" or "different"))) return false;
             var identities = record.Members.Append(record.Process).ToHashSet();
             // Recovery never borrows the nested-service cleanup exemption.
-            if (ledger.Records().Any(other => other.ResourceId != id && !other.Terminal &&
-                (other.Process is not null && identities.Contains(other.Process) || other.Members.Any(identities.Contains)))) return null;
+            return !ledger.Records().Any(other => other.ResourceId != record.ResourceId && !other.Terminal &&
+                (other.Process is not null && identities.Contains(other.Process) || other.Members.Any(identities.Contains)));
+        }
+        internal ResourceRecord? ReconcileClosedMcpFrontend(string id, string revision, string adapterExecutable, string? reviewedPreviousOwner = null) => ledger.Locked(() =>
+        {
+            var record = ledger.Get(id);
+            if (record.Revision != revision || !CanReconcileClosedMcpFrontend(record, adapterExecutable, reviewedPreviousOwner)) return null;
             var attestation = new ResourceReconciliation(OwnerId, Identity, revision,
                 "Exact prior MCP owner, adapter and recorded members are independently gone. Stateless transport only; no process action or native recovery performed.", Now).Normalize();
             return ledger.Replace(record with { State = "released", Reconciliation = attestation });
         });
-        internal ResourceRecord? ReconcileClosedOfflineWorker(string id, string revision, string serviceExecutable, string workerExecutable) => ledger.Locked(() =>
+        internal bool CanReconcileClosedOfflineWorker(ResourceRecord record, string serviceExecutable, string workerExecutable)
         {
             if (closing || ledger.Driver.CurrentIdentity().Normalize() != Identity)
                 throw new InvalidOperationException("Offline worker recovery requires the exact current open owner.");
-            var record = ledger.Get(id);
-            if (AppId != "rockwell-mcp-server" || record.AppId != AppId || record.Revision != revision || record.Kind != "extension-worker" ||
+            if (AppId != "rockwell-mcp-server" || record.AppId != AppId || record.Kind != "extension-worker" ||
                 record.State != "active" || record.Ownership != "private" || record.CleanupMode != "terminate" || record.Containment != "windows_job" ||
                 record.Process is null || record.Receipt is not null || record.RecoveryBarrier is not null || record.Reconciliation is not null || record.BarrierResolution is not null ||
-                !string.Equals(record.Owner.Executable, serviceExecutable, StringComparison.OrdinalIgnoreCase) || !string.Equals(record.Process.Executable, workerExecutable, StringComparison.OrdinalIgnoreCase)) return null;
+                !string.Equals(record.Owner.Executable, serviceExecutable, StringComparison.OrdinalIgnoreCase) || !string.Equals(record.Process.Executable, workerExecutable, StringComparison.OrdinalIgnoreCase)) return false;
             var console = Path.Combine(Environment.SystemDirectory, "conhost.exe");
-            if (record.Members.Any(m => !string.Equals(m.Executable, workerExecutable, StringComparison.OrdinalIgnoreCase) && !string.Equals(m.Executable, console, StringComparison.OrdinalIgnoreCase))) return null;
-            if (new[] { record.Owner, record.Process }.Concat(record.Members).Any(p => ledger.Driver.State(p) is not ("absent" or "different"))) return null;
+            if (record.Members.Any(m => !string.Equals(m.Executable, workerExecutable, StringComparison.OrdinalIgnoreCase) && !string.Equals(m.Executable, console, StringComparison.OrdinalIgnoreCase))) return false;
+            if (new[] { record.Owner, record.Process }.Concat(record.Members).Any(p => ledger.Driver.State(p) is not ("absent" or "different"))) return false;
             var identities = record.Members.Append(record.Process).ToHashSet();
-            if (ledger.Records().Any(other => other.ResourceId != id && !other.Terminal &&
-                (other.Process is not null && identities.Contains(other.Process) || other.Members.Any(identities.Contains)))) return null;
+            return !ledger.Records().Any(other => other.ResourceId != record.ResourceId && !other.Terminal &&
+                (other.Process is not null && identities.Contains(other.Process) || other.Members.Any(identities.Contains)));
+        }
+        internal ResourceRecord? ReconcileClosedOfflineWorker(string id, string revision, string serviceExecutable, string workerExecutable) => ledger.Locked(() =>
+        {
+            var record = ledger.Get(id);
+            if (record.Revision != revision || !CanReconcileClosedOfflineWorker(record, serviceExecutable, workerExecutable)) return null;
             return ledger.Replace(record with { State = "released", Reconciliation = new ResourceReconciliation(OwnerId, Identity, revision,
                 "Pinned offline service owner, extension worker and recorded members are independently gone. Process metadata only; operation/native journals remain retained and no job is replayed.", Now).Normalize() });
+        });
+        internal bool CanRetireUnboundStatelessFrontend(ResourceRecord record, string reviewedHost)
+        {
+            if (closing || AppId != "rockwell-mcp-server" || record.AppId != AppId || ledger.Driver.CurrentIdentity().Normalize() != Identity ||
+                record.Kind != "mcp-adapter" || record.Label != "Rockwell MCP stdio adapter" || record.State != "launching" || record.Process is not null ||
+                record.Members.Length != 0 || record.Ownership != "private" || record.CleanupMode != "terminate" || record.Containment != "app_owned" ||
+                record.Receipt is not null || record.RecoveryBarrier is not null || record.Reconciliation is not null || record.BarrierResolution is not null ||
+                !string.Equals(record.Owner.Executable, reviewedHost, StringComparison.OrdinalIgnoreCase) ||
+                ledger.Driver.State(record.Owner) is not ("absent" or "different")) return false;
+            return !ledger.Records().Any(other => other.ResourceId != record.ResourceId && !other.Terminal &&
+                (other.Owner == record.Owner || other.Process == record.Owner || other.Members.Contains(record.Owner)));
+        }
+        internal ResourceRecord? RetireUnboundStatelessFrontend(string id, string revision, string reviewedHost, string proofHash) => ledger.Locked(() =>
+        {
+            ResourceRules.Token(proofHash, 64); var record = ledger.Get(id);
+            if (record.Revision != revision || !CanRetireUnboundStatelessFrontend(record, reviewedHost)) return null;
+            return ledger.Replace(record with { State = "released", Reconciliation = new ResourceReconciliation(OwnerId, Identity, revision,
+                "Reviewed legacy stateless launch proof " + proofHash + ": original full owner is gone; unpublished children were suspended in its non-inherited kill-on-close job. No child PID invented; native/customer journals remain retained.", Now).Normalize() });
         });
         public CleanupReceipt Cleanup(string id, string revision, string requestId, IResourceProcessGroup? group = null) => ledger.Locked(() =>
         {

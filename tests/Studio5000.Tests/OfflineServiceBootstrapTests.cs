@@ -19,7 +19,7 @@ public sealed class OfflineServiceBootstrapTests : IDisposable
         Directory.CreateDirectory(root); Directory.CreateDirectory(Backend); Directory.CreateDirectory(Path.Combine(root, ".local"));
         driver.Actor = Identity(42, Path.Combine(root, "Studio5000.Mcp.exe"));
         var paths = new[] { OfflineServicePin.Service, "artifacts/app/Service/Studio5000.Service.dll", "artifacts/app/Service/Studio5000.Core.dll",
-            OfflineServicePin.Worker, "artifacts/app/ExtensionWorker/Studio5000.ExtensionWorker.dll", "artifacts/app/ExtensionWorker/Studio5000.Core.dll", OfflineServicePin.Script };
+            OfflineServicePin.Worker, "artifacts/app/ExtensionWorker/Studio5000.ExtensionWorker.dll", OfflineServicePin.Script };
         foreach (var relative in paths) { var path = Path.Combine(root, relative); Directory.CreateDirectory(Path.GetDirectoryName(path)!); File.WriteAllText(path, "Harmless pin fixture " + relative); }
         var pin = new OfflineServicePin(1, "26.1022.174219", paths.Select(p => new OfflinePinnedFile(p, new FileInfo(Path.Combine(root, p)).Length, OfflineServicePin.Hash(Path.Combine(root, p)))).ToArray(), []);
         File.WriteAllText(Path.Combine(Backend, OfflineServicePin.FileName), JsonSerializer.Serialize(pin, OfflineServicePin.Json));

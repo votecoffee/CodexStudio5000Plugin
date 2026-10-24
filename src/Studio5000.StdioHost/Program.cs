@@ -5,8 +5,17 @@ using Studio5000.Core.Resources;
 if (args is ["--version"]) { Console.WriteLine(WorkspaceIdentity.Version); return 0; }
 // This is a surviving transport owner, not a register-and-exit helper. The
 // SDK still creates/serves its ordinary stdio connection through raw byte pipes.
-if (args.Length != 0) throw new ArgumentException("The stdio owner accepts no executable or arbitrary command arguments.");
 var root = Path.GetFullPath(Environment.GetEnvironmentVariable("STUDIO5000_PLUGIN_ROOT") ?? Directory.GetCurrentDirectory());
+if (args is ["--offline-bootstrap-preview"])
+{
+    var previewLimits = McpClientLimits.Read(root);
+    var ledger = new ResourceLedger(Environment.GetEnvironmentVariable("ROCKWELL_RESOURCE_REGISTRY") ?? WindowsResourceProcessDriver.DefaultRegistry(),
+        new WindowsResourceProcessDriver(), previewLimits.MaximumOwnedResources);
+    Console.WriteLine(System.Text.Json.JsonSerializer.Serialize(OfflineServiceBootstrap.PreviewRecovery(root, AppContext.BaseDirectory,
+        ledger.Owner("rockwell-mcp-server")), new System.Text.Json.JsonSerializerOptions(System.Text.Json.JsonSerializerDefaults.Web)));
+    return 0;
+}
+if (args.Length != 0) throw new ArgumentException("The stdio owner accepts only its fixed read-only preview or no arguments.");
 if (File.Exists(Path.Combine(root, ".local", "maintenance-hold.json"))) throw new InvalidOperationException("Operator maintenance hold blocks MCP startup.");
 var limits = McpClientLimits.Read(root);
 using var owners = ParentProcessOwners.Capture();

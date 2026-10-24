@@ -85,6 +85,14 @@ if (args[0] == "bootstrap-ensure")
     File.WriteAllText(Path.Combine(root, "bootstrap-result-" + owner.OwnerId + ".json"), JsonSerializer.Serialize(new { result, actor = owner.Identity }, ProjectService.Json));
     return;
 }
+if (args[0] == "bootstrap-prepare")
+{
+    var ledger = new ResourceLedger(Path.Combine(root, "registry"), new WindowsResourceProcessDriver(), 16);
+    var owner = ledger.Owner("rockwell-mcp-server");
+    OfflineServiceBootstrap.PrepareAdmission(root, Path.Combine(root, "backend"), owner);
+    File.WriteAllText(Path.Combine(root, "bootstrap-prepared.json"), JsonSerializer.Serialize(new { actor = owner.Identity, records = ledger.Records() }, ProjectService.Json));
+    return;
+}
 if (args[0] is "native-owner" or "native-owner-uncertain")
 {
     if (Directory.Exists(Path.Combine(root, "registry"))) throw new ArgumentException("Use a fresh disposable native fixture.");
