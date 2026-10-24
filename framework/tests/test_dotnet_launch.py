@@ -159,3 +159,38 @@ def test_new_frontend_reconciles_exact_exited_generation_before_capacity_admissi
         new = next(r for r in ledger.records() if r.resource_id != old.resource_id)
         assert new.state == "terminated" and new.receipt.outcome == "terminated"
         assert retired.reconciliation.actor == new.owner
+
+
+@pytest.mark.parametrize("mode, expected_state, attempts", [("frontend-reject", "launching", 3), ("frontend-fail", "failed", 1)])
+def test_refused_stateless_frontends_never_accumulate_unbound_reservations(fixture, mode, expected_state, attempts):
+    subprocess.run(["dotnet", str(HELPER), mode, str(fixture)], check=True, capture_output=True, timeout=20)
+    result = json.loads((fixture / "frontend-admission-result.json").read_bytes())
+    assert len(result["created"]) == attempts
+    assert len(result["records"]) == 1 and result["records"][0]["state"] == expected_state
+    assert (result["records"][0]["process"] is None) == (mode == "frontend-reject")
+    assert not (fixture / "frontend-executed").exists()
+
+
+def test_owner_loss_before_stateless_admission_leaves_no_reservation_or_executed_code(fixture):
+    harness = ResourceLedger(fixture / "harness-registry")
+    with harness.owner("rockwell-stateless-harness") as owner:
+        with owner.launch([str(Path(os.environ["ProgramFiles"]) / "dotnet/dotnet.exe"), str(HELPER), "frontend-suspended-hold", str(fixture)],
+                          "Harmless suspended frontend", allow_termination=True, max_processes=8) as launch:
+            marker = fixture / "frontend-suspended.json"
+            deadline = time.monotonic() + 10
+            while not marker.exists():
+                if time.monotonic() > deadline:
+                    raise AssertionError("Suspended fixture did not become ready")
+                time.sleep(.02)
+            observed = json.loads(marker.read_bytes())
+            assert not ResourceLedger(fixture / "frontend-registry").records()
+            with harness.driver.open(harness.get(launch.resource_id).process.model_dump()) as handle:
+                handle.terminate()
+                assert handle.wait(5000)
+            deadline = time.monotonic() + 5
+            while harness.driver.state(observed["process"]) not in {"absent", "different"}:
+                if time.monotonic() > deadline:
+                    raise AssertionError("Owner loss left the suspended child alive")
+                time.sleep(.02)
+            assert not (fixture / "frontend-executed").exists()
+            assert not ResourceLedger(fixture / "frontend-registry").records()

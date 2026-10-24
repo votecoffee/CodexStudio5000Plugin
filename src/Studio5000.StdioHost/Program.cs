@@ -13,14 +13,14 @@ using var owners = ParentProcessOwners.Capture();
 using var lifetime = new CancellationTokenSource();
 var parent = owners.RequestShutdownOnExitAsync(lifetime.Cancel, lifetime.Token);
 using var resources = new ResourceSupervisor(root, Environment.GetEnvironmentVariable("ROCKWELL_RESOURCE_REGISTRY") ?? WindowsResourceProcessDriver.DefaultRegistry(), limits.MaximumOwnedProcesses, limits.MaximumOwnedResources);
-var start = new ProcessStartInfo(Path.Combine(AppContext.BaseDirectory, "Studio5000.Mcp.exe"))
+var start = new ProcessStartInfo(Path.Combine(Path.GetDirectoryName(resources.Owner.Identity.Executable)!, "Studio5000.Mcp.exe"))
 {
     UseShellExecute = false, CreateNoWindow = true, RedirectStandardInput = true,
     RedirectStandardOutput = true, RedirectStandardError = true, WorkingDirectory = root
 };
 var recovered = McpFrontendRecovery.ReconcileClosed(resources.Owner, start.FileName);
 if (recovered.Length != 0) Console.Error.WriteLine($"Reconciled {recovered.Length} fully exited Rockwell MCP transport claims; unresolved reservations remain retained.");
-using var child = resources.Launch(start, "Rockwell MCP stdio adapter", "mcp-adapter");
+using var child = resources.LaunchStatelessFrontend(start);
 try
 {
     return await OwnedStdioRelay.RunAsync(child, Console.OpenStandardInput(), Console.OpenStandardOutput(), Console.OpenStandardError(), limits.ShutdownTimeoutSeconds, lifetime.Token);

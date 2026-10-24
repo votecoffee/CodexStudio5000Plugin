@@ -76,6 +76,15 @@ public sealed class ResourceSupervisor : IDisposable
             children.Add(child); return child;
         }
     }
+    public WindowsChildProcess LaunchStatelessFrontend(ProcessStartInfo start)
+    {
+        lock (sync)
+        {
+            CheckWorkerAdmission(); children.RemoveAll(c => c.HandlesClosed);
+            var child = WindowsChildProcess.LaunchStatelessFrontend(Owner, start, "Rockwell MCP stdio adapter", MaximumProcesses);
+            children.Add(child); return child;
+        }
+    }
     public void WriteOwnerReceipt()
     {
         var local = Path.Combine(Root, ".local"); ProjectService.RejectLinks(local); Directory.CreateDirectory(local);

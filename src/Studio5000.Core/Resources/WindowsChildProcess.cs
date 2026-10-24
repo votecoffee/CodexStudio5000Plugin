@@ -31,6 +31,12 @@ public sealed class WindowsChildProcess : IResourceProcessGroup, IDisposable
     { this.owner = owner; ResourceId = id; this.driver = driver; }
     public static WindowsChildProcess Launch(ResourceLedger.ResourceOwner owner, ProcessStartInfo start, string label,
         string kind = "process", int maximumProcesses = 32, Action<ResourceRecord>? beforeResume = null)
+        => LaunchCore(owner, start, label, kind, maximumProcesses, beforeResume, false);
+    public static WindowsChildProcess LaunchStatelessFrontend(ResourceLedger.ResourceOwner owner, ProcessStartInfo start, string label,
+        int maximumProcesses = 32, Action<ResourceRecord>? beforeResume = null, Action<ProcessIdentity>? beforeAdmission = null)
+        => LaunchCore(owner, start, label, "mcp-adapter", maximumProcesses, beforeResume, true, beforeAdmission);
+    private static WindowsChildProcess LaunchCore(ResourceLedger.ResourceOwner owner, ProcessStartInfo start, string label,
+        string kind, int maximumProcesses, Action<ResourceRecord>? beforeResume, bool statelessFrontend, Action<ProcessIdentity>? beforeAdmission = null)
     {
         if (!OperatingSystem.IsWindowsVersionAtLeast(10)) throw new PlatformNotSupportedException("Atomic process-job creation requires Windows 10/Server 2016 or later.");
         if (owner.Ledger.Driver is not WindowsResourceProcessDriver driver) throw new ArgumentException("The native launcher requires the native process driver.");
@@ -41,12 +47,13 @@ public sealed class WindowsChildProcess : IResourceProcessGroup, IDisposable
         if (maximumProcesses is < 1 or > 128) throw new ArgumentException("Use 1..128 processes in the owned job.");
         var command = CommandLine([start.FileName, .. start.ArgumentList]);
         var environment = EnvironmentBlock(start.Environment);
-        var intent = owner.BeginLaunch(label, kind, cleanupMode: "terminate");
-        var child = new WindowsChildProcess(owner, intent.ResourceId, driver);
+        var id = statelessFrontend ? Guid.NewGuid().ToString("N") : owner.BeginLaunch(label, kind, cleanupMode: "terminate").ResourceId;
+        var child = new WindowsChildProcess(owner, id, driver);
         try
         {
             child.Create(start.FileName, command, environment, string.IsNullOrEmpty(start.WorkingDirectory) ? Environment.CurrentDirectory : start.WorkingDirectory, maximumProcesses);
-            var record = owner.BindProcess(intent.ResourceId, child.Identity.Pid, "windows_job");
+            beforeAdmission?.Invoke(child.Identity); // Trusted harmless harness checkpoint; never supplied by MCP.
+            var record = statelessFrontend ? owner.AdmitSuspendedFrontend(id, label, child.Identity) : owner.BindProcess(id, child.Identity.Pid, "windows_job");
             if (!Retained.TryAdd(child.ResourceId, child)) throw new InvalidOperationException("Owned process identity already exists.");
             beforeResume?.Invoke(record); // Fixture failure injection / app launch policy, never caller code from MCP.
             if (ResumeThread(child.thread!) == uint.MaxValue) throw Error();
@@ -60,8 +67,13 @@ public sealed class WindowsChildProcess : IResourceProcessGroup, IDisposable
             try
             {
                 child.StopCore();
-                if (!child.resumed) owner.FailBeforeExecution(intent.ResourceId);
-                else owner.SetRecoveryBarrier(intent.ResourceId, "Worker executed before startup outcome was known; inspect retained work.");
+                if (!child.resumed)
+                {
+                    // Publication may have failed after its atomic move. An
+                    // existing record always contains the actual child identity.
+                    if (!statelessFrontend || owner.Ledger.Records().Any(r => r.ResourceId == id)) owner.FailBeforeExecution(id);
+                }
+                else owner.SetRecoveryBarrier(id, "Worker executed before startup outcome was known; inspect retained work.");
             }
             finally { Retained.TryRemove(child.ResourceId, out _); child.CloseHandles(); }
             throw;

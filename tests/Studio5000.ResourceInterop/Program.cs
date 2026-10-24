@@ -75,6 +75,41 @@ if (args[0] is "native-owner" or "native-owner-uncertain")
     File.WriteAllText(Path.Combine(root, "native-adapter-result.json"), JsonSerializer.Serialize(new { status = result.Status, shutdownRefused = refused, worker, session, scmAccessed = false, vendorCodeExecuted = false }, ProjectService.Json));
     return;
 }
+if (args[0] is "frontend-reject" or "frontend-fail" or "frontend-suspended-hold")
+{
+    var python = File.ReadAllText(Path.Combine(root, "python-executable.txt")).Trim();
+    if (Path.GetFileName(python) is not ("python.exe" or "pythonw.exe")) throw new ArgumentException("Only the harmless Python fixture is allowed.");
+    var driver = new WindowsResourceProcessDriver(); var ledger = new ResourceLedger(Path.Combine(root, "frontend-registry"), driver, 1);
+    var owner = ledger.Owner("rockwell-mcp-server"); var created = new List<ProcessIdentity>();
+    var executed = Path.Combine(root, "frontend-executed"); var old = args[0] == "frontend-reject" ? owner.BeginLaunch("Preserved unexplained fixture", "mcp-adapter", cleanupMode: "terminate") : null;
+    var original = old is null ? null : ResourceJson.Write(old);
+    for (var attempt = 0; attempt < (old is null ? 1 : 3); attempt++)
+    {
+        var start = new ProcessStartInfo(python) { UseShellExecute = false, CreateNoWindow = true };
+        start.ArgumentList.Add("-c"); start.ArgumentList.Add("import sys;from pathlib import Path;Path(sys.argv[1]).write_text('executed');sys.stdin.buffer.read()"); start.ArgumentList.Add(executed);
+        try
+        {
+            using var unexpected = WindowsChildProcess.LaunchStatelessFrontend(owner, start, "Harmless stateless fixture", 8,
+                beforeResume: _ => throw new IOException("Synthetic frontend pre-resume refusal"),
+                beforeAdmission: identity =>
+                {
+                    created.Add(identity);
+                    if (args[0] == "frontend-suspended-hold")
+                    {
+                        File.WriteAllText(Path.Combine(root, "frontend-suspended.json"), JsonSerializer.Serialize(new { owner = owner.Identity, process = identity }, ProjectService.Json));
+                        Thread.Sleep(20000); throw new TimeoutException("Harness did not end the disposable owner");
+                    }
+                });
+            throw new InvalidOperationException("The fixture refusal was ignored");
+        }
+        catch (InvalidOperationException error) when (old is not null && error.Message.Contains("capacity", StringComparison.Ordinal)) { }
+        catch (IOException error) when (old is null && error.Message == "Synthetic frontend pre-resume refusal") { }
+    }
+    if (File.Exists(executed) || created.Any(p => driver.State(p) is not ("absent" or "different"))) throw new InvalidOperationException("Refused suspended code executed or remained alive");
+    if (old is not null && !ResourceJson.Write(ledger.Get(old.ResourceId)).SequenceEqual(original!)) throw new InvalidOperationException("Old uncertain reservation changed");
+    File.WriteAllText(Path.Combine(root, "frontend-admission-result.json"), JsonSerializer.Serialize(new { created, records = ledger.Records(), executed = false }, ProjectService.Json));
+    return;
+}
 if (args[0] is "frontend-hold" or "frontend-recover")
 {
     var python = File.ReadAllText(Path.Combine(root, "python-executable.txt")).Trim();
@@ -92,7 +127,7 @@ if (args[0] is "frontend-hold" or "frontend-recover")
     }
     var start = new ProcessStartInfo(python) { UseShellExecute = false, CreateNoWindow = true };
     start.ArgumentList.Add("-c"); start.ArgumentList.Add("import sys;print('ready',flush=True);sys.stdin.buffer.read()");
-    using var child = WindowsChildProcess.Launch(owner, start, "Harmless MCP transport fixture", "mcp-adapter");
+    using var child = WindowsChildProcess.LaunchStatelessFrontend(owner, start, "Harmless MCP transport fixture");
     using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(10));
     if (await child.StandardOutput.ReadLineAsync(deadline.Token) != "ready") throw new InvalidOperationException("Harmless transport did not become ready.");
     if (args[0] == "frontend-hold")

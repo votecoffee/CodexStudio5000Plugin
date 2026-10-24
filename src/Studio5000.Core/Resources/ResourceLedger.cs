@@ -144,6 +144,26 @@ public sealed class ResourceLedger(string registry, IResourceProcessDriver drive
             if (candidate.Ownership == "private" && ledger.Conflict(candidate)) throw new InvalidOperationException("Another retained claim references this process.");
             return ledger.Replace(candidate);
         });
+        // A stateless adapter is created suspended in its owner's kill-on-close
+        // job first. Publish its full identity in one admission write, before
+        // resume, so refusal/crash cannot leave a new unbound reservation.
+        internal ResourceRecord AdmitSuspendedFrontend(string id, string label, ProcessIdentity suspended) => ledger.Locked(() =>
+        {
+            ResourceRules.Token(id, 32);
+            if (closing || AppId != "rockwell-mcp-server" || ledger.Driver.CurrentIdentity().Normalize() != Identity)
+                throw new InvalidOperationException("Stateless admission requires the exact current open Rockwell owner.");
+            var process = ledger.Driver.Capture(suspended.Pid).Normalize();
+            if (process != suspended.Normalize()) throw new InvalidOperationException("Suspended adapter identity changed before admission.");
+            var records = ledger.Records();
+            if (records.Length >= 4096 || records.Count(r => r.AppId == AppId && !r.Terminal) >= ledger.MaximumActive)
+                throw new InvalidOperationException("Resource admission capacity reached; no stateless reservation was created.");
+            if (File.Exists(ledger.RecordPath(id))) throw new InvalidOperationException("Resource identity already exists.");
+            var record = new ResourceRecord { ResourceId = id, AppId = AppId, OwnerId = OwnerId, Owner = Identity,
+                Label = label, Kind = "mcp-adapter", Ownership = "private", CleanupMode = "terminate", State = "active",
+                Process = process, Containment = "windows_job", CreatedAt = Now, UpdatedAt = Now }.Normalize();
+            if (ledger.Conflict(record)) throw new InvalidOperationException("Another retained claim references the suspended adapter.");
+            ledger.Save(record); return record;
+        });
         // A native SDK/COM connection may identify a shared software/session
         // without exposing an exclusive PID. It stays report-only and must be
         // explicitly detached; this never invents an executable to terminate.
