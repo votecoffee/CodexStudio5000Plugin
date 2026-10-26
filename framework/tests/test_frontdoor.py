@@ -10,6 +10,7 @@ import shutil
 import subprocess
 import threading
 import time
+import uuid
 from pathlib import Path
 import pytest
 from universal_tools.resources import ResourceLedger
@@ -22,6 +23,22 @@ pytestmark = pytest.mark.skipif(os.name != "nt" or os.environ.get("ROCKWELL_DOTN
 
 def digest(path):
     return hashlib.sha256(path.read_bytes()).hexdigest()
+
+class Memory(ctypes.Structure):
+    _fields_ = [("cb", w.DWORD), ("faults", w.DWORD)] + [(name, ctypes.c_size_t) for name in
+        ["peakWorkingSet", "workingSet", "quotaPeakPaged", "quotaPaged", "quotaPeakNonPaged", "quotaNonPaged",
+         "pagefile", "peakPagefile", "privateBytes"]]
+
+def observe(driver, identity):
+    with driver._open(identity["pid"]) as handle:
+        assert handle.identity == identity and handle.alive()
+        kernel = ctypes.WinDLL("kernel32", use_last_error=True)
+        kernel.K32GetProcessMemoryInfo.argtypes = [w.HANDLE, ctypes.POINTER(Memory), w.DWORD]
+        kernel.K32GetProcessMemoryInfo.restype = w.BOOL
+        value = Memory(cb=ctypes.sizeof(Memory))
+        assert kernel.K32GetProcessMemoryInfo(handle.handle, ctypes.byref(value), value.cb)
+        return {"identity": identity, "workingSet": value.workingSet, "privateBytes": value.privateBytes,
+                "peakWorkingSet": value.peakWorkingSet, "peakPrivateCommit": value.peakPagefile}
 
 def selected(root, maximum=8):
     cohort = json.loads(COHORT.read_bytes())
@@ -65,6 +82,7 @@ class Connection:
         self.replies = queue.Queue()
         self.identifier = 0
         self.name = name
+        self.closed = False
         def reader():
             try:
                 for line in self.child.stdout:
@@ -105,14 +123,18 @@ class Connection:
         result = self.rpc("tools/call", {"name": name, "arguments": arguments})
         assert not result.get("isError"), result
         return result.get("structuredContent") or json.loads(next(x["text"] for x in result["content"] if x["type"] == "text"))
-    def close(self):
+    def close(self, require_zero=True):
+        if self.closed:
+            return
         if not self.child.stdin.closed:
             self.child.stdin.close()
         code = self.child.wait(timeout=15)
         self.thread.join(timeout=3)
         self.stderr.close()
         (self.root / (self.name + ".messages.json")).write_bytes(json.dumps(self.messages, indent=2).encode())
-        assert code == 0
+        self.closed = True
+        if require_zero:
+            assert code == 0
     def __enter__(self):
         return self
     def __exit__(self, *args):
@@ -175,3 +197,111 @@ def test_selected_frontdoor_crash_releases_os_slot_and_retains_claim_until_next_
         recovered = ledger.get(old.resource_id)
         assert recovered.state == "released" and recovered.owner == old.owner
         assert recovered.reconciliation.previous_revision == old.revision
+
+def test_selected_parent_loss_stops_only_its_transport_and_preserves_the_genuine_fixture_service(fixture):
+    state = selected(fixture)
+    connection = Connection(fixture, state, "parent-loss")
+    ledger = ResourceLedger(fixture / "registry")
+    try:
+        connection.initialize()
+        connection.call("studio_capabilities", {})
+        owner = next(r for r in ledger.records() if r.app_id == "rockwell-mcp-frontdoor" and r.state == "active")
+        service = json.loads((fixture / ".local/service-owner.json").read_bytes())
+        parent = ledger.driver.capture_handle(int(connection.child._handle), connection.child.pid)
+        (fixture / "parent-loss-identities.json").write_bytes(json.dumps({"launcher": parent, "frontdoor": owner.owner.model_dump(),
+            "service": service["owner"], "stdinHeldOpenByFixture": True}).encode())
+        with ledger.driver._open(owner.owner.pid) as handle:
+            assert handle.identity == owner.owner.model_dump() and handle.alive()
+            connection.child.terminate()  # Retained creation handle of this selected fixture launcher only.
+            connection.child.wait(timeout=10)
+            assert handle.wait(10000), "Selected SDK host survived its exact launcher loss"
+        retired = ledger.get(owner.resource_id)
+        assert retired.state == "released" and retired.reconciliation.actor == owner.owner
+        assert ledger.driver.state(service["owner"]) == "alive"
+    finally:
+        connection.close(require_zero=False)
+
+def test_normal_and_reconnect_overlap_keep_execution_claims_and_record_exact_process_memory(fixture):
+    ledger = ResourceLedger(fixture / "registry")
+    protected = ledger.owner("rockwell-mcp-server")
+    for _ in range(16):
+        protected.begin_launch("Unknown native fixture", kind="sdk-worker")
+    original = {p: p.read_bytes() for p in (fixture / "registry/resources").glob("*.json")}
+    state = selected(fixture, maximum=10)
+    with ExitStack() as cleanup:
+        slots = fixture / ".local/mcp-clients"
+        slots.mkdir()
+        for i in range(4):
+            cleanup.enter_context((slots / f"slot-{i}.lock").open("a+b"))
+        clients = [cleanup.enter_context(Connection(fixture, state, f"normal-{i}")) for i in range(3)]
+        for connection in clients:
+            connection.initialize()
+        clients[0].call("studio_capabilities", {})
+        normal = [r for r in ledger.records() if r.app_id == "rockwell-mcp-frontdoor" and r.state == "active"]
+        assert len(normal) == 3
+        overlap = cleanup.enter_context(Connection(fixture, state, "reconnect-overlap"))
+        overlap.initialize()
+        current = [r for r in ledger.records() if r.app_id == "rockwell-mcp-frontdoor" and r.state == "active"]
+        assert len(current) == 4
+        observations = [observe(ledger.driver, r.owner.model_dump()) for r in current]
+        launchers = [observe(ledger.driver, ledger.driver.capture_handle(int(c.child._handle), c.child.pid)) for c in [*clients, overlap]]
+        assert all(x["privateBytes"] < 128 * 1024 * 1024 for x in observations)
+        assert sum(x["privateBytes"] for x in [*observations, *launchers]) < 4 * 256 * 1024 * 1024
+        (fixture / "normal-transition-memory.json").write_bytes(json.dumps({"normalFrontdoors": 3, "transitionFrontdoors": 4,
+            "knownTransportProcesses": 8, "frontdoors": observations, "launchers": launchers,
+            "legacyHandleLeases": 4, "executionClaimsRetained": 16, "isFixture": True}, indent=2).encode())
+        overlap.close()
+        assert all(p.read_bytes() == value for p, value in original.items())
+    assert all(r.state == "released" for r in ledger.records() if r.app_id == "rockwell-mcp-frontdoor")
+
+def test_foreign_unknown_metadata_observation_is_retained_across_another_selected_connection(fixture):
+    state = selected(fixture)
+    ledger = ResourceLedger(fixture / "registry")
+    with Connection(fixture, state, "template") as first:
+        first.initialize()
+        template = next(r for r in ledger.records() if r.app_id == "rockwell-mcp-frontdoor").model_dump(mode="json")
+    template["resource_id"] = uuid.uuid4().hex
+    template["owner"]["host_id"] = "0" * 64
+    template["owner_id"] = uuid.uuid4().hex
+    template["state"] = "active"
+    template["reconciliation"] = None
+    path = fixture / "registry/resources" / (template["resource_id"] + ".json")
+    original = json.dumps(template, separators=(",", ":")).encode()
+    path.write_bytes(original)
+    with Connection(fixture, state, "unknown-preserved") as later:
+        later.initialize()
+        assert path.read_bytes() == original
+    assert path.read_bytes() == original
+
+def test_metadata_reads_remain_available_when_forwarding_is_refused_before_dispatch(fixture):
+    state = selected(fixture)
+    with Connection(fixture, state, "forwarding-refused") as connection:
+        connection.initialize()
+        directory = fixture / ".local/mcp-frontdoor-calls"
+        directory.mkdir()
+        with ExitStack() as held:
+            for i in range(4):
+                held.enter_context((directory / f"slot-{i}.lock").open("a+b"))
+            assert connection.call("studio_capabilities", {})["offlineFixture"]
+            refused = connection.rpc("tools/call", {"name": "studio_list_projects", "arguments": {}})
+            assert refused["isError"]
+            detail = refused.get("structuredContent") or json.loads(refused["content"][0]["text"])
+            assert detail["code"] == "mcp_forwarding_capacity" and detail["dispatched"] is False
+            assert detail["automaticRetry"] is False
+
+def test_metadata_limit_refusal_adds_no_unbound_claim_and_preserves_admitted_clients(fixture):
+    state = selected(fixture, maximum=4)
+    ledger = ResourceLedger(fixture / "registry")
+    with ExitStack() as cleanup:
+        clients = [cleanup.enter_context(Connection(fixture, state, f"held-{i}")) for i in range(4)]
+        for client in clients:
+            client.initialize()
+        rows = [r for r in ledger.records() if r.app_id == "rockwell-mcp-frontdoor"]
+        assert len(rows) == 4
+        refused = Connection(fixture, state, "limit-refused")
+        try:
+            assert refused.child.wait(timeout=20) != 0
+            assert len([r for r in ledger.records() if r.app_id == "rockwell-mcp-frontdoor"]) == 4
+            assert all(ledger.driver.state(r.owner.model_dump()) == "alive" for r in rows)
+        finally:
+            refused.close(require_zero=False)
