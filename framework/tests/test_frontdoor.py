@@ -40,7 +40,7 @@ def observe(driver, identity):
         return {"identity": identity, "workingSet": value.workingSet, "privateBytes": value.privateBytes,
                 "peakWorkingSet": value.peakWorkingSet, "peakPrivateCommit": value.peakPagefile}
 
-def selected(root, maximum=8):
+def selected(root, maximum=None):
     cohort = json.loads(COHORT.read_bytes())
     assert cohort["sourceTreeClean"]
     for file in cohort["files"]:
@@ -49,11 +49,14 @@ def selected(root, maximum=8):
         target = root / "backend" / file["path"]
         target.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(source, target)
-    result = subprocess.run([str(POWERSHELL), "-NoProfile", "-ExecutionPolicy", "Bypass", "-File",
-        str(ROOT / "scripts/New-McpFrontdoorPolicy.ps1"), "-Destination", str(root / "backend/frontdoor.json"),
-        "-MaximumMetadataClients", str(maximum), "-MaximumStartingClients", "2"], env=dict(os.environ, PSModulePath=""),
-        capture_output=True, timeout=20, creationflags=0x08000000)
-    assert result.returncode == 0, result.stderr.decode(errors="replace")
+    if maximum is None and (PAYLOAD / "frontdoor.json").is_file():
+        shutil.copy2(PAYLOAD / "frontdoor.json", root / "backend/frontdoor.json")
+    else:
+        result = subprocess.run([str(POWERSHELL), "-NoProfile", "-ExecutionPolicy", "Bypass", "-File",
+            str(ROOT / "scripts/New-McpFrontdoorPolicy.ps1"), "-Destination", str(root / "backend/frontdoor.json"),
+            "-MaximumMetadataClients", str(maximum or 8), "-MaximumStartingClients", "2"], env=dict(os.environ, PSModulePath=""),
+            capture_output=True, timeout=20, creationflags=0x08000000)
+        assert result.returncode == 0, result.stderr.decode(errors="replace")
     files = [{"path": "Mcp/" + file.relative_to(root / "backend").as_posix(), "size": file.stat().st_size, "sha256": digest(file)}
              for file in sorted((root / "backend").rglob("*")) if file.is_file()]
     candidate = root / "candidate.json"
@@ -222,35 +225,44 @@ def test_selected_parent_loss_stops_only_its_transport_and_preserves_the_genuine
         connection.close(require_zero=False)
 
 def test_normal_and_reconnect_overlap_keep_execution_claims_and_record_exact_process_memory(fixture):
+    normal_count = int(os.environ.get("ROCKWELL_FRONTDOOR_NORMAL_CLIENTS", "3"))
+    overlap_count = int(os.environ.get("ROCKWELL_FRONTDOOR_OVERLAP_CLIENTS", "1"))
+    assert 1 <= normal_count <= 16 and 1 <= overlap_count <= 4
     ledger = ResourceLedger(fixture / "registry")
     protected = ledger.owner("rockwell-mcp-server")
     for _ in range(16):
         protected.begin_launch("Unknown native fixture", kind="sdk-worker")
     original = {p: p.read_bytes() for p in (fixture / "registry/resources").glob("*.json")}
-    state = selected(fixture, maximum=10)
+    state = selected(fixture) if (PAYLOAD / "frontdoor.json").is_file() else selected(fixture, maximum=24)
     with ExitStack() as cleanup:
         slots = fixture / ".local/mcp-clients"
         slots.mkdir()
         for i in range(4):
             cleanup.enter_context((slots / f"slot-{i}.lock").open("a+b"))
-        clients = [cleanup.enter_context(Connection(fixture, state, f"normal-{i}")) for i in range(3)]
+        clients = [cleanup.enter_context(Connection(fixture, state, f"normal-{i}")) for i in range(normal_count)]
         for connection in clients:
             connection.initialize()
         clients[0].call("studio_capabilities", {})
         normal = [r for r in ledger.records() if r.app_id == "rockwell-mcp-frontdoor" and r.state == "active"]
-        assert len(normal) == 3
-        overlap = cleanup.enter_context(Connection(fixture, state, "reconnect-overlap"))
-        overlap.initialize()
+        assert len(normal) == normal_count
+        normal_observations = [observe(ledger.driver, r.owner.model_dump()) for r in normal]
+        normal_launchers = [observe(ledger.driver, ledger.driver.capture_handle(int(c.child._handle), c.child.pid)) for c in clients]
+        overlap = [cleanup.enter_context(Connection(fixture, state, f"reconnect-{i}")) for i in range(overlap_count)]
+        for connection in overlap:
+            connection.initialize()
         current = [r for r in ledger.records() if r.app_id == "rockwell-mcp-frontdoor" and r.state == "active"]
-        assert len(current) == 4
+        assert len(current) == normal_count + overlap_count
         observations = [observe(ledger.driver, r.owner.model_dump()) for r in current]
-        launchers = [observe(ledger.driver, ledger.driver.capture_handle(int(c.child._handle), c.child.pid)) for c in [*clients, overlap]]
+        launchers = [observe(ledger.driver, ledger.driver.capture_handle(int(c.child._handle), c.child.pid)) for c in [*clients, *overlap]]
         assert all(x["privateBytes"] < 128 * 1024 * 1024 for x in observations)
-        assert sum(x["privateBytes"] for x in [*observations, *launchers]) < 4 * 256 * 1024 * 1024
-        (fixture / "normal-transition-memory.json").write_bytes(json.dumps({"normalFrontdoors": 3, "transitionFrontdoors": 4,
-            "knownTransportProcesses": 8, "frontdoors": observations, "launchers": launchers,
+        assert sum(x["privateBytes"] for x in [*observations, *launchers]) < len(current) * 256 * 1024 * 1024
+        (fixture / "normal-transition-memory.json").write_bytes(json.dumps({"normalFrontdoors": normal_count, "transitionFrontdoors": len(current),
+            "normalKnownTransportProcesses": normal_count * 2, "knownTransportProcesses": len(current) * 2,
+            "normalFrontdoorObservations": normal_observations, "normalLauncherObservations": normal_launchers,
+            "frontdoors": observations, "launchers": launchers,
             "legacyHandleLeases": 4, "executionClaimsRetained": 16, "isFixture": True}, indent=2).encode())
-        overlap.close()
+        for connection in overlap:
+            connection.close()
         assert all(p.read_bytes() == value for p, value in original.items())
     assert all(r.state == "released" for r in ledger.records() if r.app_id == "rockwell-mcp-frontdoor")
 
