@@ -13,13 +13,17 @@ public sealed record McpFrontdoorPolicy(int SchemaVersion = 1, int MaximumMetada
     int MaximumStartingClients = 2, int MaximumForwardedCalls = 4,
     long PerClientCommitReservationBytes = 268435456, long MaximumTransportCommitReservationBytes = 2684354560,
     long MinimumAvailableCommitBytes = 2147483648, long MaximumProcessPrivateBytes = 134217728,
-    int MaximumInputFrameBytes = 2097152, int MaximumHttpResponseBytes = 8388608)
+    int MaximumInputFrameBytes = 2097152, int MaximumHttpResponseBytes = 8388608,
+    string ServiceMode = McpFrontdoorPolicy.EnsurePinnedOffline)
 {
+    public const string EnsurePinnedOffline = "ensure-pinned-offline";
+    public const string ExistingGenuineOnly = "existing-genuine-only";
     public const string FileName = "frontdoor.json";
     public const int SlotInventory = 64;
     public void Validate()
     {
-        if (SchemaVersion != 1 || MaximumMetadataClients is < 1 or > 48 || MaximumStartingClients is < 1 or > 8 ||
+        if (ServiceMode is not (EnsurePinnedOffline or ExistingGenuineOnly) ||
+            SchemaVersion != 1 || MaximumMetadataClients is < 1 or > 48 || MaximumStartingClients is < 1 or > 8 ||
             MaximumForwardedCalls is < 1 or > 16 || MaximumStartingClients > MaximumMetadataClients ||
             PerClientCommitReservationBytes is < 67108864 or > 1073741824 ||
             MaximumTransportCommitReservationBytes is < 67108864 or > 34359738368 ||

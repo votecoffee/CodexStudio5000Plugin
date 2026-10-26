@@ -66,6 +66,59 @@ public sealed class OfflineServiceBootstrapTests : IDisposable
         }
     }
     private Task<OfflineServiceReady> Ensure(Starter starter, TimeSpan? timeout = null) => OfflineServiceBootstrap.EnsureAsync(root, Backend, Ledger.Owner("rockwell-mcp-server"), starter, timeout ?? TimeSpan.FromSeconds(3), default);
+    private Task<OfflineServiceReady> ObserveExisting(Starter starter)
+        => OfflineServiceBootstrap.ObserveAsync(root, Backend, Ledger.Owner("rockwell-mcp-server"), starter, waitForStartup: false, default);
+    [Fact]
+    public async Task Existing_only_observation_does_not_start_a_missing_service_or_create_intent()
+    {
+        if (!OperatingSystem.IsWindows()) return;
+        var starter = new Starter(this);
+        await Assert.ThrowsAsync<ExistingServiceUnavailableException>(() => ObserveExisting(starter));
+        Assert.Equal(0, starter.Starts); Assert.Equal(0, starter.PolicyChecks);
+        Assert.False(File.Exists(Path.Combine(root, ".local/offline-service-start.json")));
+        Assert.False(File.Exists(Path.Combine(root, ".local/offline-service-start.lock")));
+        Assert.Empty(Ledger.Records());
+    }
+    [Fact]
+    public async Task Existing_only_gate_observes_one_genuine_generation_and_refuses_owner_loss_and_replacement()
+    {
+        if (!OperatingSystem.IsWindows()) return;
+        var starter = new Starter(this); starter.Publish();
+        var observations = 0;
+        var gate = new OfflineServiceGate(() => { observations++; return ObserveExisting(starter); }, driver, existingOnly: true);
+        var first = await gate.Ready(); Assert.False(first.Started); Assert.Equal(starter.ServiceIdentity, first.Owner);
+        driver.States[first.Owner] = "absent";
+        await Assert.ThrowsAsync<ExistingServiceUnavailableException>(() => gate.Ready());
+        starter.Publish(2);
+        await Assert.ThrowsAsync<ExistingServiceUnavailableException>(() => gate.Ready());
+        Assert.Equal(1, observations); Assert.Equal(0, starter.Starts); Assert.Equal(1, starter.PolicyChecks);
+        Assert.False(File.Exists(Path.Combine(root, ".local/offline-service-start.json")));
+    }
+    [Fact]
+    public async Task Existing_only_failed_initial_observation_keeps_original_exception_without_reentering_startup()
+    {
+        if (!OperatingSystem.IsWindows()) return;
+        var starter = new Starter(this) { UnsafeEffectivePolicy = true }; starter.Publish();
+        var gate = new OfflineServiceGate(() => ObserveExisting(starter), driver, existingOnly: true);
+        var error = await Assert.ThrowsAsync<ExistingServiceUnavailableException>(() => gate.Ready());
+        Assert.Equal("Effective policy is not offline", error.InnerException!.Message);
+        await Assert.ThrowsAsync<ExistingServiceUnavailableException>(() => gate.Ready());
+        Assert.Equal(0, starter.Starts); Assert.Equal(1, starter.PolicyChecks);
+    }
+    [Fact]
+    public async Task Existing_only_observation_preserves_uncertain_startup_and_unknown_claims_byte_for_byte()
+    {
+        if (!OperatingSystem.IsWindows()) return;
+        var starter = new Starter(this) { Fail = true };
+        await Assert.ThrowsAsync<IOException>(() => Ensure(starter));
+        starter.Publish();
+        var ledger = Ledger; ledger.Owner("rockwell-mcp-server").BeginLaunch("Unknown native fixture", "sdk-worker");
+        var paths = Directory.GetFiles(Path.Combine(root, ".local"), "*", SearchOption.AllDirectories)
+            .Concat(Directory.GetFiles(ledger.DirectoryPath, "*.json")).ToDictionary(p => p, File.ReadAllBytes);
+        await Assert.ThrowsAsync<InvalidOperationException>(() => ObserveExisting(starter));
+        Assert.Equal(1, starter.Starts);
+        Assert.All(paths, pair => Assert.Equal(pair.Value, File.ReadAllBytes(pair.Key)));
+    }
     [Fact]
     public async Task Absent_service_starts_once_and_real_self_published_owner_is_reused()
     {

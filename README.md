@@ -6,6 +6,8 @@ Shared Rockwell engineering service with MCP, REST, a desktop GUI and reloadable
 
 Optional [bounded MCP frontdoor profiles](docs/MCP_FRONTDOOR.md) admit stateless chat connections separately from engineering workers. The selected profile keeps shared-service, native and controller limits intact while bounding startup, forwarding and protocol memory.
 
+The immutable frontdoor policy can select `existing-genuine-only` to use an already-running verified service. That mode cannot start or replace the service; owner loss returns an undispatched refusal until a new connection is opened after recovery. Service autostart uses the separate `ensure-pinned-offline` scope.
+
 [CodexMCPBroker](https://github.com/votecoffee/CodexMCPBroker) provides the separately maintained shared application framework and Windows MCP Service Manager. Rockwell remains a standalone MCP server with its own app-owned Codex plugin and skills. The optional framework host and separate management app require no universal plugin; Rockwell retains reviewed dependency pins and deployment-specific acceptance.
 
 The shared Windows MCP Service Manager can report this app's service activity and installed/running versions through an app-owned supervisor. Tray restart remains disabled until full engineering quiescence can be enforced; see [service management](docs/SERVICE_MANAGEMENT.md). Small packaged skills fetch current canonical guidance from the shared service; compatible clients can explicitly select [Skills-over-MCP publication](docs/FRAMEWORK.md#current-guidance-and-skills-over-mcp). The read-only [protocol feature report](docs/PROTOCOL_FEATURES.md) lists tested features and concrete gaps.
@@ -22,7 +24,7 @@ Scoped structural reviews can inspect up to 128 exact element paths in one conte
 
 The plugin identifier is `rockwell-mcp-server`. Internal `Studio5000.*` assemblies, environment variables and existing tool names remain for compatibility.
 
-Application releases use a fixed `YY.MMDD.HHmmss` timestamp in `America/New_York`, currently **26.1026.102140**. Package identities remove leading numeric zeros when required; the padded display timestamp stays in release metadata. See [release versioning](docs/VERSIONING.md) for package and .NET mappings.
+Application releases use a fixed `YY.MMDD.HHmmss` timestamp in `America/New_York`, currently **26.1026.113026**. Package identities remove leading numeric zeros when required; the padded display timestamp stays in release metadata. See [release versioning](docs/VERSIONING.md) for package and .NET mappings.
 
 ## Table of Contents
 

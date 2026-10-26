@@ -141,6 +141,17 @@ public sealed class McpFrontdoorAdmissionTests : IDisposable
         File.WriteAllText(Path.Combine(root, McpFrontdoorPolicy.FileName), "{\"schemaVersion\":1,\"maximumMetadataClients\":8,\"maximumMetadataClients\":16}");
         Assert.Throws<InvalidOperationException>(() => McpFrontdoorPolicy.Read(root));
     }
+    [Theory]
+    [InlineData(McpFrontdoorPolicy.EnsurePinnedOffline)]
+    [InlineData(McpFrontdoorPolicy.ExistingGenuineOnly)]
+    public void Service_scope_is_explicit_and_unknown_modes_cannot_fall_back_to_startup(string mode)
+    {
+        var policy = new McpFrontdoorPolicy(ServiceMode: mode);
+        File.WriteAllText(Path.Combine(root, McpFrontdoorPolicy.FileName), JsonSerializer.Serialize(policy, new JsonSerializerOptions(JsonSerializerDefaults.Web)));
+        Assert.Equal(mode, McpFrontdoorPolicy.Read(root)!.ServiceMode);
+        Assert.Throws<ArgumentException>(() => (policy with { ServiceMode = "unknown" }).Validate());
+        Assert.Throws<ArgumentException>(() => (policy with { ServiceMode = null! }).Validate());
+    }
     [Fact]
     public void Forwarding_slots_are_temporary_and_do_not_consume_metadata_or_execution_claims()
     {

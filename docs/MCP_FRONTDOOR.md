@@ -10,7 +10,12 @@ The actual frontdoor process owns a typed, processless, attached/report-only `mc
 
 Normal EOF closes admission handles before the exact current actor publishes its revision-bound terminal detach attestation. After a crash, only a positively departed full owner generation with the exact metadata role, reviewed executable path and no receipt/barrier/conflicting identity can be reconciled. Unknown/native/shared/changed observations remain protected. A new version needs a fully pinned predecessor frontdoor policy before cross-version metadata reconciliation.
 
-The real SDK host observes its launcher/parent handles. Its lifetime may ensure the pinned ordinary offline service through the existing guarded Core operation. It is outside a private MCP child job; a service started this way keeps its own genuine owner and workers after frontend EOF. This grants no Windows SDK-service, controller, native bridge or HMI launch authority.
+The real SDK host observes its launcher/parent handles. The immutable `serviceMode` selects its service readiness scope:
+
+- `existing-genuine-only` observes one already-running service with the pinned image/version and verified offline policy. It never invokes startup, replacement, startup-journal publication or execution-claim recovery. Missing/unverified service readiness returns `mcp_existing_service_unavailable`, with `dispatched=false` and `automaticRetry=false`. Initial observation is cached for this connection; owner loss or failed initial observation requires a new connection after operator recovery. Initialize/tool listing remain available without a service.
+- `ensure-pinned-offline` permits the existing guarded ordinary offline-service bootstrap and background readiness maintenance. This is the compatibility default when the new field is absent. It is a separate lifecycle scope; successful observation-only validation does not validate automatic startup or replacement.
+
+The SDK host is outside a private MCP child job. The ordinary service keeps its own genuine owner and workers after frontend EOF. Neither mode grants Windows SDK-service, controller, native bridge or HMI launch authority.
 
 ## Request and memory bounds
 
@@ -27,9 +32,9 @@ Commit reservations are admission models, not OS memory limits or permission to 
 Generate into a fresh frontend payload directory after publishing the MCP/stdio closure:
 
 ```powershell
-.\scripts\New-McpFrontdoorPolicy.ps1 -Destination C:\Prepared\Mcp\frontdoor.json -MaximumMetadataClients 16 -MaximumStartingClients 2 -MaximumForwardedCalls 4
+.\scripts\New-McpFrontdoorPolicy.ps1 -Destination C:\Prepared\Mcp\frontdoor.json -MaximumMetadataClients 16 -MaximumStartingClients 2 -MaximumForwardedCalls 4 -ServiceMode existing-genuine-only
 ```
 
-The producer defaults to eight metadata connections, a startup ramp of two and four forwarding slots. Its reservation includes a launcher allowance, a 128-MiB SDK-process admission allowance, a 2-MiB input frame limit and an 8-MiB buffered response limit. It never edits service settings, selects a pointer, starts a backend or overwrites an existing policy.
+The producer defaults to eight metadata connections, a startup ramp of two, four forwarding slots and `ensure-pinned-offline`. Select `existing-genuine-only` explicitly for an observation-only deployment. Its reservation includes a launcher allowance, a 128-MiB SDK-process admission allowance, a 2-MiB input frame limit and an 8-MiB buffered response limit. It never edits service settings, selects a pointer, starts a backend or overwrites an existing policy.
 
 The profile is part of the frontend inventory and changes with reviewed frontend selection. Full app builds generate the conservative default. Frontend-only updates can pin an existing accepted service and use an independently reviewed demand-based policy. Existing services, clients and native documents remain separate ownership scopes. Preparing a profile or passing an isolated fixture is not installed/chat/native acceptance.

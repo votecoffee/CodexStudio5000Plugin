@@ -17,6 +17,16 @@ internal static class ServiceErrors
     internal static McpRequestHandler<CallToolRequestParams, CallToolResult> Wrap(McpRequestHandler<CallToolRequestParams, CallToolResult> next) => async (context, ct) =>
     {
         try { return await next(context, ct); }
+        catch (ExistingServiceUnavailableException error)
+        {
+            var detail = new { code = ExistingServiceUnavailableException.Code, message = error.Message,
+                serviceMode = McpFrontdoorPolicy.ExistingGenuineOnly, dispatched = false, automaticRetry = false };
+            return new CallToolResult
+            {
+                IsError = true, Content = [new TextContentBlock { Text = JsonSerializer.Serialize(detail) }],
+                StructuredContent = JsonSerializer.SerializeToElement(detail)
+            };
+        }
         catch (McpServiceErrorException error)
         {
             // Only bounded HTTP domain envelopes enter this path. Unknown exceptions

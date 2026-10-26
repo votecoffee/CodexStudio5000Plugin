@@ -93,13 +93,18 @@ public static class OfflineServiceBootstrap
 
     // The MCP child is inside the frontend's kill job. It may inspect readiness
     // but must never launch the shared service into that private containment.
-    public static async Task<OfflineServiceReady> ObserveAsync(string root, string backend, ResourceLedger.ResourceOwner actor, CancellationToken ct = default)
+    public static Task<OfflineServiceReady> ObserveAsync(string root, string backend, ResourceLedger.ResourceOwner actor, CancellationToken ct = default)
+        => ObserveAsync(root, backend, actor, new WindowsOfflineServiceStarter(), waitForStartup: true, ct);
+    public static Task<OfflineServiceReady> ObserveExistingAsync(string root, string backend, ResourceLedger.ResourceOwner actor, CancellationToken ct = default)
+        => ObserveAsync(root, backend, actor, new WindowsOfflineServiceStarter(), waitForStartup: false, ct);
+    internal static async Task<OfflineServiceReady> ObserveAsync(string root, string backend, ResourceLedger.ResourceOwner actor,
+        IOfflineServiceStarter starter, bool waitForStartup, CancellationToken ct)
     {
         root = Path.GetFullPath(root); Guard(root);
         var settings = OfflineServicePin.Settings(root); var pin = OfflineServicePin.Load(root, backend);
         var expected = Path.GetFullPath(Path.Combine(root, OfflineServicePin.Service)).ToLowerInvariant();
         using var deadline = CancellationTokenSource.CreateLinkedTokenSource(ct); deadline.CancelAfter(TimeSpan.FromSeconds(45)); var token = deadline.Token;
-        var starter = new WindowsOfflineServiceStarter(); var local = Path.Combine(root, ".local");
+        var local = Path.Combine(root, ".local");
         while (true)
         {
             Guard(root); SameSettings(root, settings);
@@ -121,6 +126,7 @@ public static class OfflineServiceBootstrap
             }
             var pending = ReadAttempt(Path.Combine(local, "offline-service-start.json"));
             if (pending?.Phase == "uncertain") throw new InvalidOperationException("Shared-service startup has retained uncertainty; inspect before another dispatch.");
+            if (!waitForStartup) throw new ExistingServiceUnavailableException();
             await Task.Delay(100, token);
         }
     }

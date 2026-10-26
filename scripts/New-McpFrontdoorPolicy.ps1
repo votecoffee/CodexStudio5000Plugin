@@ -3,7 +3,8 @@
 param([Parameter(Mandatory)][string]$Destination,
     [ValidateRange(1,48)][int]$MaximumMetadataClients=8,
     [ValidateRange(1,8)][int]$MaximumStartingClients=2,
-    [ValidateRange(1,16)][int]$MaximumForwardedCalls=4)
+    [ValidateRange(1,16)][int]$MaximumForwardedCalls=4,
+    [ValidateSet('ensure-pinned-offline','existing-genuine-only')][string]$ServiceMode='ensure-pinned-offline')
 $ErrorActionPreference='Stop'
 if ($MaximumStartingClients -gt $MaximumMetadataClients) { throw 'Startup ramp cannot exceed metadata capacity.' }
 $Destination=[IO.Path]::GetFullPath($Destination)
@@ -19,6 +20,7 @@ $value=[ordered]@{
     maximumProcessPrivateBytes=[long]134217728
     maximumInputFrameBytes=2097152
     maximumHttpResponseBytes=8388608
+    serviceMode=$ServiceMode
 }
 $text=($value | ConvertTo-Json -Compress)+([char]10)
 $bytes=[Text.UTF8Encoding]::new($false).GetBytes($text)
