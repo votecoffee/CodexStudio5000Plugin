@@ -1,4 +1,4 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup><OutputType>Exe</OutputType><Product>RockwellMCPServer</Product><Title>RockwellMCPServer stdio owner</Title></PropertyGroup>
-  <ItemGroup><ProjectReference Include="../Studio5000.Core/Studio5000.Core.csproj" /></ItemGroup>
+  <ItemGroup><ProjectReference Include="../Studio5000.Mcp/Studio5000.Mcp.csproj" /></ItemGroup>
 </Project>

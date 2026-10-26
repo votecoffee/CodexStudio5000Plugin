@@ -12,9 +12,12 @@ public sealed class ServiceClient : IDisposable
     private readonly Func<CancellationToken, Task>? ensureReady;
     private readonly object connectionLock = new();
     private readonly Func<ServiceErrorException, Exception>? errorTranslator;
-    public ServiceClient(string root, Func<ServiceErrorException, Exception>? errorTranslator = null, Func<CancellationToken, Task>? ensureReady = null)
+    private readonly int? maximumResponseBytes;
+    public ServiceClient(string root, Func<ServiceErrorException, Exception>? errorTranslator = null, Func<CancellationToken, Task>? ensureReady = null,
+        int? maximumResponseBytes = null)
     {
-        this.root = root; this.errorTranslator = errorTranslator; this.ensureReady = ensureReady;
+        if (maximumResponseBytes is < 1048576 or > 33554432) throw new ArgumentOutOfRangeException(nameof(maximumResponseBytes));
+        this.root = root; this.errorTranslator = errorTranslator; this.ensureReady = ensureReady; this.maximumResponseBytes = maximumResponseBytes;
         if (ensureReady is null) InitializeConnection();
     }
     private void InitializeConnection()
@@ -26,6 +29,7 @@ public sealed class ServiceClient : IDisposable
         if (url.Scheme != "http" || !System.Net.IPAddress.TryParse(url.Host, out var ip) || !System.Net.IPAddress.IsLoopback(ip))
             throw new InvalidOperationException("Connection must use a loopback IP address.");
         http = new HttpClient { BaseAddress = url, Timeout = TimeSpan.FromSeconds(240) };
+        if (maximumResponseBytes is { } maximum) http.MaxResponseContentBufferSize = maximum;
         http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer",
             File.ReadAllText(connection.RootElement.GetProperty("tokenFile").GetString()!).Trim());
     }

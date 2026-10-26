@@ -26,6 +26,7 @@ public sealed record McpFrontdoorPolicy(int SchemaVersion = 1, int MaximumMetada
             checked((long)MaximumMetadataClients * PerClientCommitReservationBytes) > MaximumTransportCommitReservationBytes ||
             MinimumAvailableCommitBytes is < 536870912 or > 17179869184 ||
             MaximumProcessPrivateBytes is < 67108864 or > 536870912 ||
+            MaximumProcessPrivateBytes + 134217728 > PerClientCommitReservationBytes ||
             MaximumInputFrameBytes is < 65536 or > 8388608 || MaximumHttpResponseBytes is < 1048576 or > 33554432)
             throw new ArgumentException("Invalid bounded MCP frontdoor admission policy.");
     }

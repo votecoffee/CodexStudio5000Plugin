@@ -16,6 +16,11 @@ if (args is ["--offline-bootstrap-preview"])
     return 0;
 }
 if (args.Length != 0) throw new ArgumentException("The stdio owner accepts only its fixed read-only preview or no arguments.");
+if (McpFrontdoorPolicy.Read(AppContext.BaseDirectory) is { } frontdoor)
+{
+    await Studio5000.Mcp.McpApplication.RunAsync(args, frontdoor);
+    return 0;
+}
 if (File.Exists(Path.Combine(root, ".local", "maintenance-hold.json"))) throw new InvalidOperationException("Operator maintenance hold blocks MCP startup.");
 var limits = McpClientLimits.Read(root);
 using var owners = ParentProcessOwners.Capture();

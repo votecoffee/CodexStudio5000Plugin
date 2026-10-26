@@ -12,15 +12,34 @@ public sealed class McpFrontdoorSession : IDisposable
     private McpFrontdoorSession(ResourceLedger ledger, ResourceLedger.ResourceOwner owner, ResourceRecord record, McpClientLease lease)
     { Ledger = ledger; Owner = owner; Record = record; this.lease = lease; }
 
-    public static McpFrontdoorSession Open(string root, string registry, McpFrontdoorPolicy policy)
+    public static McpFrontdoorSession Open(string root, string registry, McpFrontdoorPolicy policy, CancellationToken ct = default)
     {
-        var lease = McpClientLease.AcquireFrontdoor(root, policy);
+        var lease = McpClientLease.AcquireFrontdoor(root, policy, ct);
         try
         {
             var ledger = new ResourceLedger(registry, new WindowsResourceProcessDriver(), policy.MaximumMetadataClients);
             var owner = ledger.Owner(ResourceLedger.ResourceOwner.FrontdoorAppId);
-            foreach (var old in ledger.Records().Where(r => r.AppId == owner.AppId && !r.Terminal))
-                owner.ReconcileExitedFrontdoor(old.ResourceId, old.Revision, owner.Identity.Executable);
+            var oldRecords = ledger.Records().Where(r => r.AppId == owner.AppId && !r.Terminal).ToArray();
+            var images = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { owner.Identity.Executable };
+            if (oldRecords.Any(r => !images.Contains(r.Owner.Executable)))
+            {
+                // Only an explicitly pinned prior frontdoor policy grants
+                // cross-version observation recovery. Failure grants nothing.
+                try
+                {
+                    var pin = OfflineServicePin.Load(root, Path.GetDirectoryName(owner.Identity.Executable)!);
+                    foreach (var previous in pin.PreviousFrontends.Where(p => p.Files.Any(f => f.Path == McpFrontdoorPolicy.FileName)))
+                    {
+                        _ = McpFrontdoorPolicy.Read(previous.Directory) ?? throw new InvalidOperationException("Prior policy disappeared.");
+                        images.Add(Path.Combine(previous.Directory, "Studio5000.StdioHost.exe"));
+                        images.Add(Path.Combine(previous.Directory, "Studio5000.Mcp.exe"));
+                    }
+                }
+                catch (Exception error) when (error is IOException or InvalidOperationException or ArgumentException)
+                { Console.Error.WriteLine("Prior metadata observations retained: " + error.Message); }
+            }
+            foreach (var old in oldRecords.Where(r => images.Contains(r.Owner.Executable)))
+                owner.ReconcileExitedFrontdoor(old.ResourceId, old.Revision, old.Owner.Executable);
             return new(ledger, owner, owner.AdmitFrontdoor(), lease);
         }
         catch { lease.Dispose(); throw; }

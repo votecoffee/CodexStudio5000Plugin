@@ -141,4 +141,29 @@ public sealed class McpFrontdoorAdmissionTests : IDisposable
         File.WriteAllText(Path.Combine(root, McpFrontdoorPolicy.FileName), "{\"schemaVersion\":1,\"maximumMetadataClients\":8,\"maximumMetadataClients\":16}");
         Assert.Throws<InvalidOperationException>(() => McpFrontdoorPolicy.Read(root));
     }
+    [Fact]
+    public void Forwarding_slots_are_temporary_and_do_not_consume_metadata_or_execution_claims()
+    {
+        if (!OperatingSystem.IsWindows()) return;
+        var policy = new McpFrontdoorPolicy(MaximumForwardedCalls: 2);
+        using var first = McpClientLease.AcquireForwardedCall(root, policy);
+        using var second = McpClientLease.AcquireForwardedCall(root, policy);
+        Assert.Throws<InvalidOperationException>(() => McpClientLease.AcquireForwardedCall(root, policy));
+        using var metadataLease = McpClientLease.AcquireFrontdoor(root, policy);
+        Assert.Empty(metadata.Records());
+        first.Dispose();
+        using var later = McpClientLease.AcquireForwardedCall(root, policy);
+        Assert.Equal(first.Slot, later.Slot);
+    }
+    [Fact]
+    public async Task Waiting_startup_ramp_observes_parent_cancellation_without_evicting_the_holder()
+    {
+        if (!OperatingSystem.IsWindows()) return;
+        var policy = new McpFrontdoorPolicy(MaximumStartingClients: 1);
+        using var first = McpClientLease.AcquireFrontdoorStart(root, policy);
+        using var cancel = new CancellationTokenSource(100);
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => Task.Run(() => McpClientLease.AcquireFrontdoorStart(root, policy, cancel.Token)));
+        using var alreadyCancelled = new CancellationTokenSource(); alreadyCancelled.Cancel();
+        Assert.Throws<OperationCanceledException>(() => McpClientLease.AcquireFrontdoor(root, policy, alreadyCancelled.Token));
+    }
 }

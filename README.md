@@ -4,6 +4,8 @@
 
 Shared Rockwell engineering service with MCP, REST, a desktop GUI and reloadable extensions.
 
+Optional [bounded MCP frontdoor profiles](docs/MCP_FRONTDOOR.md) admit stateless chat connections separately from engineering workers. The selected profile keeps shared-service, native and controller limits intact while bounding startup, forwarding and protocol memory.
+
 [CodexMCPBroker](https://github.com/votecoffee/CodexMCPBroker) provides the separately maintained shared application framework and Windows MCP Service Manager. Rockwell remains a standalone MCP server with its own app-owned Codex plugin and skills. The optional framework host and separate management app require no universal plugin; Rockwell retains reviewed dependency pins and deployment-specific acceptance.
 
 The shared Windows MCP Service Manager can report this app's service activity and installed/running versions through an app-owned supervisor. Tray restart remains disabled until full engineering quiescence can be enforced; see [service management](docs/SERVICE_MANAGEMENT.md). Small packaged skills fetch current canonical guidance from the shared service; compatible clients can explicitly select [Skills-over-MCP publication](docs/FRAMEWORK.md#current-guidance-and-skills-over-mcp). The read-only [protocol feature report](docs/PROTOCOL_FEATURES.md) lists tested features and concrete gaps.

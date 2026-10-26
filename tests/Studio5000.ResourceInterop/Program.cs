@@ -4,6 +4,7 @@ using System.Diagnostics;
 using Studio5000.Core.Resources;
 using Studio5000.Core;
 using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -59,6 +60,14 @@ if (args[0] == "bootstrap-service")
     File.WriteAllText(Path.Combine(root, ".local/connection.json"), JsonSerializer.Serialize(new { url, tokenFile = Path.Combine(root, ".local/service.key") }));
     File.AppendAllText(Path.Combine(root, "fixture-service-starts.jsonl"), JsonSerializer.Serialize(resources.Owner.Identity) + "\n");
     app.MapGet("/health", () => new { status = "ok", version = WorkspaceIdentity.Version });
+      const string fixtureGuide = "Harmless fixture guidance. No native or controller capability.\n";
+      var guideSha = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(fixtureGuide))).ToLowerInvariant();
+      app.MapGet("/api/broker/capabilities", () => new { schema_version = 1, capabilities = new[] { new {
+          id = "workflow.rockwell-engineering", discovery = new { tool = "rockwell_read_workflow", arguments = new { workflowId = "fixture", expectedRevision = guideSha } } } } });
+      app.MapGet("/api/broker/workflow", (string workflowId, string expectedRevision) =>
+          workflowId == "fixture" && expectedRevision == guideSha
+              ? (IResult)Results.Json(new { id = "fixture", revision = guideSha, instructions = new { text = fixtureGuide, sha256 = guideSha } })
+              : Results.BadRequest());
     app.MapGet("/api/settings", () => new { revision = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(File.ReadAllBytes(Path.Combine(root, "service.local.json")))).ToLowerInvariant(),
         effective = settings.RootElement.Clone() });
     app.MapGet("/api/capabilities", () =>

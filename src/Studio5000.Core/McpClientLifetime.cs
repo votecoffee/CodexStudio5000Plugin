@@ -53,29 +53,40 @@ public sealed class McpClientLease : IDisposable
         limits.Validate();
         return AcquirePool(root, "mcp-clients", limits.MaximumInstances, 16);
     }
-    public static McpClientLease AcquireFrontdoor(string root, McpFrontdoorPolicy policy)
+    public static McpClientLease AcquireFrontdoor(string root, McpFrontdoorPolicy policy, CancellationToken ct = default)
     {
         policy.Validate();
         return AcquirePool(root, "mcp-clients", policy.MaximumMetadataClients, McpFrontdoorPolicy.SlotInventory,
-            active => policy.CheckReservation(active, McpFrontdoorPolicy.AvailableCommit()));
+            active => policy.CheckReservation(active, McpFrontdoorPolicy.AvailableCommit()), ct);
     }
-    public static McpClientLease AcquireFrontdoorStart(string root, McpFrontdoorPolicy policy)
+    public static McpClientLease AcquireFrontdoorStart(string root, McpFrontdoorPolicy policy, CancellationToken ct = default)
     {
         policy.Validate();
-        return AcquirePool(root, "mcp-frontdoor-starts", policy.MaximumStartingClients, 8);
+        var timer = Stopwatch.StartNew();
+        while (true)
+        {
+            ct.ThrowIfCancellationRequested();
+            try { return AcquirePool(root, "mcp-frontdoor-starts", policy.MaximumStartingClients, 8, ct: ct); }
+            catch (InvalidOperationException error) when (error.Message.StartsWith("mcp_client_limit:", StringComparison.Ordinal) && timer.Elapsed < TimeSpan.FromSeconds(30))
+            { ct.WaitHandle.WaitOne(25); }
+        }
     }
-    public static McpClientLease AcquireForwardedCall(string root, McpFrontdoorPolicy policy)
+    public static McpClientLease AcquireForwardedCall(string root, McpFrontdoorPolicy policy, CancellationToken ct = default)
     {
         policy.Validate();
-        return AcquirePool(root, "mcp-frontdoor-calls", policy.MaximumForwardedCalls, 16);
+        return AcquirePool(root, "mcp-frontdoor-calls", policy.MaximumForwardedCalls, 16, ct: ct);
     }
-    private static McpClientLease AcquirePool(string root, string pool, int maximum, int inventory, Action<int>? check = null)
+    private static McpClientLease AcquirePool(string root, string pool, int maximum, int inventory, Action<int>? check = null, CancellationToken ct = default)
     {
         var directory = Path.Combine(Path.GetFullPath(root), ".local", pool);
         ProjectService.RejectLinks(directory); Directory.CreateDirectory(directory); ProjectService.RejectLinks(directory);
         var admissionPath = Path.Combine(directory, "admission.lock"); ProjectService.RejectLinks(admissionPath);
         FileStream? admission = null;
-        Resources.ResourceLedger.WaitForLock(() => admission = new(admissionPath, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None), TimeSpan.FromSeconds(10));
+        Resources.ResourceLedger.WaitForLock(() =>
+        {
+            ct.ThrowIfCancellationRequested();
+            admission = new(admissionPath, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
+        }, TimeSpan.FromSeconds(10));
         using (admission)
         {
             var active = 0; var available = -1;

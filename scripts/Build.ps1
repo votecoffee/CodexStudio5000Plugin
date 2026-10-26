@@ -21,13 +21,20 @@ try {
     # This rebuild selects the just-published ordinary service, not a native
     # fallback. Preserve an earlier generated pin before creating the new one.
     $offlinePin = Join-Path $repo 'artifacts/app/Mcp/offline-service.json'
+    $pinHistory = Join-Path $repo 'artifacts/offline-pin-history'
     if (Test-Path -LiteralPath $offlinePin) {
-        $pinHistory = Join-Path $repo 'artifacts/offline-pin-history'
         New-Item -ItemType Directory -Path $pinHistory -Force > $null
         Copy-Item -LiteralPath $offlinePin -Destination (Join-Path $pinHistory ([Guid]::NewGuid().ToString('N') + '.json'))
         Remove-Item -LiteralPath $offlinePin
     }
     & (Join-Path $PSScriptRoot 'New-OfflineServicePin.ps1') -AppRoot $repo -Destination $offlinePin -ExpectedServiceVersion $release.displayVersion
+    $frontdoor = Join-Path $repo 'artifacts/app/Mcp/frontdoor.json'
+    if (Test-Path -LiteralPath $frontdoor) {
+        New-Item -ItemType Directory -Path $pinHistory -Force > $null
+        Copy-Item -LiteralPath $frontdoor -Destination (Join-Path $pinHistory ([Guid]::NewGuid().ToString('N') + '-frontdoor.json'))
+        Remove-Item -LiteralPath $frontdoor
+    }
+    & (Join-Path $PSScriptRoot 'New-McpFrontdoorPolicy.ps1') -Destination $frontdoor
     if ($WithSdk) {
         dotnet publish src/Studio5000.NativeBridge/Studio5000.NativeBridge.csproj -c Release -o artifacts/app/NativeBridge --nologo
         if ($LASTEXITCODE -ne 0) { throw 'Native bridge build failed. Install the Logix Designer SDK local NuGet package.' }
