@@ -39,7 +39,8 @@ public sealed record McpClientLimits(int MaximumInstances = 4, int ShutdownTimeo
 }
 
 // OS file handles, not PID files or a semaphore count, own the slots. The OS
-// releases them after an abrupt process exit. Only 16 slots and one lock exist.
+// releases them after an abrupt process exit. Legacy inventory is16; the new
+// measured metadata profile has a separate explicit bound within64 shared slots.
 public sealed class McpClientLease : IDisposable
 {
     private FileStream? slot;
@@ -50,19 +51,35 @@ public sealed class McpClientLease : IDisposable
     public static McpClientLease Acquire(string root, McpClientLimits limits)
     {
         limits.Validate();
-        var directory = Path.Combine(Path.GetFullPath(root), ".local", "mcp-clients");
+        return AcquirePool(root, "mcp-clients", limits.MaximumInstances, 16);
+    }
+    public static McpClientLease AcquireFrontdoor(string root, McpFrontdoorPolicy policy)
+    {
+        policy.Validate();
+        return AcquirePool(root, "mcp-clients", policy.MaximumMetadataClients, McpFrontdoorPolicy.SlotInventory,
+            active => policy.CheckReservation(active, McpFrontdoorPolicy.AvailableCommit()));
+    }
+    public static McpClientLease AcquireFrontdoorStart(string root, McpFrontdoorPolicy policy)
+    {
+        policy.Validate();
+        return AcquirePool(root, "mcp-frontdoor-starts", policy.MaximumStartingClients, 8);
+    }
+    public static McpClientLease AcquireForwardedCall(string root, McpFrontdoorPolicy policy)
+    {
+        policy.Validate();
+        return AcquirePool(root, "mcp-frontdoor-calls", policy.MaximumForwardedCalls, 16);
+    }
+    private static McpClientLease AcquirePool(string root, string pool, int maximum, int inventory, Action<int>? check = null)
+    {
+        var directory = Path.Combine(Path.GetFullPath(root), ".local", pool);
         ProjectService.RejectLinks(directory); Directory.CreateDirectory(directory); ProjectService.RejectLinks(directory);
         var admissionPath = Path.Combine(directory, "admission.lock"); ProjectService.RejectLinks(admissionPath);
         FileStream? admission = null;
-        for (var attempt = 0; admission is null; attempt++)
-        {
-            try { admission = new(admissionPath, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None); }
-            catch (IOException ex) when (SharingViolation(ex) && attempt < 20) { Thread.Sleep(10); }
-        }
+        Resources.ResourceLedger.WaitForLock(() => admission = new(admissionPath, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None), TimeSpan.FromSeconds(10));
         using (admission)
         {
             var active = 0; var available = -1;
-            for (var index = 0; index < 16; index++)
+            for (var index = 0; index < inventory; index++)
             {
                 var path = Path.Combine(directory, $"slot-{index}.lock"); ProjectService.RejectLinks(path);
                 try { using var probe = new FileStream(path, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None); if (available < 0) available = index; }
@@ -70,13 +87,14 @@ public sealed class McpClientLease : IDisposable
             }
             // Count all slots, including higher slots created before a limit was
             // lowered. Changing a limit never evicts or merges another client.
-            if (active >= limits.MaximumInstances || available < 0)
+            if (active >= maximum || available < 0)
                 throw new InvalidOperationException("mcp_client_limit: this installation has reached its configured frontend limit. Close an unused client before connecting; no existing client was stopped.");
+            check?.Invoke(active);
             var stream = new FileStream(Path.Combine(directory, $"slot-{available}.lock"), FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
             try
             {
                 using var current = Process.GetCurrentProcess();
-                var metadata = JsonSerializer.SerializeToUtf8Bytes(new { schemaVersion = 1, pid = current.Id, startedUtc = current.StartTime.ToUniversalTime(), maximumInstances = limits.MaximumInstances });
+                var metadata = JsonSerializer.SerializeToUtf8Bytes(new { schemaVersion = 1, pid = current.Id, startedUtc = current.StartTime.ToUniversalTime(), maximumInstances = maximum });
                 stream.SetLength(0); stream.Write(metadata); stream.Flush(true);
                 return new(stream, available);
             }
