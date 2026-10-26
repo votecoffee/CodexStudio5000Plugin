@@ -96,9 +96,11 @@ def test_existing_only_guidance_refusal_memory_and_eof_preserve_preexisting_serv
     with genuine_fixture_service(fixture) as (service, receipt):
         baseline = snapshots(fixture)
         state = prepare(fixture)
-        with Connection(fixture, state, "existing-service") as connection:
+        with Connection(fixture, state, "existing-frontdoor") as connection:
             connection.initialize()
-            assert connection.call("studio_capabilities", {})["offlineFixture"]
+            # The fixture's capabilities endpoint specifically asserts a prior
+            # auto-start journal. Use its genuine live catalog in this no-start
+            # profile; both travel through the same service readiness gate.
             catalog = connection.call("rockwell_broker_capabilities", {})
             guide = catalog["capabilities"][0]
             document = connection.call("rockwell_read_workflow", guide["discovery"]["arguments"])
@@ -119,7 +121,7 @@ def test_existing_only_guidance_refusal_memory_and_eof_preserve_preexisting_serv
                 detail = result.get("structuredContent") or json.loads(result["content"][0]["text"])
                 assert result["isError"] and detail["code"] == "mcp_forwarding_capacity"
                 assert detail["dispatched"] is False and detail["automaticRetry"] is False
-                assert connection.call("studio_capabilities", {})["offlineFixture"]
+                assert connection.call("rockwell_broker_capabilities", {})["capabilities"]
         terminal = ledger.get(active.resource_id)
         assert terminal.state == "released" and terminal.reconciliation.actor == active.owner and terminal.receipt is None
         assert ledger.driver.state(receipt["owner"]) == "alive" and service.poll() is None
@@ -133,7 +135,7 @@ def test_existing_only_owner_loss_refuses_without_replacement_or_intent(fixture)
         state = prepare(fixture)
         with Connection(fixture, state, "owner-loss") as connection:
             connection.initialize()
-            assert connection.call("studio_capabilities", {})["offlineFixture"]
+            assert connection.call("rockwell_broker_capabilities", {})["capabilities"]
             baseline = snapshots(fixture)
             # Only this test's retained creation handle, after matching its full
             # self-published identity. Never act on an installed/name-only PID.

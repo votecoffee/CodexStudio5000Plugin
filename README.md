@@ -24,7 +24,7 @@ Scoped structural reviews can inspect up to 128 exact element paths in one conte
 
 The plugin identifier is `rockwell-mcp-server`. Internal `Studio5000.*` assemblies, environment variables and existing tool names remain for compatibility.
 
-Application releases use a fixed `YY.MMDD.HHmmss` timestamp in `America/New_York`, currently **26.1026.113026**. Package identities remove leading numeric zeros when required; the padded display timestamp stays in release metadata. See [release versioning](docs/VERSIONING.md) for package and .NET mappings.
+Application releases use a fixed `YY.MMDD.HHmmss` timestamp in `America/New_York`, currently **26.1026.113606**. Package identities remove leading numeric zeros when required; the padded display timestamp stays in release metadata. See [release versioning](docs/VERSIONING.md) for package and .NET mappings.
 
 ## Table of Contents
 
